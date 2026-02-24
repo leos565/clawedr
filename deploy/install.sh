@@ -181,6 +181,23 @@ WRAPPER
     # npm/node may run `node /opt/homebrew/bin/openclaw`; that path must stay the
     # real .mjs. Ensure /usr/local/bin is before /opt/homebrew/bin in PATH.
     _install_wrapper_at /usr/local/bin/openclaw
+
+    # Ensure wrapper is used: prepend /usr/local/bin so it's found before homebrew's openclaw
+    if [ -n "$SUDO_USER" ]; then
+        home=$(eval "echo ~$SUDO_USER")
+        for rc in .zshrc .bash_profile .bashrc; do
+            rcf="$home/$rc"
+            [ -f "$rcf" ] || continue
+            if grep -q 'ClawEDR.*PATH.*usr/local/bin' "$rcf" 2>/dev/null; then
+                :
+            else
+                log "Prepending /usr/local/bin to PATH in $rcf"
+                printf '\n# ClawEDR: wrapper must precede homebrew\n[ -d /usr/local/bin ] && export PATH="/usr/local/bin:$PATH"\n' >> "$rcf"
+                chown "$SUDO_USER" "$rcf" 2>/dev/null || true
+                break
+            fi
+        done
+    fi
 }
 
 install_openclaw_wrapper_linux() {
@@ -290,7 +307,6 @@ esac
 log "Done. Run 'openclaw <your-agent>' to start with protection enabled."
 if [ "$OS" = "macos" ]; then
     log ""
-    log "macOS: Restart the gateway if it's running — the sandbox applies only to"
-    log "  processes started AFTER install. Ensure /usr/local/bin is before"
-    log "  /opt/homebrew/bin in PATH so the wrapper is used."
+    log "macOS: Run 'source ~/.zshrc' (or open a new terminal), then restart the"
+    log "  gateway. The openclaw alias ensures the sandbox is applied."
 fi
