@@ -21,6 +21,8 @@ fi
 
 log "Starting log tailer daemon"
 if command -v python3 >/dev/null 2>&1; then
+    # Install pyoslog so logs appear in Console.app (optional; fallback to /tmp file if missing)
+    python3 -m pip install --quiet pyoslog 2>/dev/null || true
     nohup python3 "$CLAWEDR_DIR/log_tailer.py" \
         > /tmp/clawedr_log_tailer.log 2>&1 &
     log "Log tailer PID: $!"

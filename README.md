@@ -183,6 +183,8 @@ The Shield uses Apple's Seatbelt sandbox:
 2. The `.sb` profile denies file reads/writes to sensitive paths (`~/.ssh`, `~/.gnupg`, `~/.aws`, `~/Library/Keychains`)
 3. `log_tailer.py` monitors sandbox violation events and sends a macOS notification when new threat intelligence is available, prompting the user to restart
 
+Logs appear in **Console.app** when `pyoslog` is installed (filter by subsystem `com.clawedr.shield`). Otherwise they go to `/tmp/clawedr_log_tailer.log`.
+
 Seatbelt profiles are bound at process start and cannot be hot-reloaded.
 
 ## Testing

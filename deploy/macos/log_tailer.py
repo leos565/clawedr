@@ -19,6 +19,10 @@ import time
 
 logger = logging.getLogger("clawedr.log_tailer")
 
+# Subsystem for macOS Console.app filtering (e.g. predicate: subsystem == "com.clawedr.shield")
+OSLOG_SUBSYSTEM = "com.clawedr.shield"
+OSLOG_CATEGORY = "log_tailer"
+
 POLICY_PATH = os.environ.get(
     "CLAWEDR_POLICY_PATH", "/usr/local/share/clawedr/compiled_policy.json"
 )
@@ -93,11 +97,30 @@ def monitor_policy_updates() -> None:
         time.sleep(POLL_INTERVAL)
 
 
+def _configure_logging() -> None:
+    """Configure logging to macOS Console.app via os_log when pyoslog is available."""
+    root = logging.getLogger()
+    root.setLevel(logging.INFO)
+    fmt = logging.Formatter("%(asctime)s %(levelname)s [%(name)s] %(message)s")
+
+    try:
+        import pyoslog
+        if pyoslog.is_supported():
+            handler = pyoslog.Handler()
+            handler.setSubsystem(OSLOG_SUBSYSTEM, OSLOG_CATEGORY)
+            root.addHandler(handler)
+            return
+    except ImportError:
+        pass
+
+    # Fallback: stderr (goes to /tmp/clawedr_log_tailer.log when run by shield_mac.sh)
+    stream = logging.StreamHandler(sys.stderr)
+    stream.setFormatter(fmt)
+    root.addHandler(stream)
+
+
 def main() -> int:
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
-    )
+    _configure_logging()
     logger.info("ClawEDR macOS Log Tailer starting")
 
     import threading
