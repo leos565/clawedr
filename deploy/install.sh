@@ -82,19 +82,57 @@ install_linux() {
 }
 
 install_openclaw_wrapper() {
-    log "Installing openclaw wrapper at /usr/local/bin/openclaw"
-    cat > /usr/local/bin/openclaw <<'WRAPPER'
+    CLAWEDR_REAL="/usr/local/share/clawedr/openclaw-real"
+    CLAWEDR_SB="/usr/local/share/clawedr/clawedr.sb"
+
+    # Find real openclaw (before we overwrite)
+    _save_real_openclaw() {
+        local path="$1"
+        if [ ! -e "$path" ]; then return 1; fi
+        if grep -q "CLAWEDR_SB" "$path" 2>/dev/null; then return 1; fi
+        local resolved
+        resolved=$(python3 -c "import os; print(os.path.realpath('$path'))" 2>/dev/null) || resolved="$path"
+        log "Saving real openclaw from $path -> $CLAWEDR_REAL"
+        cat > "$CLAWEDR_REAL" <<INNER
+#!/bin/sh
+exec node "$resolved" "\$@"
+INNER
+        chmod +x "$CLAWEDR_REAL"
+        return 0
+    }
+
+    if [ ! -x "$CLAWEDR_REAL" ]; then
+        _save_real_openclaw /opt/homebrew/bin/openclaw || \
+        _save_real_openclaw /usr/local/bin/openclaw || \
+        true
+    fi
+
+    if [ ! -x "$CLAWEDR_REAL" ]; then
+        log "WARNING: Could not find real openclaw — install openclaw first (npm install -g openclaw)"
+        return 0
+    fi
+
+    _install_wrapper_at() {
+        local path="$1"
+        if [ ! -e "$path" ]; then return 0; fi
+        log "Installing ClawEDR wrapper at $path"
+        cat > "$path" <<'WRAPPER'
 #!/usr/bin/env sh
 # openclaw — ClawEDR Zero-Habit Hijack wrapper (macOS)
 CLAWEDR_SB="/usr/local/share/clawedr/clawedr.sb"
-if [ -f "$CLAWEDR_SB" ]; then
-    exec sandbox-exec -f "$CLAWEDR_SB" -- "$@"
+CLAWEDR_REAL="/usr/local/share/clawedr/openclaw-real"
+if [ -f "$CLAWEDR_SB" ] && [ -x "$CLAWEDR_REAL" ]; then
+    exec sandbox-exec -f "$CLAWEDR_SB" -- "$CLAWEDR_REAL" "$@"
 else
-    echo "[openclaw] WARNING: Seatbelt profile not found at $CLAWEDR_SB — running unprotected" >&2
-    exec "$@"
+    [ -x "$CLAWEDR_REAL" ] || { echo "[openclaw] ERROR: $CLAWEDR_REAL not found" >&2; exit 1; }
+    exec "$CLAWEDR_REAL" "$@"
 fi
 WRAPPER
-    chmod +x /usr/local/bin/openclaw
+        chmod +x "$path"
+    }
+
+    _install_wrapper_at /opt/homebrew/bin/openclaw
+    _install_wrapper_at /usr/local/bin/openclaw
 }
 
 install_openclaw_wrapper_linux() {
