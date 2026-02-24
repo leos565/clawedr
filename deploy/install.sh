@@ -188,7 +188,49 @@ WRAPPER
     chmod +x /usr/local/bin/openclaw
 }
 
+uninstall_macos() {
+    log "Uninstalling ClawEDR (macOS)"
+    pkill -f "log_tailer.py" 2>/dev/null || true
+    if [ -f /usr/local/share/clawedr/openclaw-real ]; then
+        resolved=$(grep 'exec node "' /usr/local/share/clawedr/openclaw-real 2>/dev/null | sed 's/.*exec node "\([^"]*\)".*/\1/')
+        for path in /opt/homebrew/bin/openclaw /usr/local/bin/openclaw; do
+            if [ -e "$path" ] && grep -q "CLAWEDR_SB" "$path" 2>/dev/null; then
+                if [ -n "$resolved" ] && [ -f "$resolved" ]; then
+                    log "Restoring openclaw at $path"
+                    rm -f "$path"
+                    ln -sf "$resolved" "$path"
+                else
+                    log "Restoring openclaw at $path (from openclaw-real)"
+                    cp /usr/local/share/clawedr/openclaw-real "$path"
+                    chmod +x "$path"
+                fi
+            fi
+        done
+    fi
+    rm -rf /usr/local/share/clawedr
+    log "ClawEDR uninstalled"
+}
+
+uninstall_linux() {
+    log "Uninstalling ClawEDR (Linux)"
+    pkill -f "monitor.py" 2>/dev/null || true
+    systemctl stop clawedr-monitor 2>/dev/null || true
+    rm -f /tmp/clawedr-monitor.pid /var/log/clawedr_monitor.log
+    rm -rf /usr/local/share/clawedr
+    rm -f /usr/local/bin/openclaw
+    log "ClawEDR uninstalled. Run 'npm install -g openclaw' to restore openclaw."
+}
+
 # --- main ---
+if [ "${1:-}" = "--uninstall" ]; then
+    OS="$(detect_os)"
+    case "$OS" in
+        macos) uninstall_macos ;;
+        linux) uninstall_linux ;;
+    esac
+    exit 0
+fi
+
 OS="$(detect_os)"
 log "ClawEDR Installer v${CLAWEDR_VERSION} — OS=$OS"
 
