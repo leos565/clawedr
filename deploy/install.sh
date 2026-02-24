@@ -86,12 +86,17 @@ install_openclaw_wrapper() {
     CLAWEDR_SB="/usr/local/share/clawedr/clawedr.sb"
 
     # Find real openclaw (before we overwrite)
+    # Run lookup as SUDO_USER when available — root's PATH may not include Homebrew
     _save_real_openclaw() {
         local path="$1"
         if [ ! -e "$path" ]; then return 1; fi
         if grep -q "CLAWEDR_SB" "$path" 2>/dev/null; then return 1; fi
         local resolved
-        resolved=$(python3 -c "import os; print(os.path.realpath('$path'))" 2>/dev/null) || resolved="$path"
+        if [ -n "$SUDO_USER" ]; then
+            resolved=$(sudo -u "$SUDO_USER" python3 -c "import os; print(os.path.realpath('$path'))" 2>/dev/null) || resolved="$path"
+        else
+            resolved=$(python3 -c "import os; print(os.path.realpath('$path'))" 2>/dev/null) || resolved="$path"
+        fi
         log "Saving real openclaw from $path -> $CLAWEDR_REAL"
         cat > "$CLAWEDR_REAL" <<INNER
 #!/bin/sh
@@ -101,16 +106,26 @@ INNER
         return 0
     }
 
+    # Prefer path from user's environment (which openclaw as SUDO_USER)
+    if [ ! -x "$CLAWEDR_REAL" ] && [ -n "$SUDO_USER" ]; then
+        user_path=$(sudo -u "$SUDO_USER" which openclaw 2>/dev/null)
+        [ -n "$user_path" ] && _save_real_openclaw "$user_path" || true
+    fi
+
     if [ ! -x "$CLAWEDR_REAL" ]; then
         _save_real_openclaw /opt/homebrew/bin/openclaw || \
         _save_real_openclaw /usr/local/bin/openclaw || \
         true
     fi
 
-    # Fallback: find openclaw.mjs in npm global modules (works when run as root)
+    # Fallback: find openclaw.mjs in npm global modules
     if [ ! -x "$CLAWEDR_REAL" ]; then
-        for mjs in /opt/homebrew/lib/node_modules/openclaw/openclaw.mjs \
-                    /usr/local/lib/node_modules/openclaw/openclaw.mjs; do
+        mjs_paths="/opt/homebrew/lib/node_modules/openclaw/openclaw.mjs /usr/local/lib/node_modules/openclaw/openclaw.mjs"
+        if [ -n "$SUDO_USER" ]; then
+            npm_prefix=$(sudo -u "$SUDO_USER" npm config get prefix 2>/dev/null)
+            [ -n "$npm_prefix" ] && mjs_paths="$npm_prefix/lib/node_modules/openclaw/openclaw.mjs $mjs_paths"
+        fi
+        for mjs in $mjs_paths; do
             if [ -f "$mjs" ] && ! grep -q "CLAWEDR_SB" "$mjs" 2>/dev/null; then
                 log "Saving real openclaw from $mjs -> $CLAWEDR_REAL"
                 cat > "$CLAWEDR_REAL" <<INNER
