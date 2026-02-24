@@ -1,0 +1,39 @@
+name: ClawEDR CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Compile policies (from master rules only)
+        run: |
+          python3 -c "
+          from builder.threat_aggregator import load_master_rules, merge, save_merged
+          master = load_master_rules()
+          empty = {'affected_skills':[],'malicious_hashes':[],'blocked_domains':[],'blocked_paths':{'macos':[],'linux':[]}}
+          save_merged(merge(master, empty))
+          "
+          python3 -c "from builder.compiler import compile_all; compile_all()"
+
+      - name: Verify deploy artifacts exist
+        run: |
+          test -f deploy/compiled_policy.json
+          test -f deploy/macos/clawedr.sb
+
+      - name: Run unit tests (skip platform-specific)
+        run: python3 -m pytest builder/tests/ -v --ignore=builder/tests/test_linux_bpf.py -k "not Enforcement"

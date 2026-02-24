@@ -1,0 +1,40 @@
+# ClawEDR Master Rules — Source of Truth
+# Manual overrides and baseline policy definitions.
+# The Threat Aggregator merges community intel ON TOP of these rules.
+
+version: "2.0"
+
+blocked_paths:
+  macos:
+    - "~/.ssh"
+    - "~/.gnupg"
+    - "~/.aws"
+    - "~/Library/Keychains"
+    - "/etc/shadow"
+  linux:
+    - "/root/.ssh"
+    - "/etc/shadow"
+    - "/etc/passwd"
+    - "/home/*/.ssh"
+    - "/home/*/.gnupg"
+
+blocked_domains:
+  - "evil.example.com"
+  - "malware-c2.example.net"
+
+blocked_executables:
+  - "nc"
+  - "ncat"
+  - "socat"
+  - "nmap"
+
+malicious_hashes: []
+
+custom_deny_rules:
+  macos:
+    - "(deny network-outbound (remote tcp \"*:4444\"))"
+  linux:
+    - rule: "block_reverse_shell"
+      match: "connect"
+      port: 4444
+      action: "SIGKILL"

@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+builder/__pycache__/
+builder/tests/__pycache__/
+builder/.merged_rules.json
+*.egg-info/
+dist/
+build/
+.DS_Store

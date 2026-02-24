@@ -1,0 +1,6 @@
+# ClawEDR Forge Configuration
+# Used by tests and the Forge CLI for environment-specific settings.
+
+linux_vm:
+  host: "orb"           # OrbStack exposes VMs via the 'orb' SSH alias
+  user: "ubuntu"        # Default OrbStack user

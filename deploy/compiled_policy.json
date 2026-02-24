@@ -1,0 +1,29 @@
+{
+  "version": "2.0",
+  "blocked_executables": [
+    "nc",
+    "ncat",
+    "socat",
+    "nmap"
+  ],
+  "blocked_domains": [
+    "evil.example.com",
+    "malware-c2.example.net"
+  ],
+  "malicious_hashes": [],
+  "blocked_paths": [
+    "/etc/passwd",
+    "/etc/shadow",
+    "/home/*/.gnupg",
+    "/home/*/.ssh",
+    "/root/.ssh"
+  ],
+  "deny_rules": [
+    {
+      "rule": "block_reverse_shell",
+      "match": "connect",
+      "port": 4444,
+      "action": "SIGKILL"
+    }
+  ]
+}
