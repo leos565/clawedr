@@ -131,7 +131,9 @@ WRAPPER
         chmod +x "$path"
     }
 
-    _install_wrapper_at /opt/homebrew/bin/openclaw
+    # Only install at /usr/local/bin — do NOT overwrite /opt/homebrew/bin/openclaw.
+    # npm/node may run `node /opt/homebrew/bin/openclaw`; that path must stay the
+    # real .mjs. Ensure /usr/local/bin is before /opt/homebrew/bin in PATH.
     _install_wrapper_at /usr/local/bin/openclaw
 }
 
@@ -191,22 +193,22 @@ WRAPPER
 uninstall_macos() {
     log "Uninstalling ClawEDR (macOS)"
     pkill -f "log_tailer.py" 2>/dev/null || true
-    if [ -f /usr/local/share/clawedr/openclaw-real ]; then
-        resolved=$(grep 'exec node "' /usr/local/share/clawedr/openclaw-real 2>/dev/null | sed 's/.*exec node "\([^"]*\)".*/\1/')
-        for path in /opt/homebrew/bin/openclaw /usr/local/bin/openclaw; do
-            if [ -e "$path" ] && grep -q "CLAWEDR_SB" "$path" 2>/dev/null; then
-                if [ -n "$resolved" ] && [ -f "$resolved" ]; then
-                    log "Restoring openclaw at $path"
-                    rm -f "$path"
-                    ln -sf "$resolved" "$path"
-                else
-                    log "Restoring openclaw at $path (from openclaw-real)"
-                    cp /usr/local/share/clawedr/openclaw-real "$path"
-                    chmod +x "$path"
-                fi
+    # Restore openclaw if we overwrote it (older installs overwrote both paths)
+    _restore() {
+        local path="$1"
+        [ ! -e "$path" ] || ! grep -q "CLAWEDR_SB" "$path" 2>/dev/null && return 0
+        if [ -f /usr/local/share/clawedr/openclaw-real ]; then
+            resolved=$(grep 'exec node "' /usr/local/share/clawedr/openclaw-real 2>/dev/null | sed 's/.*exec node "\([^"]*\)".*/\1/')
+            if [ -n "$resolved" ] && [ -f "$resolved" ]; then
+                log "Restoring openclaw at $path"
+                rm -f "$path"
+                ln -sf "$resolved" "$path" 2>/dev/null || cp /usr/local/share/clawedr/openclaw-real "$path"
+                [ -x "$path" ] || chmod +x "$path"
             fi
-        done
-    fi
+        fi
+    }
+    _restore /opt/homebrew/bin/openclaw
+    _restore /usr/local/bin/openclaw
     rm -rf /usr/local/share/clawedr
     log "ClawEDR uninstalled"
 }
