@@ -121,11 +121,19 @@ INNER
 # openclaw — ClawEDR Zero-Habit Hijack wrapper (macOS)
 CLAWEDR_SB="/usr/local/share/clawedr/clawedr.sb"
 CLAWEDR_REAL="/usr/local/share/clawedr/openclaw-real"
-if [ -f "$CLAWEDR_SB" ] && [ -x "$CLAWEDR_REAL" ]; then
-    exec sandbox-exec -f "$CLAWEDR_SB" -- "$CLAWEDR_REAL" "$@"
+REAL_OPENCLAW=""
+if [ -x "$CLAWEDR_REAL" ]; then
+    REAL_OPENCLAW="$CLAWEDR_REAL"
+elif [ -x /opt/homebrew/bin/openclaw ] && ! grep -q "CLAWEDR_SB" /opt/homebrew/bin/openclaw 2>/dev/null; then
+    REAL_OPENCLAW="/opt/homebrew/bin/openclaw"
+fi
+if [ -n "$REAL_OPENCLAW" ] && [ -f "$CLAWEDR_SB" ]; then
+    exec sandbox-exec -f "$CLAWEDR_SB" -- "$REAL_OPENCLAW" "$@"
+elif [ -n "$REAL_OPENCLAW" ]; then
+    exec "$REAL_OPENCLAW" "$@"
 else
-    [ -x "$CLAWEDR_REAL" ] || { echo "[openclaw] ERROR: $CLAWEDR_REAL not found" >&2; exit 1; }
-    exec "$CLAWEDR_REAL" "$@"
+    echo "[openclaw] ERROR: ClawEDR not installed. Run: curl -fsSL https://raw.githubusercontent.com/leos565/clawedr/main/deploy/install.sh | sudo sh" >&2
+    exit 1
 fi
 WRAPPER
         chmod +x "$path"
