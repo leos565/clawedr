@@ -107,6 +107,22 @@ INNER
         true
     fi
 
+    # Fallback: find openclaw.mjs in npm global modules (works when run as root)
+    if [ ! -x "$CLAWEDR_REAL" ]; then
+        for mjs in /opt/homebrew/lib/node_modules/openclaw/openclaw.mjs \
+                    /usr/local/lib/node_modules/openclaw/openclaw.mjs; do
+            if [ -f "$mjs" ] && ! grep -q "CLAWEDR_SB" "$mjs" 2>/dev/null; then
+                log "Saving real openclaw from $mjs -> $CLAWEDR_REAL"
+                cat > "$CLAWEDR_REAL" <<INNER
+#!/bin/sh
+exec node "$mjs" "\$@"
+INNER
+                chmod +x "$CLAWEDR_REAL"
+                break
+            fi
+        done
+    fi
+
     if [ ! -x "$CLAWEDR_REAL" ]; then
         log "WARNING: Could not find real openclaw — install openclaw first (npm install -g openclaw)"
         return 0
@@ -122,14 +138,20 @@ INNER
 CLAWEDR_SB="/usr/local/share/clawedr/clawedr.sb"
 CLAWEDR_REAL="/usr/local/share/clawedr/openclaw-real"
 REAL_OPENCLAW=""
+REAL_OPENCLAW_ARG0=""
 if [ -x "$CLAWEDR_REAL" ]; then
     REAL_OPENCLAW="$CLAWEDR_REAL"
 elif [ -x /opt/homebrew/bin/openclaw ] && ! grep -q "CLAWEDR_SB" /opt/homebrew/bin/openclaw 2>/dev/null; then
     REAL_OPENCLAW="/opt/homebrew/bin/openclaw"
+elif [ -f /opt/homebrew/lib/node_modules/openclaw/openclaw.mjs ]; then
+    REAL_OPENCLAW="/opt/homebrew/bin/node"
+    REAL_OPENCLAW_ARG0="/opt/homebrew/lib/node_modules/openclaw/openclaw.mjs"
 fi
 if [ -n "$REAL_OPENCLAW" ] && [ -f "$CLAWEDR_SB" ]; then
+    [ -n "$REAL_OPENCLAW_ARG0" ] && exec sandbox-exec -f "$CLAWEDR_SB" -- "$REAL_OPENCLAW" "$REAL_OPENCLAW_ARG0" "$@"
     exec sandbox-exec -f "$CLAWEDR_SB" -- "$REAL_OPENCLAW" "$@"
 elif [ -n "$REAL_OPENCLAW" ]; then
+    [ -n "$REAL_OPENCLAW_ARG0" ] && exec "$REAL_OPENCLAW" "$REAL_OPENCLAW_ARG0" "$@"
     exec "$REAL_OPENCLAW" "$@"
 else
     echo "[openclaw] ERROR: ClawEDR not installed. Run: curl -fsSL https://raw.githubusercontent.com/leos565/clawedr/main/deploy/install.sh | sudo sh" >&2
