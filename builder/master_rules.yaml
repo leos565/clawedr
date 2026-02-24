@@ -157,12 +157,11 @@ custom_deny_rules:
     # Remote management
     - "(deny process-exec (literal \"/System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart\"))"
 
-    # ── Raw sockets (prevents packet sniffing / crafting) ──
-    # Deny all bind, then allow loopback (OpenClaw gateway needs 127.0.0.1)
+    # ── Network bind: deny non-loopback, allow loopback (OpenClaw gateway needs 127.0.0.1) ──
     - "(deny network-bind (local ip \"*:*\"))"
     - "(allow network-bind (local ip \"127.0.0.1:*\"))"
     - "(allow network-bind (local ip \"[::1]:*\"))"
-    - "(deny system-socket)"
+    # system-socket removed: blocks gateway host resolution (causes bind=loopback -> 0.0.0.0)
 
   linux:
     # ── Reverse shells ──

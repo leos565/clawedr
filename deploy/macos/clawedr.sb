@@ -220,4 +220,3 @@
 (deny network-bind (local ip "*:*"))
 (allow network-bind (local ip "127.0.0.1:*"))
 (allow network-bind (local ip "[::1]:*"))
-(deny system-socket)
