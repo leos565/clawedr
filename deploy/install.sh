@@ -147,6 +147,7 @@ INNER
         local path="$1"
         if [ ! -e "$path" ]; then return 0; fi
         log "Installing ClawEDR wrapper at $path"
+        rm -f "$path"
         cat > "$path" <<'WRAPPER'
 #!/usr/bin/env sh
 # openclaw — ClawEDR Zero-Habit Hijack wrapper (macOS)
