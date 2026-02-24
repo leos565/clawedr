@@ -4,25 +4,314 @@
     "nc",
     "ncat",
     "socat",
-    "nmap"
+    "nmap",
+    "masscan",
+    "arp-scan",
+    "xmrig",
+    "minerd",
+    "cgminer",
+    "cpuminer",
+    "ethminer",
+    "xmr-stak",
+    "hellminer",
+    "nanominer",
+    "phoenixminer",
+    "teamredminer",
+    "lolminer",
+    "t-rex",
+    "nbminer",
+    "gminer",
+    "srbminer",
+    "mimikatz",
+    "secretsdump",
+    "gdb",
+    "strace",
+    "ltrace",
+    "ptrace"
   ],
   "blocked_domains": [
-    "evil.example.com",
-    "malware-c2.example.net"
+    "0x0.st",
+    "antpool.com",
+    "c3pool.com",
+    "ethermine.org",
+    "f2pool.com",
+    "file.io",
+    "mine.zergpool.com",
+    "minexmr.com",
+    "monerohash.com",
+    "nanopool.org",
+    "pastebin.com",
+    "pool.hashvault.pro",
+    "pool.minexmr.com",
+    "pool.supportxmr.com",
+    "poolin.me",
+    "slushpool.com",
+    "termbin.com",
+    "transfer.sh",
+    "xmr.2miners.com",
+    "xmr.pool.minergate.com"
   ],
   "malicious_hashes": [],
   "blocked_paths": [
     "/etc/passwd",
     "/etc/shadow",
+    "/etc/sudoers",
+    "/etc/sudoers.d",
+    "/home/*/.aws",
+    "/home/*/.azure",
+    "/home/*/.config/gcloud",
     "/home/*/.gnupg",
+    "/home/*/.kube/config",
     "/home/*/.ssh",
-    "/root/.ssh"
+    "/root/.ssh",
+    "/var/run/docker.sock"
   ],
   "deny_rules": [
     {
-      "rule": "block_reverse_shell",
+      "rule": "block_reverse_shell_4444",
       "match": "connect",
       "port": 4444,
+      "action": "SIGKILL"
+    },
+    {
+      "rule": "block_reverse_shell_1337",
+      "match": "connect",
+      "port": 1337,
+      "action": "SIGKILL"
+    },
+    {
+      "rule": "crypto_stratum_tcp",
+      "match": "* --url *stratum+tcp://*",
+      "action": "SIGKILL"
+    },
+    {
+      "rule": "crypto_stratum_tcp2",
+      "match": "* -o stratum+tcp://*",
+      "action": "SIGKILL"
+    },
+    {
+      "rule": "crypto_stratum_ssl",
+      "match": "* --url *stratum+ssl://*",
+      "action": "SIGKILL"
+    },
+    {
+      "rule": "crypto_stratum_ssl2",
+      "match": "* -o stratum+ssl://*",
+      "action": "SIGKILL"
+    },
+    {
+      "rule": "crypto_donate_level",
+      "match": "--donate-level=",
+      "action": "SIGKILL"
+    },
+    {
+      "rule": "crypto_threads_hint",
+      "match": "--cpu-max-threads-hint",
+      "action": "SIGKILL"
+    },
+    {
+      "rule": "crypto_algo_rx",
+      "match": "--algo=rx/0",
+      "action": "SIGKILL"
+    },
+    {
+      "rule": "crypto_pool_arg",
+      "match": "-o pool.",
+      "action": "SIGKILL"
+    },
+    {
+      "rule": "id_theft_cat_ssh",
+      "match": "cat ~/.ssh/id_rsa",
+      "action": "SIGKILL"
+    },
+    {
+      "rule": "id_theft_cat_aws",
+      "match": "cat ~/.aws/credentials",
+      "action": "SIGKILL"
+    },
+    {
+      "rule": "id_theft_curl_ssh",
+      "match": "curl -T ~/.ssh/id_rsa",
+      "action": "SIGKILL"
+    },
+    {
+      "rule": "id_theft_tar_ssh",
+      "match": "tar * -czf * ~/.ssh*",
+      "action": "SIGKILL"
+    },
+    {
+      "rule": "id_theft_zip_aws",
+      "match": "zip * -r * ~/.aws*",
+      "action": "SIGKILL"
+    },
+    {
+      "rule": "id_theft_tar_kube",
+      "match": "tar * -czf * ~/.kube*",
+      "action": "SIGKILL"
+    },
+    {
+      "rule": "obfuscation_base64_sh",
+      "match": "* | base64 -d | sh",
+      "action": "SIGKILL"
+    },
+    {
+      "rule": "obfuscation_base64_bash",
+      "match": "* | base64 -d | bash",
+      "action": "SIGKILL"
+    },
+    {
+      "rule": "obfuscation_base64_decode_sh",
+      "match": "* | base64 --decode | sh",
+      "action": "SIGKILL"
+    },
+    {
+      "rule": "obfuscation_python_base64",
+      "match": "python -c \"import base64*\"",
+      "action": "SIGKILL"
+    },
+    {
+      "rule": "obfuscation_node_eval",
+      "match": "node -e * child_process*",
+      "action": "SIGKILL"
+    },
+    {
+      "rule": "rce_curl_bash",
+      "match": "curl -sL * | bash",
+      "action": "SIGKILL"
+    },
+    {
+      "rule": "rce_curl_sh",
+      "match": "curl -sL * | sh",
+      "action": "SIGKILL"
+    },
+    {
+      "rule": "rce_wget_bash",
+      "match": "wget -qO- * | bash",
+      "action": "SIGKILL"
+    },
+    {
+      "rule": "rce_wget_sh",
+      "match": "wget -qO- * | sh",
+      "action": "SIGKILL"
+    },
+    {
+      "rule": "exfil_curl_pastebin",
+      "match": "curl -F * https://pastebin.com/api/",
+      "action": "SIGKILL"
+    },
+    {
+      "rule": "exfil_nc_termbin",
+      "match": "nc termbin.com 9999",
+      "action": "SIGKILL"
+    },
+    {
+      "rule": "exfil_tar_git",
+      "match": "tar -czf * .git/",
+      "action": "SIGKILL"
+    },
+    {
+      "rule": "exfil_grep_aws_git",
+      "match": "grep -r \"AKIA\" .git/",
+      "action": "SIGKILL"
+    },
+    {
+      "rule": "protection_kill_clawedr",
+      "match": "kill* clawedr",
+      "action": "SIGKILL"
+    },
+    {
+      "rule": "protection_pkill_clawedr",
+      "match": "pkill* clawedr",
+      "action": "SIGKILL"
+    },
+    {
+      "rule": "protection_systemctl_stop_clawedr",
+      "match": "systemctl stop clawedr",
+      "action": "SIGKILL"
+    },
+    {
+      "rule": "protection_rm_policy",
+      "match": "rm * compiled_policy.json",
+      "action": "SIGKILL"
+    },
+    {
+      "rule": "persistence_echo_bashrc",
+      "match": "echo * >> ~/.bashrc",
+      "action": "SIGKILL"
+    },
+    {
+      "rule": "persistence_echo_crontab",
+      "match": "echo * >> /etc/crontab",
+      "action": "SIGKILL"
+    },
+    {
+      "rule": "persistence_authorized_keys",
+      "match": "echo *ssh-rsa* >> ~/.ssh/authorized_keys",
+      "action": "SIGKILL"
+    },
+    {
+      "rule": "persistence_ld_preload",
+      "match": "echo * > /etc/ld.so.preload",
+      "action": "SIGKILL"
+    },
+    {
+      "rule": "persistence_add_root_user",
+      "match": "echo *root:x:0:0* >> /etc/passwd",
+      "action": "SIGKILL"
+    },
+    {
+      "rule": "evasion_setenforce_0",
+      "match": "setenforce 0",
+      "action": "SIGKILL"
+    },
+    {
+      "rule": "evasion_apparmor_unload",
+      "match": "apparmor_parser -R *",
+      "action": "SIGKILL"
+    },
+    {
+      "rule": "evasion_rm_logs",
+      "match": "rm -rf /var/log/*",
+      "action": "SIGKILL"
+    },
+    {
+      "rule": "evasion_history_c",
+      "match": "history -c",
+      "action": "SIGKILL"
+    },
+    {
+      "rule": "recon_aws_imds",
+      "match": "curl * 169.254.169.254/latest/meta-data/*",
+      "action": "SIGKILL"
+    },
+    {
+      "rule": "recon_gcp_metadata",
+      "match": "curl * metadata.google.internal*",
+      "action": "SIGKILL"
+    },
+    {
+      "rule": "escape_docker_sock",
+      "match": "curl --unix-socket /var/run/docker.sock *",
+      "action": "SIGKILL"
+    },
+    {
+      "rule": "escape_cgroups_release_agent",
+      "match": "echo * > /sys/fs/cgroup/memory/release_agent",
+      "action": "SIGKILL"
+    },
+    {
+      "rule": "escape_kubelet_api",
+      "match": "curl * http://localhost:10255/pods",
+      "action": "SIGKILL"
+    },
+    {
+      "rule": "recon_find_suid",
+      "match": "find / -perm -4000",
+      "action": "SIGKILL"
+    },
+    {
+      "rule": "recon_getcap",
+      "match": "getcap -r /",
       "action": "SIGKILL"
     }
   ]

@@ -9,19 +9,27 @@ Scoped enforcement: only OpenClaw processes (and their descendants) are
 tracked.  The monitor populates the BPF target_bins map with djb2 hashes
 of known OpenClaw binary paths so the kernel hooks can auto-detect them.
 
+Enforcement layers:
+  1. blocked_executables — BPF execve hash check (in-kernel)
+  2. blocked_paths       — BPF openat hash check (in-kernel)
+  3. deny_rules (single) — userspace argv matching via /proc/pid/cmdline
+  4. deny_rules (pipes)  — BPF sibling heuristic (in-kernel)
+
 Lifecycle:
   1. Load bpf_hooks.c via BCC.
   2. Populate target_bins with OpenClaw binary path hashes.
   3. Bootstrap tracked_pids from /proc for already-running OpenClaw procs.
-  4. Load compiled_policy.json -> populate BPF blocked_hashes map.
+  4. Load compiled_policy.json -> populate all BPF maps + in-memory rules.
   5. Poll for policy file changes and hot-reload.
 """
 
 import ctypes
-import glob
+import fnmatch
+import glob as globmod
 import json
 import logging
 import os
+import pwd
 import shutil
 import signal
 import subprocess
@@ -42,6 +50,9 @@ BLOCK_LOG_FILE = "/var/log/clawedr.log"
 MONITOR_LOG_FILE = os.environ.get("CLAWEDR_LOG_FILE", "/var/log/clawedr_monitor.log")
 
 _bpf_instance = None
+_deny_rules: list[dict] = []
+
+PATH_PREFIXES = ("/usr/bin/", "/usr/sbin/", "/bin/", "/sbin/", "/usr/local/bin/")
 
 
 # ---------------------------------------------------------------------------
@@ -63,9 +74,7 @@ def _djb2_hash(s: str) -> int:
 WRAPPER_PATH = "/usr/local/bin/openclaw"
 
 def _resolve_openclaw_paths() -> list[str]:
-    """Return all filesystem paths that represent the OpenClaw binary."""
     paths: set[str] = set()
-
     paths.add(WRAPPER_PATH)
 
     target_env = os.environ.get("CLAWEDR_TARGET_BINARY")
@@ -94,7 +103,6 @@ def _resolve_openclaw_paths() -> list[str]:
 
 
 def _find_npm_openclaw() -> str | None:
-    """Try to locate the real (npm-installed) openclaw binary."""
     try:
         result = subprocess.run(
             ["npm", "config", "get", "prefix"],
@@ -112,7 +120,7 @@ def _find_npm_openclaw() -> str | None:
         "/home/*/.npm-global/bin/openclaw",
         "/usr/local/bin/openclaw",
     ]:
-        matches = glob.glob(pattern)
+        matches = globmod.glob(pattern)
         for m in matches:
             if os.path.realpath(m) != os.path.realpath(WRAPPER_PATH):
                 return m
@@ -123,6 +131,18 @@ def _find_npm_openclaw() -> str | None:
 # BPF loading
 # ---------------------------------------------------------------------------
 
+def _pidns_defines() -> str:
+    """Return C #define directives for the monitor's PID namespace."""
+    try:
+        st = os.stat("/proc/self/ns/pid")
+        defines = f"#define PIDNS_DEV {st.st_dev}ULL\n#define PIDNS_INO {st.st_ino}ULL\n"
+        logger.info("PID namespace: dev=%d ino=%d", st.st_dev, st.st_ino)
+        return defines
+    except OSError:
+        logger.warning("Cannot stat /proc/self/ns/pid — namespace PID unavailable")
+        return ""
+
+
 def load_bpf(source_path: str):
     global _bpf_instance
     from bcc import BPF
@@ -130,6 +150,7 @@ def load_bpf(source_path: str):
     logger.info("Compiling BPF program from %s", source_path)
     with open(source_path) as f:
         src = f.read()
+    src = _pidns_defines() + src
     _bpf_instance = BPF(text=src)
     logger.info("BPF program loaded — tracepoints attached")
 
@@ -137,15 +158,17 @@ def load_bpf(source_path: str):
         event = _bpf_instance["events"].event(data)
         comm = event.comm.decode(errors="replace")
         filename = event.filename.decode(errors="replace")
+        ns_pid = event.ns_pid if event.ns_pid else event.pid
         if event.action == 1:
             block_logger.warning(
                 "BLOCKED pid=%d uid=%d comm=%s file=%s",
-                event.pid, event.uid, comm, filename,
+                ns_pid, event.uid, comm, filename,
             )
         else:
+            _check_deny_rules(ns_pid, comm, filename)
             logger.info(
                 "[observed] pid=%d uid=%d comm=%s file=%s",
-                event.pid, event.uid, comm, filename,
+                ns_pid, event.uid, comm, filename,
             )
 
     _bpf_instance["events"].open_perf_buffer(_print_event)
@@ -153,15 +176,52 @@ def load_bpf(source_path: str):
 
 
 # ---------------------------------------------------------------------------
+# Layer 2: deny_rules — userspace argv matching
+# ---------------------------------------------------------------------------
+
+def _check_deny_rules(pid: int, comm: str, filename: str) -> None:
+    """Read /proc/<pid>/cmdline and match against loaded deny_rules."""
+    if not _deny_rules:
+        return
+    try:
+        with open(f"/proc/{pid}/cmdline", "rb") as f:
+            raw = f.read(4096)
+    except OSError:
+        return
+
+    cmdline = raw.replace(b"\x00", b" ").decode(errors="replace").strip()
+    if not cmdline:
+        return
+
+    for rule in _deny_rules:
+        pattern = rule.get("match", "")
+        if not pattern:
+            continue
+        if fnmatch.fnmatch(cmdline, pattern) or fnmatch.fnmatch(cmdline, f"*{pattern}*"):
+            rule_name = rule.get("rule", "unknown")
+            block_logger.warning(
+                "BLOCKED (deny_rule=%s) pid=%d cmdline=%s",
+                rule_name, pid, cmdline[:200],
+            )
+            try:
+                os.kill(pid, 9)
+            except OSError:
+                pass
+            return
+
+
+# ---------------------------------------------------------------------------
 # Target bins map
 # ---------------------------------------------------------------------------
 
 def populate_target_bins(paths: list[str]) -> None:
-    """Insert djb2 hashes of OpenClaw binary paths into the BPF map."""
     if _bpf_instance is None:
         return
     target_map = _bpf_instance["target_bins"]
     for p in paths:
+        if p == WRAPPER_PATH:
+            logger.info("target_bins: skipping wrapper %s (tracked after exec)", p)
+            continue
         h = _djb2_hash(p)
         target_map[ctypes.c_uint64(h)] = ctypes.c_uint8(1)
         logger.info("target_bins += %s (hash %016x)", p, h)
@@ -179,7 +239,6 @@ def _read_exe(pid: int) -> str | None:
 
 
 def _get_descendants(pid: int) -> list[int]:
-    """Walk /proc/<pid>/task/*/children recursively."""
     result: list[int] = []
     try:
         tasks_dir = f"/proc/{pid}/task"
@@ -199,7 +258,6 @@ def _get_descendants(pid: int) -> list[int]:
 
 
 def bootstrap_tracked_pids(target_paths: list[str]) -> None:
-    """Scan /proc for running OpenClaw processes and seed tracked_pids."""
     if _bpf_instance is None:
         return
 
@@ -239,7 +297,7 @@ def bootstrap_tracked_pids(target_paths: list[str]) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Policy loading
+# Policy loading — blocked executables
 # ---------------------------------------------------------------------------
 
 def load_policy(path: str) -> dict:
@@ -248,35 +306,167 @@ def load_policy(path: str) -> dict:
 
 
 def apply_policy(policy: dict) -> None:
-    global _bpf_instance
-    execs = policy.get("blocked_executables", [])
-    domains = policy.get("blocked_domains", [])
-    hashes = policy.get("malicious_hashes", [])
-    logger.info(
-        "Applying policy: %d blocked executables, %d blocked domains, %d hashes",
-        len(execs), len(domains), len(hashes),
-    )
+    global _bpf_instance, _deny_rules
 
     if _bpf_instance is None:
         logger.warning("BPF not loaded — skipping map update")
         return
+
+    _apply_blocked_executables(policy)
+    _apply_blocked_paths(policy)
+    _apply_deny_rules(policy)
+    _apply_pipe_heuristic()
+
+
+def _apply_blocked_executables(policy: dict) -> None:
+    execs = policy.get("blocked_executables", [])
+    logger.info("Applying %d blocked executables", len(execs))
 
     blocked_map = _bpf_instance["blocked_hashes"]
     blocked_map.clear()
 
     loaded = 0
     for name in execs:
-        for path_prefix in ("/usr/bin/", "/usr/sbin/", "/bin/", "/sbin/", "/usr/local/bin/"):
-            full = path_prefix + name
-            h = _djb2_hash(full)
+        for prefix in PATH_PREFIXES:
+            h = _djb2_hash(prefix + name)
             blocked_map[ctypes.c_uint64(h)] = ctypes.c_uint8(1)
             loaded += 1
-
         h = _djb2_hash(name)
         blocked_map[ctypes.c_uint64(h)] = ctypes.c_uint8(1)
         loaded += 1
 
     logger.info("Loaded %d entries into blocked_hashes BPF map", loaded)
+
+
+# ---------------------------------------------------------------------------
+# Layer 1: blocked_paths — BPF openat enforcement
+# ---------------------------------------------------------------------------
+
+_SENSITIVE_SUBFILES = [
+    "id_rsa", "id_ed25519", "id_ecdsa", "id_dsa",
+    "authorized_keys", "known_hosts", "config",
+    "credentials", "accessTokens.json",
+]
+
+
+def _expand_blocked_paths(raw_paths: list[str]) -> set[str]:
+    """Expand wildcard paths into concrete filesystem paths.
+
+    For patterns like /home/*/.ssh, enumerate real home dirs even when
+    the target subdir doesn't exist yet — we still want to block access
+    to e.g. /home/leo/.ssh/id_rsa before the directory is created.
+    """
+    concrete: set[str] = set()
+    for p in raw_paths:
+        if "*" in p:
+            expanded = globmod.glob(p)
+            if expanded:
+                for ep in expanded:
+                    concrete.add(ep)
+                    _add_subpaths(ep, concrete)
+            # Also expand the wildcard against parent dirs so we cover
+            # paths that don't exist yet (e.g. /home/user/.ssh).
+            _expand_missing_wildcard(p, concrete)
+        else:
+            concrete.add(p)
+            _add_subpaths(p, concrete)
+    return concrete
+
+
+def _expand_missing_wildcard(pattern: str, out: set[str]) -> None:
+    """For /home/*/.ssh style patterns, enumerate home dirs and add subpaths."""
+    parts = pattern.split("*")
+    if len(parts) != 2:
+        return
+    parent_dir = parts[0].rstrip("/")
+    suffix = parts[1]
+    for d in globmod.glob(os.path.join(parent_dir, "*")):
+        if not os.path.isdir(d):
+            continue
+        synth = d + suffix
+        out.add(synth)
+        _add_subpaths(synth, out)
+
+
+def _add_subpaths(directory: str, out: set[str]) -> None:
+    """Add well-known sensitive subfiles beneath a directory."""
+    for sub in _SENSITIVE_SUBFILES:
+        out.add(os.path.join(directory, sub))
+
+
+def _apply_blocked_paths(policy: dict) -> None:
+    raw_paths = policy.get("blocked_paths", [])
+    if not raw_paths:
+        return
+
+    concrete = _expand_blocked_paths(raw_paths)
+
+    path_map = _bpf_instance["blocked_path_hashes"]
+    path_map.clear()
+
+    loaded = 0
+    for p in sorted(concrete):
+        h = _djb2_hash(p)
+        path_map[ctypes.c_uint64(h)] = ctypes.c_uint8(1)
+        loaded += 1
+
+    logger.info("Loaded %d entries into blocked_path_hashes BPF map", loaded)
+
+
+# ---------------------------------------------------------------------------
+# Layer 2: deny_rules — load into memory for userspace matching
+# ---------------------------------------------------------------------------
+
+def _apply_deny_rules(policy: dict) -> None:
+    global _deny_rules
+    rules = policy.get("deny_rules", [])
+    _deny_rules = [r for r in rules if isinstance(r, dict) and r.get("match")]
+    logger.info("Loaded %d deny_rules for userspace matching", len(_deny_rules))
+
+
+# ---------------------------------------------------------------------------
+# Layer 3: pipe heuristic — populate dangerous sources/sinks
+# ---------------------------------------------------------------------------
+
+_DANGEROUS_SOURCE_NAMES = ["curl", "wget", "nc", "ncat"]
+_DANGEROUS_SINK_NAMES = [
+    "bash", "sh", "dash", "zsh",
+    "python3", "python", "ruby", "perl", "node",
+]
+
+
+def _apply_pipe_heuristic() -> None:
+    if _bpf_instance is None:
+        return
+
+    src_map = _bpf_instance["dangerous_sources"]
+    src_map.clear()
+    loaded_src = 0
+    for name in _DANGEROUS_SOURCE_NAMES:
+        for prefix in PATH_PREFIXES:
+            h = _djb2_hash(prefix + name)
+            src_map[ctypes.c_uint64(h)] = ctypes.c_uint8(1)
+            loaded_src += 1
+        h = _djb2_hash(name)
+        src_map[ctypes.c_uint64(h)] = ctypes.c_uint8(1)
+        loaded_src += 1
+
+    sink_map = _bpf_instance["dangerous_sinks"]
+    sink_map.clear()
+    loaded_sink = 0
+    for name in _DANGEROUS_SINK_NAMES:
+        for prefix in PATH_PREFIXES:
+            h = _djb2_hash(prefix + name)
+            sink_map[ctypes.c_uint64(h)] = ctypes.c_uint8(1)
+            loaded_sink += 1
+        h = _djb2_hash(name)
+        sink_map[ctypes.c_uint64(h)] = ctypes.c_uint8(1)
+        loaded_sink += 1
+
+    logger.info(
+        "Pipe heuristic: %d dangerous sources, %d dangerous sinks loaded",
+        loaded_src, loaded_sink,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -298,26 +488,29 @@ def watch_and_reload(path: str, interval: int = POLL_INTERVAL) -> None:
 
     logger.info("Monitoring %s (poll every %ds)", path, interval)
 
+    next_policy_check = 0.0
+
     while running:
-        try:
-            mtime = os.path.getmtime(path)
-            if mtime != last_mtime:
-                logger.info("Policy file changed (mtime %.0f → %.0f), reloading", last_mtime, mtime)
-                policy = load_policy(path)
-                apply_policy(policy)
-                last_mtime = mtime
-        except FileNotFoundError:
-            logger.warning("Policy file not found at %s — waiting", path)
-        except json.JSONDecodeError as exc:
-            logger.error("Corrupt policy JSON: %s", exc)
+        now = time.monotonic()
+        if now >= next_policy_check:
+            try:
+                mtime = os.path.getmtime(path)
+                if mtime != last_mtime:
+                    logger.info("Policy file changed (mtime %.0f → %.0f), reloading", last_mtime, mtime)
+                    policy = load_policy(path)
+                    apply_policy(policy)
+                    last_mtime = mtime
+            except FileNotFoundError:
+                logger.warning("Policy file not found at %s — waiting", path)
+            except json.JSONDecodeError as exc:
+                logger.error("Corrupt policy JSON: %s", exc)
+            next_policy_check = now + interval
 
         if _bpf_instance is not None:
             try:
-                _bpf_instance.perf_buffer_poll(timeout=100)
+                _bpf_instance.perf_buffer_poll(timeout=50)
             except Exception:
                 pass
-
-        time.sleep(max(0, interval - 0.1))
 
     logger.info("Monitor stopped.")
 

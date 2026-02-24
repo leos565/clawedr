@@ -72,6 +72,12 @@ _SB_HEADER = """\
 """
 
 
+_MACOS_BIN_PREFIXES = [
+    "/usr/bin/", "/usr/sbin/", "/usr/local/bin/", "/opt/homebrew/bin/",
+    "/opt/local/bin/",
+]
+
+
 def compile_macos_seatbelt(rules: dict[str, Any]) -> str:
     """Generate a macOS Seatbelt (.sb) LISP profile.
 
@@ -80,6 +86,8 @@ def compile_macos_seatbelt(rules: dict[str, Any]) -> str:
     """
     lines = [_SB_HEADER]
 
+    # ── Blocked paths ──
+    lines.append(";;; --- Blocked paths ---")
     for path in rules.get("blocked_paths", {}).get("macos", []):
         sb_path = path.replace("~", "/Users/*")
         if "*" in sb_path:
@@ -90,17 +98,34 @@ def compile_macos_seatbelt(rules: dict[str, Any]) -> str:
             lines.append(f'(deny file-read* (subpath "{sb_path}"))')
             lines.append(f'(deny file-write* (subpath "{sb_path}"))')
 
+    # ── Blocked executables ──
+    execs = rules.get("blocked_executables", [])
+    if execs:
+        lines.append(";;; --- Blocked executables ---")
+        for name in execs:
+            if "/" in name:
+                lines.append(f'(deny process-exec (literal "{name}"))')
+            else:
+                for prefix in _MACOS_BIN_PREFIXES:
+                    lines.append(
+                        f'(deny process-exec (literal "{prefix}{name}"))'
+                    )
+
     # Seatbelt does not support hostname-based filters; domain blocking is
     # enforced at the application layer by log_tailer.py / openclaw wrapper.
     blocked_domains = rules.get("blocked_domains", [])
     if blocked_domains:
-        lines.append(";;; Blocked domains (enforced by log_tailer.py, not kernel-level):")
+        lines.append(";;; --- Blocked domains (enforced by log_tailer.py, not kernel-level) ---")
         for domain in blocked_domains:
             lines.append(f';;;   - {domain}')
 
-    for custom in rules.get("custom_deny_rules", {}).get("macos", []):
-        if isinstance(custom, str):
-            lines.append(custom)
+    # ── Custom deny rules (raw Seatbelt directives) ──
+    custom_rules = rules.get("custom_deny_rules", {}).get("macos", [])
+    if custom_rules:
+        lines.append(";;; --- Custom deny rules ---")
+        for custom in custom_rules:
+            if isinstance(custom, str):
+                lines.append(custom)
 
     lines.append("")
     return "\n".join(lines)

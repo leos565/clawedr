@@ -1,5 +1,12 @@
 # ClawEDR
 
+[![Python](https://img.shields.io/badge/python-3.11+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![eBPF](https://img.shields.io/badge/eBPF-Linux-FF6F00?logo=linux&logoColor=white)](https://ebpf.io/)
+[![Seatbelt](https://img.shields.io/badge/Seatbelt-macOS-000000?logo=apple&logoColor=white)](https://developer.apple.com/library/archive/documentation/Security/Conceptual/AppSandboxDesignGuide/)
+[![Shell](https://img.shields.io/badge/shell-bash%20%7C%20sh-4EAA25?logo=gnubash&logoColor=white)](https://www.gnu.org/software/bash/)
+[![C](https://img.shields.io/badge/C-BPF%20hooks-A8B9CC?logo=c&logoColor=white)](https://en.wikipedia.org/wiki/C_(programming_language))
+[![YAML](https://img.shields.io/badge/YAML-master%20rules-CB171E?logo=yaml)](https://yaml.org/)
+
 Kernel-level endpoint detection and response for AI coding agents. ClawEDR sits between your agent and the operating system, enforcing security policies via **eBPF** (Linux) and **Seatbelt** (macOS) so that compromised or malicious tool-use never reaches sensitive files, networks, or processes.
 
 ## Architecture
