@@ -12,7 +12,7 @@ CLAWEDR_VERSION="${CLAWEDR_VERSION:-latest}"
 
 # Derive the base URL from where this script was fetched, or fall back to a
 # hardcoded default.  Override with CLAWEDR_BASE_URL if needed.
-CLAWEDR_BASE_URL="${CLAWEDR_BASE_URL:-https://raw.githubusercontent.com/leoclaw/clawedr/main/deploy}"
+CLAWEDR_BASE_URL="${CLAWEDR_BASE_URL:-https://raw.githubusercontent.com/leos565/clawedr/main/deploy}"
 
 log()  { printf '[clawedr] %s\n' "$*"; }
 die()  { log "ERROR: $*"; exit 1; }
