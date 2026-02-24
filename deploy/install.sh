@@ -288,3 +288,9 @@ case "$OS" in
 esac
 
 log "Done. Run 'openclaw <your-agent>' to start with protection enabled."
+if [ "$OS" = "macos" ]; then
+    log ""
+    log "macOS: Restart the gateway if it's running — the sandbox applies only to"
+    log "  processes started AFTER install. Ensure /usr/local/bin is before"
+    log "  /opt/homebrew/bin in PATH so the wrapper is used."
+fi

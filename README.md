@@ -49,6 +49,8 @@ openclaw <your-agent-command>
 
 On macOS the `openclaw` wrapper transparently enforces the Seatbelt profile. On Linux the eBPF monitor daemon runs in the background and enforces policies at the kernel level.
 
+**macOS:** The wrapper is installed at `/usr/local/bin/openclaw`. Ensure `/usr/local/bin` comes before `/opt/homebrew/bin` in your PATH. **Restart the gateway after installing** — the sandbox applies only to processes started after install. To verify: `sandbox-exec -f /usr/local/share/clawedr/clawedr.sb -- nc -h` should fail with "Operation not permitted".
+
 ## Project Layout
 
 ```
