@@ -218,5 +218,4 @@
 (deny process-exec (literal "/usr/libexec/ApplicationFirewall/socketfilterfw"))
 (deny process-exec (literal "/System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart"))
 (deny network-bind (local ip "*:*"))
-(allow network-bind (local ip "127.0.0.1:*"))
-(allow network-bind (local ip "[::1]:*"))
+(allow network-bind (local ip "localhost:*"))
