@@ -95,7 +95,20 @@ def _resolve_openclaw_paths() -> list[str]:
     if real_bin:
         paths.add(real_bin)
         try:
-            paths.add(os.path.realpath(real_bin))
+            resolved = os.path.realpath(real_bin)
+            paths.add(resolved)
+            # OpenClaw is a Node script: kernel execs node, not openclaw.
+            # Add node so we track the process tree. (All node processes
+            # will be tracked; acceptable on OpenClaw-focused hosts.)
+            if resolved.endswith((".mjs", ".js", ".cjs")):
+                node_bin = shutil.which("node") or "/usr/bin/node"
+                if os.path.exists(node_bin):
+                    paths.add(node_bin)
+                    try:
+                        paths.add(os.path.realpath(node_bin))
+                    except OSError:
+                        pass
+                    logger.info("target_bins: adding node interpreter for OpenClaw script")
         except OSError:
             pass
 
