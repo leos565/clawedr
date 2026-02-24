@@ -79,11 +79,29 @@ def watch_and_reload(path: str, interval: int = POLL_INTERVAL) -> None:
     logger.info("Monitor stopped.")
 
 
+LOG_FILE = os.environ.get("CLAWEDR_LOG_FILE", "/var/log/clawedr_monitor.log")
+
+
+def setup_logging() -> None:
+    fmt = logging.Formatter("%(asctime)s %(levelname)s [%(name)s] %(message)s")
+
+    root = logging.getLogger()
+    root.setLevel(logging.INFO)
+
+    stdout_handler = logging.StreamHandler(sys.stdout)
+    stdout_handler.setFormatter(fmt)
+    root.addHandler(stdout_handler)
+
+    try:
+        file_handler = logging.FileHandler(LOG_FILE)
+        file_handler.setFormatter(fmt)
+        root.addHandler(file_handler)
+    except PermissionError:
+        logger.warning("Cannot write to %s — file logging disabled", LOG_FILE)
+
+
 def main() -> int:
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
-    )
+    setup_logging()
     logger.info("ClawEDR Linux Shield Monitor starting")
 
     if not os.path.exists(POLICY_PATH):
