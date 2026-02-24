@@ -8,8 +8,8 @@ ClawEDR is split into three components:
 
 ```
 ┌─────────────────────────────┐
-│  THE FORGE (your MacBook)   │   Private. Compiles policies,
-│  builder/ + main.py         │   runs tests, pushes artifacts.
+│  THE FORGE (private)        │   Compiles policies, runs
+│  builder/ + main.py         │   tests, pushes artifacts.
 └──────────────┬──────────────┘
                │ git push
                ▼
@@ -78,8 +78,7 @@ The Forge runs on your local machine. It fetches threat intelligence, compiles k
 
 ### Prerequisites
 
-- macOS with Xcode Command Line Tools
-- Python 3.11+ (via Homebrew)
+- Python 3.11+
 - [OrbStack](https://orbstack.dev) with an Ubuntu VM (for Linux eBPF tests)
 
 ### Setup
@@ -161,8 +160,9 @@ Feed entries **add to** manual rules, never replace them.
 The Shield runs as a background daemon (`monitor.py`) that:
 
 1. Loads `compiled_policy.json` into eBPF hash maps
-2. Hooks `execve()` via BPF tracepoints — blocked executables receive `SIGKILL`
-3. Polls for policy file changes and **hot-reloads** BPF maps without restarting
+2. Auto-detects OpenClaw processes (gateway, agent, node) and tracks their entire process tree via BPF `fork`/`exit` hooks — only these processes are subject to policy enforcement
+3. Hooks `execve()` via BPF tracepoints — blocked executables spawned by OpenClaw receive `SIGKILL`
+4. Polls for policy file changes and **hot-reloads** BPF maps without restarting
 
 Logs are written to both `/var/log/clawedr_monitor.log` and `journalctl -u clawedr-monitor` (on systemd hosts).
 

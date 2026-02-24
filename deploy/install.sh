@@ -76,18 +76,16 @@ install_linux() {
     chmod +x "$tmpdir/shield_linux.sh"
     sh "$tmpdir/shield_linux.sh"
 
+    install_openclaw_wrapper_linux
+
     log "Linux Shield installed successfully"
 }
 
 install_openclaw_wrapper() {
-    # The openclaw wrapper transparently interposes the Shield so the user
-    # never has to change how they invoke their agent CLI.
     log "Installing openclaw wrapper at /usr/local/bin/openclaw"
     cat > /usr/local/bin/openclaw <<'WRAPPER'
 #!/usr/bin/env sh
-# openclaw — ClawEDR Zero-Habit Hijack wrapper
-# Runs the user's agent under the Seatbelt profile so the Shield is
-# always active, transparently.
+# openclaw — ClawEDR Zero-Habit Hijack wrapper (macOS)
 CLAWEDR_SB="/usr/local/share/clawedr/clawedr.sb"
 if [ -f "$CLAWEDR_SB" ]; then
     exec sandbox-exec -f "$CLAWEDR_SB" -- "$@"
@@ -95,6 +93,59 @@ else
     echo "[openclaw] WARNING: Seatbelt profile not found at $CLAWEDR_SB — running unprotected" >&2
     exec "$@"
 fi
+WRAPPER
+    chmod +x /usr/local/bin/openclaw
+}
+
+install_openclaw_wrapper_linux() {
+    log "Installing openclaw wrapper at /usr/local/bin/openclaw"
+    cat > /usr/local/bin/openclaw <<'WRAPPER'
+#!/usr/bin/env sh
+# openclaw — ClawEDR wrapper (Linux / eBPF)
+# Ensures the BPF monitor daemon is running, then delegates to the real
+# OpenClaw binary.  The monitor auto-detects this binary in BPF and
+# tracks the entire process tree for policy enforcement.
+CLAWEDR_DIR="/usr/local/share/clawedr"
+CLAWEDR_POLICY="$CLAWEDR_DIR/compiled_policy.json"
+CLAWEDR_BPF="$CLAWEDR_DIR/bpf_hooks.c"
+CLAWEDR_MONITOR="$CLAWEDR_DIR/monitor.py"
+CLAWEDR_PID="/tmp/clawedr-monitor.pid"
+
+_find_real_openclaw() {
+    for d in /home/*/.npm-global/bin /usr/local/lib/node_modules/.bin; do
+        if [ -x "$d/openclaw" ] && [ "$(readlink -f "$d/openclaw")" != "$(readlink -f /usr/local/bin/openclaw)" ]; then
+            echo "$d/openclaw"
+            return
+        fi
+    done
+}
+
+CLAWEDR_REAL="$(_find_real_openclaw)"
+if [ -z "$CLAWEDR_REAL" ]; then
+    echo "[clawedr] ERROR: Cannot find real openclaw binary" >&2
+    exit 1
+fi
+
+if [ ! -f "$CLAWEDR_POLICY" ]; then
+    echo "[clawedr] WARNING: Policy not found — running unprotected" >&2
+    exec "$CLAWEDR_REAL" "$@"
+fi
+
+if [ -f "$CLAWEDR_PID" ] && kill -0 "$(cat "$CLAWEDR_PID")" 2>/dev/null; then
+    :
+else
+    echo "[clawedr] Starting ClawEDR eBPF monitor..."
+    sudo CLAWEDR_POLICY_PATH="$CLAWEDR_POLICY" \
+         CLAWEDR_BPF_SOURCE="$CLAWEDR_BPF" \
+         CLAWEDR_LOG_FILE=/var/log/clawedr_monitor.log \
+        nohup python3 "$CLAWEDR_MONITOR" >/dev/null 2>&1 &
+    MONITOR_PID=$!
+    echo "$MONITOR_PID" > "$CLAWEDR_PID" 2>/dev/null || true
+    sleep 2
+    echo "[clawedr] Monitor active (PID $MONITOR_PID)"
+fi
+
+exec "$CLAWEDR_REAL" "$@"
 WRAPPER
     chmod +x /usr/local/bin/openclaw
 }
