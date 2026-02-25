@@ -250,9 +250,26 @@ def _check_deny_rules(pid: int, comm: str, filename: str) -> str | None:
     if not cmdline:
         return None
 
+    # Exempt our own child processes (e.g. alert dispatcher). The alert message
+    # contains the blocked command and would match deny_rules. Exempting by
+    # parent PID is more targeted than matching cmdline content.
+    try:
+        with open(f"/proc/{pid}/stat", "r") as f:
+            stat = f.read()
+        ppid = int(stat.split(")", 1)[1].split()[1])
+        if ppid == os.getpid():
+            return None
+    except (OSError, IndexError, ValueError):
+        pass
+
     for rule_id, rule in _deny_rules.items():
         pattern = rule.get("match", "")
         if not pattern:
+            continue
+        # Optional: only match when the executable is the intended binary
+        # (avoids matching "bash -c find ..." or alert processes)
+        required_exec = rule.get("executable")
+        if required_exec and comm != required_exec:
             continue
         if fnmatch.fnmatch(cmdline, pattern) or fnmatch.fnmatch(cmdline, f"*{pattern}*"):
             block_logger.warning(

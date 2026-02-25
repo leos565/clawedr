@@ -63,6 +63,15 @@ static __always_inline u32 get_ppid(void) {
     return ppid;
 }
 
+static __always_inline u32 get_grandparent_pid(void) {
+    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+    u32 gpid = 0;
+    if (task->real_parent && task->real_parent->real_parent)
+        bpf_probe_read_kernel(&gpid, sizeof(gpid),
+            &task->real_parent->real_parent->tgid);
+    return gpid;
+}
+
 static __always_inline u32 get_ns_pid(void) {
 #if defined(PIDNS_DEV) && defined(PIDNS_INO)
     struct bpf_pidns_info ni = {};
@@ -109,15 +118,22 @@ TRACEPOINT_PROBE(syscalls, sys_enter_execve) {
     /* Layer 3: pipe heuristic — record dangerous sources, kill sinks */
     u8 *is_source = dangerous_sources.lookup(&h);
     if (is_source) {
-        u32 ppid = get_ppid();
         u64 now = bpf_ktime_get_ns();
+        u32 ppid = get_ppid();
         pipe_sources.update(&ppid, &now);
+        u32 gpid = get_grandparent_pid();
+        if (gpid)
+            pipe_sources.update(&gpid, &now);
     }
 
     u8 *is_sink = dangerous_sinks.lookup(&h);
     if (is_sink) {
         u32 ppid = get_ppid();
         u64 *src_ts = pipe_sources.lookup(&ppid);
+        if (!src_ts) {
+            u32 gpid = get_grandparent_pid();
+            src_ts = pipe_sources.lookup(&gpid);
+        }
         if (src_ts) {
             u64 now = bpf_ktime_get_ns();
             if ((now - *src_ts) < PIPE_WINDOW_NS) {

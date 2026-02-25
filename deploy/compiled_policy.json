@@ -330,6 +330,7 @@
       "LIN-048": {
         "rule": "recon_find_suid",
         "match": "find / -perm -4000",
+        "executable": "find",
         "action": "SIGKILL"
       },
       "LIN-049": {
