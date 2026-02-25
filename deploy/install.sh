@@ -62,16 +62,16 @@ install_dashboard_deps() {
     #   2. --ignore-installed (skip uninstall of apt-managed packages)
     #   3. --force-reinstall as last resort
     if $PIP install --quiet --break-system-packages --ignore-installed \
-            fastapi uvicorn 2>/dev/null; then
+            fastapi uvicorn typing-extensions pydantic 2>/dev/null; then
         log "Dashboard dependencies installed successfully"
     elif $PIP install --quiet --break-system-packages --force-reinstall \
-            fastapi uvicorn 2>/dev/null; then
+            fastapi uvicorn typing-extensions pydantic 2>/dev/null; then
         log "Dashboard dependencies installed (force-reinstall)"
-    elif $PIP install --quiet fastapi uvicorn 2>/dev/null; then
+    elif $PIP install --quiet fastapi uvicorn typing-extensions pydantic 2>/dev/null; then
         log "Dashboard dependencies installed"
     else
         log "WARNING: Could not install fastapi/uvicorn via pip."
-        log "  Install manually: pip3 install fastapi uvicorn"
+        log "  Install manually: pip3 install fastapi uvicorn typing-extensions pydantic"
     fi
 }
 
