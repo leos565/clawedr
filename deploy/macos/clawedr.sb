@@ -224,7 +224,7 @@
 (deny process-exec (literal "/usr/local/bin/ptrace"))
 (deny process-exec (literal "/opt/homebrew/bin/ptrace"))
 (deny process-exec (literal "/opt/local/bin/ptrace"))
-;;; --- Blocked domains (enforced by log_tailer.py, not kernel-level) ---
+;;; --- Blocked domains (Unsupported on macOS) ---
 ;;;   [DOM-001] pool.supportxmr.com
 ;;;   [DOM-002] pool.minexmr.com
 ;;;   [DOM-003] xmr.pool.minergate.com

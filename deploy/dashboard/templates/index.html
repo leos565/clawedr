@@ -1286,7 +1286,14 @@
                                         d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z">
                                     </path>
                                 </svg></div>
-                            <div class="type-name">Domain/IP</div>
+                            <div class="type-name">Domain/IP <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                                    stroke="currentColor" stroke-width="2"
+                                    style="display:inline; margin-left:4px; opacity:0.6;"
+                                    title="Supported on Linux (eBPF). Not supported on macOS kernel.">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <line x1="12" y1="16" x2="12" y2="12"></line>
+                                    <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                                </svg></div>
                         </div>
                         <div class="type-card" data-type="hash" onclick="selectType('hash')">
                             <div class="type-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"
@@ -1321,6 +1328,20 @@
                     <input type="text" class="form-input" id="ruleValue" placeholder="Enter value...">
                     <div class="form-hint" id="ruleHint">Select a rule type above</div>
                     <div class="form-error" id="ruleError"></div>
+                </div>
+                <div class="form-group" id="macDomainWarning" style="display:none; margin-top:12px;">
+                    <div
+                        style="background: rgba(255, 171, 0, 0.1); border-left: 4px solid #ffab00; padding: 12px; border-radius: 4px; display:flex; gap:12px; align-items:center;">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffab00" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="8" x2="12" y2="12"></line>
+                            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                        </svg>
+                        <div style="color: #ffab00; font-size: 13px; font-weight: 500;">
+                            Domain blocking is currently only supported on Linux (eBPF). macOS Seatbelt sandboxing
+                            limitation prevents kernel-level hostname enforcement.
+                        </div>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="rulePlatform">Platform</label>
@@ -1627,6 +1648,7 @@
             const sel = document.querySelector(`.type-card[data-type="${rule.type}"]`);
             if (sel) { sel.style.opacity = '1'; }
             document.getElementById('ruleHint').textContent = TYPE_HINTS[rule.type] || '';
+            document.getElementById('macDomainWarning').style.display = (rule.type === 'domain') ? 'block' : 'none';
             document.getElementById('ruleModal').classList.add('open');
         }
 
@@ -1639,6 +1661,7 @@
             document.getElementById('ruleHint').textContent = TYPE_HINTS[type] || '';
             document.getElementById('ruleError').classList.remove('visible');
             document.getElementById('ruleValue').placeholder = TYPE_HINTS[type] || 'Enter value...';
+            document.getElementById('macDomainWarning').style.display = (type === 'domain') ? 'block' : 'none';
             document.getElementById('ruleValue').focus();
         }
 

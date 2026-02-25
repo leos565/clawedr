@@ -87,16 +87,6 @@ def generate_seatbelt(policy: dict, exempted: set[str]) -> str:
                         f'(deny process-exec (literal "{prefix}{name}"))'
                     )
 
-    # ── Blocked domains (comment-only, enforced by log_tailer.py) ──
-    blocked_domains = policy.get("blocked_domains", {})
-    if blocked_domains:
-        lines.append(";;; --- Blocked domains (enforced by log_tailer.py, not kernel-level) ---")
-        for rule_id, domain in blocked_domains.items():
-            if rule_id in exempted:
-                lines.append(f";;;   [{rule_id}] EXEMPTED by user: {domain}")
-            else:
-                lines.append(f";;;   [{rule_id}] {domain}")
-
     # ── Custom deny rules ──
     custom_rules = policy.get("deny_rules", {}).get("macos", {})
     if custom_rules:
@@ -171,8 +161,6 @@ def main() -> int:
 
             if rtype == "executable":
                 policy.setdefault("blocked_executables", {})[rid] = val
-            elif rtype == "domain":
-                policy.setdefault("blocked_domains", {})[rid] = val
             elif rtype == "path":
                 policy.setdefault("blocked_paths", {}).setdefault("macos", {})[rid] = val
             elif rtype == "argument":

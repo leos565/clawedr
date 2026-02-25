@@ -64,10 +64,6 @@ def _load_policy_rule_index() -> dict:
                 
             if rtype == "executable":
                 policy.setdefault("blocked_executables", {})[rid] = val
-            elif rtype == "domain":
-                policy.setdefault("blocked_domains", {})[rid] = val
-            elif rtype == "path":
-                policy.setdefault("blocked_paths", {}).setdefault("macos", {})[rid] = val
             elif rtype == "argument":
                 policy.setdefault("deny_rules", {}).setdefault("macos", {})[rid] = val
                 
@@ -146,6 +142,7 @@ def tail_sandbox_log():
                             if isinstance(directive, str) and target in directive:
                                 rule_id = rid
                                 break
+                    
 
                     # Discard system-wide sandbox noise that isn't ours
                     if not rule_id:

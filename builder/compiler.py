@@ -146,10 +146,10 @@ def compile_macos_seatbelt(rules: dict[str, Any]) -> str:
                     )
 
     # Seatbelt does not support hostname-based filters; domain blocking is
-    # enforced at the application layer by log_tailer.py / openclaw wrapper.
+    # currently unsupported on macOS (no kernel-level hostname enforcement).
     blocked_domains = rules.get("blocked_domains", {})
     if blocked_domains:
-        lines.append(";;; --- Blocked domains (enforced by log_tailer.py, not kernel-level) ---")
+        lines.append(";;; --- Blocked domains (Unsupported on macOS) ---")
         for rule_id, domain in blocked_domains.items():
             lines.append(f';;;   [{rule_id}] {domain}')
 

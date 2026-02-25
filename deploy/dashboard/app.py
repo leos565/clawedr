@@ -205,11 +205,22 @@ def _trigger_enforcement():
     def _run():
         if platform.system() == "Darwin":
             # Re-generate the Seatbelt profile and notify user
-            apply_script = os.path.join(os.path.dirname(__file__), "..", "apply_macos_policy.py")
-            if os.path.exists(apply_script):
+            # Try both the development layout and the installed flat layout
+            base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+            candidates = [
+                os.path.join(base_dir, "macos", "apply_macos_policy.py"),
+                os.path.join(base_dir, "apply_macos_policy.py"),
+            ]
+            apply_script = None
+            for c in candidates:
+                if os.path.exists(c):
+                    apply_script = c
+                    break
+            
+            if apply_script:
                 try:
                     subprocess.run(["python3", apply_script], check=True, capture_output=True)
-                    logger.info("Triggered macOS policy applicator")
+                    logger.info("Triggered macOS policy applicator: %s", apply_script)
                 except subprocess.CalledProcessError as e:
                     logger.error("Failed to apply macOS policy: %s", e.stderr.decode() if e.stderr else str(e))
         else:

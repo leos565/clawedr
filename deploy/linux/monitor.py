@@ -413,8 +413,6 @@ def apply_policy(policy: dict) -> None:
 
             if rtype == "executable":
                 policy.setdefault("blocked_executables", {})[rid] = val
-            elif rtype == "domain":
-                policy.setdefault("blocked_domains", {})[rid] = val
             elif rtype == "hash":
                 policy.setdefault("malicious_hashes", {})[rid] = val.removeprefix("sha256:")
             elif rtype == "path":
