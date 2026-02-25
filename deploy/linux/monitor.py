@@ -595,6 +595,7 @@ def _apply_pipe_heuristic() -> None:
         src_map[ctypes.c_uint64(h)] = ctypes.c_uint8(1)
         loaded_src += 1
 
+    PIPE_HEURISTIC_RULE_ID = "LIN-PIPE-001"
     sink_map = _bpf_instance["dangerous_sinks"]
     sink_map.clear()
     loaded_sink = 0
@@ -602,9 +603,11 @@ def _apply_pipe_heuristic() -> None:
         for prefix in PATH_PREFIXES:
             h = _djb2_hash(prefix + name)
             sink_map[ctypes.c_uint64(h)] = ctypes.c_uint8(1)
+            _hash_to_rule_id.setdefault(h, PIPE_HEURISTIC_RULE_ID)
             loaded_sink += 1
         h = _djb2_hash(name)
         sink_map[ctypes.c_uint64(h)] = ctypes.c_uint8(1)
+        _hash_to_rule_id.setdefault(h, PIPE_HEURISTIC_RULE_ID)
         loaded_sink += 1
 
     logger.info(
