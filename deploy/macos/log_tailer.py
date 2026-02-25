@@ -24,6 +24,7 @@ import time
 # Add parent directory to path so we can import shared modules
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from shared.alert_dispatcher import dispatch_alert_async
+from shared.user_rules import get_custom_rules, USER_RULES_PATH
 
 logger = logging.getLogger("clawedr.log_tailer")
 
@@ -47,7 +48,28 @@ def _load_policy_rule_index() -> dict:
     """Load compiled_policy.json to allow cross-referencing sandbox violations."""
     try:
         with open(POLICY_PATH) as f:
-            return json.load(f)
+            policy = json.load(f)
+            
+        # Merge in custom user rules to the runtime mapping payload
+        custom_rules = get_custom_rules()
+        for rule in custom_rules:
+            rid = rule.get("id", "")
+            rtype = rule.get("type", "")
+            val = rule.get("value", "")
+            plat = rule.get("platform", "both")
+            if plat not in ("both", "macos") or not rid:
+                continue
+                
+            if rtype == "executable":
+                policy.setdefault("blocked_executables", {})[rid] = val
+            elif rtype == "domain":
+                policy.setdefault("blocked_domains", {})[rid] = val
+            elif rtype == "path":
+                policy.setdefault("blocked_paths", {}).setdefault("macos", {})[rid] = val
+            elif rtype == "argument":
+                policy.setdefault("deny_rules", {}).setdefault("macos", {})[rid] = val
+                
+        return policy
     except (FileNotFoundError, json.JSONDecodeError) as exc:
         logger.warning("Could not load policy for rule index: %s", exc)
         return {}
@@ -55,6 +77,7 @@ def _load_policy_rule_index() -> dict:
 
 def tail_sandbox_log():
     """Poll macOS sandbox violation events from the Unified Log."""
+    last_mtime = 0.0
     rule_index = _load_policy_rule_index()
     seen_events = set()
     logger.info("Starting log show polling for sandbox reporting...")
@@ -64,6 +87,12 @@ def tail_sandbox_log():
 
     while True:
         try:
+            # Refresh rule index if policy or user rules changed
+            changed, last_mtime = check_for_policy_update(last_mtime)
+            if changed:
+                logger.info("Policy or user rules updated, reloading rule index...")
+                rule_index = _load_policy_rule_index()
+
             # Check the last 15 seconds to overlap and avoid missing events
             start_time_str = (datetime.now() - timedelta(seconds=15)).strftime("%Y-%m-%d %H:%M:%S")
             cmd = [
@@ -135,12 +164,24 @@ def tail_sandbox_log():
 
 
 def check_for_policy_update(last_mtime: float) -> tuple[bool, float]:
-    """Check if the policy file has been updated since last_mtime."""
-    try:
-        mtime = os.path.getmtime(POLICY_PATH)
-        return (mtime != last_mtime, mtime)
-    except FileNotFoundError:
+    """Check if the system policy or user rules have been updated since last_mtime."""
+    mtimes = []
+    
+    for path in (POLICY_PATH, USER_RULES_PATH):
+        try:
+            mtimes.append(os.path.getmtime(path))
+        except FileNotFoundError:
+            pass
+            
+    if not mtimes:
         return (False, last_mtime)
+        
+    current_max_mtime = max(mtimes)
+    
+    if current_max_mtime != last_mtime:
+        return (True, current_max_mtime)
+        
+    return (False, last_mtime)
 
 
 def notify_user(message: str) -> None:

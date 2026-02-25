@@ -186,9 +186,48 @@ async def update_user_rules(request: Request):
         if "custom_rules" not in body and "custom_rules" in existing:
             body["custom_rules"] = existing["custom_rules"]
         save_user_rules(body)
-        return JSONResponse({"status": "ok", "path": str(USER_RULES_PATH)})
+        _trigger_enforcement()
+        return JSONResponse({
+            "status": "ok", 
+            "path": str(USER_RULES_PATH),
+            "message": _get_enforcement_message()
+        })
     except Exception as exc:
         return JSONResponse({"error": str(exc)}, status_code=400)
+
+
+def _trigger_enforcement():
+    """Trigger background daemon/policy hot reloads when user rules change."""
+    import platform
+    import subprocess
+    import threading
+
+    def _run():
+        if platform.system() == "Darwin":
+            # Re-generate the Seatbelt profile and notify user
+            apply_script = os.path.join(os.path.dirname(__file__), "..", "apply_macos_policy.py")
+            if os.path.exists(apply_script):
+                try:
+                    subprocess.run(["python3", apply_script], check=True, capture_output=True)
+                    logger.info("Triggered macOS policy applicator")
+                except subprocess.CalledProcessError as e:
+                    logger.error("Failed to apply macOS policy: %s", e.stderr.decode() if e.stderr else str(e))
+        else:
+            # On Linux, monitor.py automatically reloads on mtime changes.
+            # Touching the user_rules file ensures the trigger fires immediately if needed.
+            if USER_RULES_PATH.exists():
+                os.utime(USER_RULES_PATH, None)
+            logger.info("Triggered Linux monitor reload")
+
+    threading.Thread(target=_run, daemon=True).start()
+
+
+def _get_enforcement_message():
+    """Return a human-readable message about enforcement latency/actions."""
+    import platform
+    if platform.system() == "Darwin":
+        return "Changes applied. Please restart OpenClaw to enforce new kernel-level rules."
+    return "Changes applied and effective immediately."
 
 
 @app.get("/api/custom-rules")
@@ -211,7 +250,13 @@ async def create_custom_rule(request: Request):
         rule, err = add_custom_rule(rule_type, value, platform)
         if err:
             return JSONResponse({"error": err}, status_code=400)
-        return JSONResponse({"status": "ok", "rule": rule})
+        
+        _trigger_enforcement()
+        return JSONResponse({
+            "status": "ok", 
+            "rule": rule,
+            "message": _get_enforcement_message()
+        })
     except Exception as exc:
         return JSONResponse({"error": str(exc)}, status_code=400)
 
@@ -228,7 +273,13 @@ async def modify_custom_rule(rule_id: str, request: Request):
         )
         if err:
             return JSONResponse({"error": err}, status_code=400)
-        return JSONResponse({"status": "ok", "rule": rule})
+        
+        _trigger_enforcement()
+        return JSONResponse({
+            "status": "ok", 
+            "rule": rule,
+            "message": _get_enforcement_message()
+        })
     except Exception as exc:
         return JSONResponse({"error": str(exc)}, status_code=400)
 
@@ -239,7 +290,13 @@ async def remove_custom_rule(rule_id: str):
     ok, err = delete_custom_rule(rule_id)
     if not ok:
         return JSONResponse({"error": err}, status_code=404)
-    return JSONResponse({"status": "ok", "deleted": rule_id})
+        
+    _trigger_enforcement()
+    return JSONResponse({
+        "status": "ok", 
+        "deleted": rule_id,
+        "message": _get_enforcement_message()
+    })
 
 
 @app.get("/api/status")

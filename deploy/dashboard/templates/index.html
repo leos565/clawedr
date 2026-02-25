@@ -983,10 +983,69 @@
             font-weight: 600;
             color: var(--text-primary);
         }
+
+        /* Toast */
+        .toast-container {
+            position: fixed;
+            top: 24px;
+            right: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            z-index: 1000;
+            pointer-events: none;
+        }
+
+        .toast {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-left: 4px solid var(--accent);
+            padding: 14px 20px;
+            border-radius: var(--radius-sm);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            font-size: 13px;
+            color: var(--text-primary);
+            min-width: 280px;
+            max-width: 400px;
+            transform: translateX(120%);
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            pointer-events: auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .toast.visible {
+            transform: translateX(0);
+        }
+
+        .toast.success {
+            border-left-color: var(--success);
+        }
+
+        .toast.warning {
+            border-left-color: var(--warning);
+        }
+
+        .toast.danger {
+            border-left-color: var(--danger);
+        }
+
+        .toast-close {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 16px;
+            padding: 0;
+            display: flex;
+        }
     </style>
 </head>
 
 <body>
+    <div class="toast-container" id="toastContainer"></div>
     <div class="app-layout">
         <!-- Sidebar -->
         <aside class="sidebar">
@@ -1326,6 +1385,25 @@
         }
         function shouldShowRule(r) { const p = getEffectivePlatform(); if (!p) return true; return r.platform === 'general' || r.platform === p; }
 
+        // ── Toast ──
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `
+                <span>${esc(message)}</span>
+                <button class="toast-close" onclick="this.parentElement.classList.remove('visible'); setTimeout(() => this.parentElement.remove(), 300)">✕</button>
+            `;
+            container.appendChild(toast);
+            // Force reflow
+            toast.offsetHeight;
+            toast.classList.add('visible');
+            setTimeout(() => {
+                toast.classList.remove('visible');
+                setTimeout(() => toast.remove(), 300);
+            }, 5000);
+        }
+
         // ── API ──
         async function fetchJSON(u) { return (await fetch(u)).json(); }
 
@@ -1498,9 +1576,11 @@
         async function saveExemptions() {
             if (!pendingExemptions) return;
             try {
-                await fetch('/api/user-rules', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ exempted_rule_ids: Array.from(pendingExemptions) }) });
+                const res = await fetch('/api/user-rules', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ exempted_rule_ids: Array.from(pendingExemptions) }) });
+                const data = await res.json();
                 exemptedIds = new Set(pendingExemptions); pendingExemptions = null;
                 document.getElementById('saveBanner').classList.remove('visible'); renderRules();
+                if (data.message) showToast(data.message, 'success');
             } catch (e) { alert('Failed to save: ' + e.message); }
         }
         function cancelExemptions() { pendingExemptions = null; document.getElementById('saveBanner').classList.remove('visible'); renderRules(); }
@@ -1582,6 +1662,7 @@
                 if (data.error) { errEl.textContent = data.error; errEl.classList.add('visible'); return; }
                 closeModal();
                 await loadCustomRules();
+                if (data.message) showToast(data.message, 'success');
             } catch (e) { errEl.textContent = 'Request failed: ' + e.message; errEl.classList.add('visible'); }
         }
 
@@ -1592,6 +1673,7 @@
                 const data = await res.json();
                 if (data.error) { alert(data.error); return; }
                 await loadCustomRules();
+                if (data.message) showToast(data.message, 'success');
             } catch (e) { alert('Failed to delete: ' + e.message); }
         }
 

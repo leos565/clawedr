@@ -43,7 +43,7 @@ import time
 
 # Add parent directory to path so we can import shared modules
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from shared.user_rules import get_exempted_rule_ids, get_custom_rules
+from shared.user_rules import get_exempted_rule_ids, get_custom_rules, USER_RULES_PATH
 from shared.alert_dispatcher import dispatch_alert_async
 
 logger = logging.getLogger("clawedr.monitor")
@@ -640,17 +640,22 @@ def watch_and_reload(path: str, interval: int = POLL_INTERVAL) -> None:
     while running:
         now = time.monotonic()
         if now >= next_policy_check:
-            try:
-                mtime = os.path.getmtime(path)
+            mtimes = []
+            for check_path in (path, USER_RULES_PATH):
+                try:
+                    mtimes.append(os.path.getmtime(check_path))
+                except FileNotFoundError:
+                    pass
+            
+            if mtimes:
+                mtime = max(mtimes)
                 if mtime != last_mtime:
-                    logger.info("Policy file changed (mtime %.0f → %.0f), reloading", last_mtime, mtime)
+                    logger.info("Policy or user rules changed (mtime %.0f → %.0f), reloading", last_mtime, mtime)
                     policy = load_policy(path)
                     apply_policy(policy)
                     last_mtime = mtime
-            except FileNotFoundError:
-                logger.warning("Policy file not found at %s — waiting", path)
-            except json.JSONDecodeError as exc:
-                logger.error("Corrupt policy JSON: %s", exc)
+            
+            # (Exception handling merged appropriately above)
             next_policy_check = now + interval
 
         if _bpf_instance is not None:

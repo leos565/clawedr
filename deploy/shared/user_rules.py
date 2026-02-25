@@ -40,8 +40,14 @@ from typing import Any
 
 logger = logging.getLogger("clawedr.user_rules")
 
-USER_RULES_DIR = Path(os.path.expanduser("~/.clawedr"))
+# System-wide path for rules (standardized to avoid home-dir ambiguity)
+USER_RULES_DIR = Path("/etc/clawedr")
 USER_RULES_PATH = USER_RULES_DIR / "user_rules.yaml"
+
+# Fallback for development/non-root environments
+if not os.access("/", os.W_OK) and not USER_RULES_DIR.exists():
+     USER_RULES_DIR = Path(os.path.expanduser("~/.clawedr"))
+     USER_RULES_PATH = USER_RULES_DIR / "user_rules.yaml"
 
 # Valid custom rule types and their ID prefixes
 CUSTOM_RULE_TYPES = {
@@ -97,8 +103,19 @@ def _load_yaml(path: Path) -> dict[str, Any]:
                 current_key = stripped[:-1].strip()
                 result[current_key] = []
             elif stripped.startswith("- ") and current_key is not None:
-                val = stripped[2:].strip().strip("\"'")
-                result[current_key].append(val)
+                content = stripped[2:].strip()
+                if ":" in content:
+                    # Simple dict item within list: "- key: val"
+                    k, v = content.split(":", 1)
+                    result[current_key].append({k.strip(): v.strip().strip("\"'")})
+                else:
+                    result[current_key].append(content.strip("\"'"))
+            elif ":" in stripped and current_key is not None and isinstance(result[current_key], list) and len(result[current_key]) > 0:
+                # Continuation of a dict item: "  key: val" (indented)
+                k, v = stripped.split(":", 1)
+                last_item = result[current_key][-1]
+                if isinstance(last_item, dict):
+                    last_item[k.strip()] = v.strip().strip("\"'")
     return result
 
 

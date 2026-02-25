@@ -62,16 +62,16 @@ install_dashboard_deps() {
     #   2. --ignore-installed (skip uninstall of apt-managed packages)
     #   3. --force-reinstall as last resort
     if $PIP install --quiet --break-system-packages --ignore-installed \
-            fastapi uvicorn typing-extensions pydantic 2>/dev/null; then
+            fastapi uvicorn typing-extensions pydantic pyyaml 2>/dev/null; then
         log "Dashboard dependencies installed successfully"
     elif $PIP install --quiet --break-system-packages --force-reinstall \
-            fastapi uvicorn typing-extensions pydantic 2>/dev/null; then
+            fastapi uvicorn typing-extensions pydantic pyyaml 2>/dev/null; then
         log "Dashboard dependencies installed (force-reinstall)"
-    elif $PIP install --quiet fastapi uvicorn typing-extensions pydantic 2>/dev/null; then
+    elif $PIP install --quiet fastapi uvicorn typing-extensions pydantic pyyaml 2>/dev/null; then
         log "Dashboard dependencies installed"
     else
-        log "WARNING: Could not install fastapi/uvicorn via pip."
-        log "  Install manually: pip3 install fastapi uvicorn typing-extensions pydantic"
+        log "WARNING: Could not install dependencies via pip."
+        log "  Install manually: pip3 install fastapi uvicorn typing-extensions pydantic pyyaml"
     fi
 }
 
@@ -197,6 +197,8 @@ install_macos() {
 
     mkdir -p "$CLAWEDR_DIR/shared"
     mkdir -p "$CLAWEDR_DIR/dashboard/templates"
+    mkdir -p "/etc/clawedr"
+    chmod 777 "/etc/clawedr" || true
     cp "$tmpdir/clawedr.sb"              "$CLAWEDR_DIR/"
     cp "$tmpdir/log_tailer.py"           "$CLAWEDR_DIR/"
     cp "$tmpdir/apply_macos_policy.py"   "$CLAWEDR_DIR/"
@@ -253,6 +255,8 @@ install_linux() {
 
     mkdir -p "$CLAWEDR_DIR/shared"
     mkdir -p "$CLAWEDR_DIR/dashboard/templates"
+    mkdir -p "/etc/clawedr"
+    chmod 777 "/etc/clawedr" || true
     cp "$tmpdir/compiled_policy.json" "$CLAWEDR_DIR/"
     cp "$tmpdir/bpf_hooks.c"         "$CLAWEDR_DIR/"
     cp "$tmpdir/monitor.py"          "$CLAWEDR_DIR/"
