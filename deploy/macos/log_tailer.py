@@ -40,7 +40,7 @@ SEATBELT_PROFILE = os.environ.get(
 POLL_INTERVAL = int(os.environ.get("CLAWEDR_POLL_INTERVAL", "10"))
 
 # Regex to extract blocked path/process from sandbox violation log lines
-_DENY_RE = re.compile(r"deny\(?\d*\)?\s+([\w-]+)\s+(.*)", re.IGNORECASE)
+_DENY_RE = re.compile(r"deny\(?\d*\)?\s+([\w\-\*]+)\s+(.*)", re.IGNORECASE)
 
 
 def _load_policy_rule_index() -> dict[str, str]:
@@ -70,55 +70,64 @@ def _load_policy_rule_index() -> dict[str, str]:
 
 
 def tail_sandbox_log():
-    """Stream macOS sandbox violation events from the Unified Log."""
-    cmd = [
-        "log", "stream", "--style", "compact",
-        "--predicate", 'subsystem == "com.apple.sandbox.reporter"',
-    ]
-    logger.info("Starting log stream: %s", " ".join(cmd))
-
+    """Poll macOS sandbox violation events from the Unified Log."""
     rule_index = _load_policy_rule_index()
+    seen_events = set()
+    logger.info("Starting log show polling for sandbox reporting...")
 
-    proc = subprocess.Popen(
-        cmd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.DEVNULL,
-        text=True,
-    )
-    try:
-        for line in proc.stdout:
-            line = line.strip()
-            if not line:
-                continue
+    from datetime import datetime, timedelta
+    import time
 
-            logger.info("SANDBOX EVENT: %s", line)
+    while True:
+        try:
+            # Check the last 15 seconds to overlap and avoid missing events
+            start_time_str = (datetime.now() - timedelta(seconds=15)).strftime("%Y-%m-%d %H:%M:%S")
+            cmd = [
+                "log", "show", "--style", "compact",
+                "--predicate", 'subsystem == "com.apple.sandbox.reporter" OR subsystem == "com.apple.sandbox.reporting"',
+                "--start", start_time_str
+            ]
+            
+            proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+            
+            for line in proc.stdout.splitlines():
+                line = line.strip()
+                # Skip meaningless or already processed lines
+                if not line or "Filtering the log data" in line or line in seen_events:
+                    continue
+                
+                seen_events.add(line)
+                # Keep the set size manageable
+                if len(seen_events) > 5000:
+                    seen_events.clear()
 
-            # Try to extract what was denied and dispatch an alert
-            match = _DENY_RE.search(line)
-            if match:
-                action = match.group(1)  # e.g. "file-read-data"
-                target = match.group(2).strip()  # e.g. "/Users/leo/.ssh/id_rsa"
+                logger.info("SANDBOX EVENT: %s", line)
 
-                # Try to find a matching Rule ID
-                rule_id = "UNKNOWN"
-                for value, rid in rule_index.items():
-                    if value in target:
-                        rule_id = rid
-                        break
+                # Try to extract what was denied and dispatch an alert
+                match = _DENY_RE.search(line)
+                if match:
+                    action = match.group(1)  # e.g. "file-read-data"
+                    target = match.group(2).strip()  # e.g. "/Users/leo/.ssh/id_rsa"
 
-                # Log the blocked event in the format expected by the dashboard
-                logger.warning("BLOCKED [%s] action=%s target=%s", rule_id, action, target)
+                    # Try to find a matching Rule ID
+                    rule_id = "UNKNOWN"
+                    for value, rid in rule_index.items():
+                        if value in target:
+                            rule_id = rid
+                            break
 
-                dispatch_alert_async(
-                    rule_id=rule_id,
-                    action=action,
-                    target=target,
-                )
+                    # Log the blocked event in the format expected by the dashboard
+                    logger.warning("BLOCKED [%s] action=%s target=%s", rule_id, action, target)
 
-    except KeyboardInterrupt:
-        pass
-    finally:
-        proc.terminate()
+                    dispatch_alert_async(
+                        rule_id=rule_id,
+                        action=action,
+                        target=target,
+                    )
+        except Exception as e:
+            logger.error("Error polling log show: %s", str(e))
+        
+        time.sleep(5)
 
 
 def check_for_policy_update(last_mtime: float) -> tuple[bool, float]:
@@ -162,10 +171,15 @@ def monitor_policy_updates() -> None:
 
 
 def _configure_logging() -> None:
-    """Configure logging to macOS Console.app via os_log when pyoslog is available."""
+    """Configure logging to stderr and optionally macOS Console.app."""
     root = logging.getLogger()
     root.setLevel(logging.INFO)
     fmt = logging.Formatter("%(asctime)s %(levelname)s [%(name)s] %(message)s")
+
+    # Always log to stderr (goes to /tmp/clawedr_log_tailer.log when run by shield_mac.sh)
+    stream = logging.StreamHandler(sys.stderr)
+    stream.setFormatter(fmt)
+    root.addHandler(stream)
 
     try:
         import pyoslog
@@ -173,14 +187,8 @@ def _configure_logging() -> None:
             handler = pyoslog.Handler()
             handler.setSubsystem(OSLOG_SUBSYSTEM, OSLOG_CATEGORY)
             root.addHandler(handler)
-            return
     except ImportError:
         pass
-
-    # Fallback: stderr (goes to /tmp/clawedr_log_tailer.log when run by shield_mac.sh)
-    stream = logging.StreamHandler(sys.stderr)
-    stream.setFormatter(fmt)
-    root.addHandler(stream)
 
 
 def main() -> int:

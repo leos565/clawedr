@@ -70,6 +70,19 @@ def _load_rule_metadata() -> dict:
         return {}
 
 
+def _find_openclaw() -> Optional[str]:
+    """Find the openclaw executable, falling back to typical install paths."""
+    import shutil
+    import os
+    oc = shutil.which("openclaw")
+    if oc:
+        return oc
+    for p in ["/usr/local/bin/openclaw", "/opt/homebrew/bin/openclaw"]:
+        if os.path.exists(p) and os.access(p, os.X_OK):
+            return p
+    return None
+
+
 def _parse_log_lines(max_lines: int = 200) -> list[dict]:
     """Parse recent BLOCKED entries from the log files."""
     alerts: list[dict] = []
@@ -239,7 +252,7 @@ async def get_status():
         "os": platform.system(),
         "policy_exists": os.path.exists(POLICY_PATH),
         "user_rules_exists": USER_RULES_PATH.exists(),
-        "openclaw_available": shutil.which("openclaw") is not None,
+        "openclaw_available": _find_openclaw() is not None,
     }
     return JSONResponse(status)
 
@@ -252,7 +265,7 @@ async def get_sessions():
     import platform as _platform
     import pwd
 
-    openclaw = shutil.which("openclaw")
+    openclaw = _find_openclaw()
     if not openclaw:
         return JSONResponse({"sessions": [], "error": "openclaw not found"})
 
