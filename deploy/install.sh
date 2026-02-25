@@ -46,22 +46,33 @@ fetch() {
 install_dashboard_deps() {
     log "Installing Dashboard dependencies (fastapi, uvicorn)..."
 
-    # Prefer pip3, fall back to pip
+    # Prefer pip3, fall back to pip, then python3 -m pip
     PIP=""
     if command -v pip3 >/dev/null 2>&1; then
         PIP="pip3"
     elif command -v pip >/dev/null 2>&1; then
         PIP="pip"
-    fi
-
-    if [ -z "$PIP" ]; then
-        log "WARNING: pip not found — attempting python3 -m pip"
+    else
         PIP="python3 -m pip"
     fi
 
-    $PIP install --quiet --break-system-packages fastapi uvicorn 2>/dev/null \
-        || $PIP install --quiet fastapi uvicorn 2>/dev/null \
-        || log "WARNING: Could not install fastapi/uvicorn via pip. Install manually: pip3 install fastapi uvicorn"
+    # Strategy: try normal install first.  On modern Debian/Ubuntu, system-managed
+    # packages (e.g. typing_extensions) can block pip.  We handle this with:
+    #   1. --break-system-packages (PEP 668 override)
+    #   2. --ignore-installed (skip uninstall of apt-managed packages)
+    #   3. --force-reinstall as last resort
+    if $PIP install --quiet --break-system-packages --ignore-installed \
+            fastapi uvicorn 2>/dev/null; then
+        log "Dashboard dependencies installed successfully"
+    elif $PIP install --quiet --break-system-packages --force-reinstall \
+            fastapi uvicorn 2>/dev/null; then
+        log "Dashboard dependencies installed (force-reinstall)"
+    elif $PIP install --quiet fastapi uvicorn 2>/dev/null; then
+        log "Dashboard dependencies installed"
+    else
+        log "WARNING: Could not install fastapi/uvicorn via pip."
+        log "  Install manually: pip3 install fastapi uvicorn"
+    fi
 }
 
 install_dashboard_launchd() {
@@ -70,6 +81,12 @@ install_dashboard_launchd() {
     PLIST_LABEL="com.clawedr.dashboard"
     PLIST_DIR="/Library/LaunchDaemons"
     PLIST_PATH="$PLIST_DIR/$PLIST_LABEL.plist"
+
+    # Stop existing service first
+    if launchctl list "$PLIST_LABEL" >/dev/null 2>&1; then
+        log "Stopping existing dashboard service..."
+        launchctl unload "$PLIST_PATH" 2>/dev/null || true
+    fi
 
     # Find python3 binary path
     PYTHON3="$(command -v python3 || echo /usr/bin/python3)"
@@ -109,7 +126,6 @@ install_dashboard_launchd() {
 </plist>
 PLIST
 
-    launchctl unload "$PLIST_PATH" 2>/dev/null || true
     launchctl load -w "$PLIST_PATH" 2>/dev/null || true
     log "Dashboard launchd service installed and started at http://localhost:$CLAWEDR_DASHBOARD_PORT"
 }
@@ -119,6 +135,12 @@ install_dashboard_systemd() {
 
     PYTHON3="$(command -v python3 || echo /usr/bin/python3)"
     SERVICE_PATH="/etc/systemd/system/clawedr-dashboard.service"
+
+    # Stop existing service first to avoid conflicts
+    if systemctl is-active clawedr-dashboard >/dev/null 2>&1; then
+        log "Stopping existing dashboard service..."
+        systemctl stop clawedr-dashboard 2>/dev/null || true
+    fi
 
     cat > "$SERVICE_PATH" <<SERVICE
 [Unit]
@@ -133,6 +155,8 @@ Environment=CLAWEDR_DASHBOARD_PORT=$CLAWEDR_DASHBOARD_PORT
 Environment=PYTHONPATH=$CLAWEDR_DIR
 Restart=on-failure
 RestartSec=5
+StartLimitIntervalSec=60
+StartLimitBurst=5
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=clawedr-dashboard
