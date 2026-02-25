@@ -31,6 +31,27 @@ def _find_openclaw() -> str | None:
     return shutil.which("openclaw")
 
 
+def _get_openclaw_cmd(base_cmd: list[str]) -> tuple[list[str], dict | None]:
+    import os, pwd, platform as _platform
+    cmd = base_cmd.copy()
+    env = None
+    if os.getuid() == 0:
+        run_user = os.environ.get("SUDO_USER")
+        if not run_user:
+            for pw in pwd.getpwall():
+                if pw.pw_uid >= 500 and pw.pw_uid < 65534 and pw.pw_shell not in ("/usr/sbin/nologin", "/bin/false", "/sbin/nologin"):
+                    run_user = pw.pw_name
+                    break
+        if run_user:
+            pw = pwd.getpwnam(run_user)
+            env = os.environ.copy()
+            env["HOME"] = pw.pw_dir
+            env["USER"] = run_user
+            if _platform.system() == "Linux":
+                cmd = ["sudo", "-u", run_user, "--"] + cmd
+    return cmd, env
+
+
 def _get_active_session() -> dict | None:
     """Query OpenClaw for the most recently active session.
 
@@ -41,8 +62,10 @@ def _get_active_session() -> dict | None:
         return None
 
     try:
+        cmd, env = _get_openclaw_cmd([openclaw, "sessions", "--active", "1440", "--json"])
         result = subprocess.run(
-            [openclaw, "sessions", "--active", "5", "--json"],
+            cmd,
+            env=env,
             capture_output=True, text=True, timeout=5,
         )
         if result.returncode != 0:
@@ -110,7 +133,7 @@ def dispatch_alert(
         openclaw, "agent",
         "--message", message,
         "--deliver",
-        "--session-id", str(session.get("id", "")),
+        "--session-id", str(session.get("sessionId", session.get("id", ""))),
     ]
 
     # Add channel routing if available

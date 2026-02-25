@@ -56,7 +56,6 @@
     "linux": {
       "PATH-LIN-001": "/root/.ssh",
       "PATH-LIN-002": "/etc/shadow",
-      "PATH-LIN-003": "/etc/passwd",
       "PATH-LIN-004": "/etc/sudoers",
       "PATH-LIN-005": "/etc/sudoers.d",
       "PATH-LIN-006": "/home/*/.ssh",

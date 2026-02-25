@@ -50,7 +50,9 @@ blocked_paths:
   linux:
     PATH-LIN-001: "/root/.ssh"
     PATH-LIN-002: "/etc/shadow"
-    PATH-LIN-003: "/etc/passwd"
+    # NOTE: /etc/passwd intentionally NOT blocked — it is world-readable and
+    # accessed by every process via getpwuid(). Write-protection is handled
+    # by deny rule LIN-038 (persistence_add_root_user).
     PATH-LIN-004: "/etc/sudoers"
     PATH-LIN-005: "/etc/sudoers.d"
     PATH-LIN-006: "/home/*/.ssh"

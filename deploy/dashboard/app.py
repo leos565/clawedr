@@ -195,15 +195,39 @@ async def get_sessions():
     """Return active OpenClaw sessions."""
     import shutil
     import subprocess
+    import platform as _platform
+    import pwd
 
     openclaw = shutil.which("openclaw")
     if not openclaw:
         return JSONResponse({"sessions": [], "error": "openclaw not found"})
 
     try:
+        # When running as root (systemd/launchd), we need to query the real
+        # user's sessions.  Discover who that is via SUDO_USER or by finding
+        # the first login user with a home directory.
+        cmd = [openclaw, "sessions", "--active", "1440", "--json"]
+        env = None
+        run_user = None
+
+        if os.getuid() == 0:
+            run_user = os.environ.get("SUDO_USER")
+            if not run_user:
+                # Find first non-root human user (uid >= 500)
+                for pw in pwd.getpwall():
+                    if pw.pw_uid >= 500 and pw.pw_uid < 65534 and pw.pw_shell not in ("/usr/sbin/nologin", "/bin/false", "/sbin/nologin"):
+                        run_user = pw.pw_name
+                        break
+            if run_user:
+                pw = pwd.getpwnam(run_user)
+                env = os.environ.copy()
+                env["HOME"] = pw.pw_dir
+                env["USER"] = run_user
+                if _platform.system() == "Linux":
+                    cmd = ["sudo", "-u", run_user, "--"] + cmd
+
         result = subprocess.run(
-            [openclaw, "sessions", "--active", "5", "--json"],
-            capture_output=True, text=True, timeout=5,
+            cmd, capture_output=True, text=True, timeout=5, env=env,
         )
         if result.returncode != 0:
             return JSONResponse({"sessions": [], "error": result.stderr.strip()})

@@ -1054,7 +1054,7 @@
                 document.getElementById('sessionCountBadge').textContent = ss.length;
                 const c = document.getElementById('sessionsListContainer');
                 if (!ss.length) { c.innerHTML = '<div class="sessions-empty">No active sessions</div>'; return; }
-                c.innerHTML = ss.map(s => { const id = s.id || s.session_id || 'unknown', short = typeof id === 'string' ? id.substring(0, 12) + '…' : id, ch = s.channel || s.reply_channel || ''; return `<div class="session-item"><div class="session-dot"></div><span class="session-id" title="${esc(String(id))}">${esc(String(short))}</span>${ch ? `<span class="session-channel">${esc(ch)}</span>` : ''}</div>`; }).join('');
+                c.innerHTML = ss.map(s => { const id = s.id || s.session_id || s.sessionId || 'unknown', short = typeof id === 'string' ? id.substring(0, 12) + '…' : id, ch = s.channel || s.reply_channel || ''; return `<div class="session-item"><div class="session-dot"></div><span class="session-id" title="${esc(String(id))}">${esc(String(short))}</span>${ch ? `<span class="session-channel">${esc(ch)}</span>` : ''}</div>`; }).join('');
             } catch { document.getElementById('sessionCountBadge').textContent = '?'; }
         }
 
