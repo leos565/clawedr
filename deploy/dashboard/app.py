@@ -56,7 +56,7 @@ BLOCK_LOG_PATHS = [
 _BLOCK_LINE_RE = re.compile(
     r"(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}[,.]?\d*)\s+"
     r"WARNING\s+\[[\w.]+\]\s+"
-    r"BLOCKED\s+\[([A-Z0-9_-]+)\]\s+(.*)"
+    r"(?:BLOCKED|WARNING)\s+\[([A-Z0-9_-]+)\]\s+(.*)"
 )
 
 

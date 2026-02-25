@@ -324,18 +324,24 @@ def monitor_network_connections() -> None:
                 time.sleep(NET_POLL_INTERVAL)
                 continue
 
-            # Parse lsof output for ESTABLISHED TCP connections
-            # Format: COMMAND PID USER FD TYPE DEVICE SIZE/OFF NODE NAME
-            # NAME looks like: 1.2.3.4:443->5.6.7.8:12345 (ESTABLISHED)
+            # Parse lsof output for TCP connections (any state)
+            # Format: COMMAND PID USER FD TYPE DEVICE SIZE/OFF NODE NAME (STATE)
+            # NAME looks like: 192.168.1.1:54321->104.22.10.63:443
+            # STATE can be: (ESTABLISHED), (SYN_SENT), (CLOSE_WAIT), (LISTEN), etc.
             ip_re = re.compile(r"(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}):(\d+)")
 
             for line in lsof_out.stdout.splitlines():
                 if "TCP" not in line:
                     continue
+                # Skip LISTEN sockets (incoming, not outbound connections)
+                if "(LISTEN)" in line:
+                    continue
                 parts = line.split()
                 if len(parts) < 9:
                     continue
-                name = parts[-1] if parts[-1] != "(ESTABLISHED)" else parts[-2]
+                # The connection info is the second-to-last field if state is present,
+                # or the last field if no state. State is always in parens.
+                name = parts[-2] if parts[-1].startswith("(") else parts[-1]
                 # Extract remote IP from "local->remote" format
                 if "->" in name:
                     remote_part = name.split("->")[1]
@@ -357,7 +363,7 @@ def monitor_network_connections() -> None:
                         if alert_key not in seen_alerts:
                             seen_alerts.add(alert_key)
                             block_logger.warning(
-                                "BLOCKED [%s] action=network-connect target=%s (IP match)",
+                                "WARNING [%s] action=network-connect target=%s (IP match, monitoring-only)",
                                 rid, remote_ip,
                             )
                             dispatch_alert_async(
@@ -380,7 +386,7 @@ def monitor_network_connections() -> None:
                             if alert_key not in seen_alerts:
                                 seen_alerts.add(alert_key)
                                 block_logger.warning(
-                                    "BLOCKED [%s] action=dns-lookup target=%s (resolved from %s)",
+                                    "WARNING [%s] action=dns-lookup target=%s (resolved from %s, monitoring-only)",
                                     rid, blocked_domain, remote_ip,
                                 )
                                 dispatch_alert_async(
