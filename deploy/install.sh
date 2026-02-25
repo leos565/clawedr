@@ -105,6 +105,8 @@ install_dashboard_launchd() {
     </array>
     <key>EnvironmentVariables</key>
     <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
         <key>CLAWEDR_POLICY_PATH</key>
         <string>$CLAWEDR_DIR/compiled_policy.json</string>
         <key>CLAWEDR_DASHBOARD_PORT</key>
