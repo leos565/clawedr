@@ -16,20 +16,23 @@
  * so events can include the namespace PID for /proc access.
  */
 
-#include <uapi/linux/ptrace.h>
-#include <linux/sched.h>
 #include <linux/fs.h>
+#include <linux/in.h>
+#include <linux/sched.h>
+#include <linux/socket.h>
+#include <uapi/linux/ptrace.h>
 
 #define MAX_FILENAME_LEN 256
-#define PIPE_WINDOW_NS   2000000000ULL  /* 2 seconds */
+#define PIPE_WINDOW_NS 2000000000ULL /* 2 seconds */
 
 struct event_t {
-    u32 pid;
-    u32 ns_pid;
-    u32 uid;
-    char comm[TASK_COMM_LEN];
-    char filename[MAX_FILENAME_LEN];
-    u8  action; // 0 = observed (enter), 1 = blocked (SIGKILL), 2 = post-exec (exit, for deny_rules)
+  u32 pid;
+  u32 ns_pid;
+  u32 uid;
+  char comm[TASK_COMM_LEN];
+  char filename[MAX_FILENAME_LEN];
+  u8 action; // 0 = observed (enter), 1 = blocked (SIGKILL), 2 = post-exec
+             // (exit, for deny_rules)
 };
 
 /* --- Maps populated by monitor.py --- */
@@ -41,113 +44,114 @@ BPF_HASH(dangerous_sources, u64, u8, 64);
 BPF_HASH(dangerous_sinks, u64, u8, 64);
 
 BPF_HASH(pipe_sources, u32, u64, 256);
+BPF_HASH(blocked_ips, u32, u8, 1024);
 
 BPF_PERF_OUTPUT(events);
 
 static __always_inline u64 simple_hash(const char *s, int len) {
-    u64 h = 5381;
-    for (int i = 0; i < len && i < MAX_FILENAME_LEN; i++) {
-        char c = 0;
-        bpf_probe_read_user(&c, 1, &s[i]);
-        if (c == 0) break;
-        h = ((h << 5) + h) + (u64)c;
-    }
-    return h;
+  u64 h = 5381;
+  for (int i = 0; i < len && i < MAX_FILENAME_LEN; i++) {
+    char c = 0;
+    bpf_probe_read_user(&c, 1, &s[i]);
+    if (c == 0)
+      break;
+    h = ((h << 5) + h) + (u64)c;
+  }
+  return h;
 }
 
 static __always_inline u32 get_ppid(void) {
-    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
-    u32 ppid = 0;
-    bpf_probe_read_kernel(&ppid, sizeof(ppid),
-        &task->real_parent->tgid);
-    return ppid;
+  struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+  u32 ppid = 0;
+  bpf_probe_read_kernel(&ppid, sizeof(ppid), &task->real_parent->tgid);
+  return ppid;
 }
 
 static __always_inline u32 get_grandparent_pid(void) {
-    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
-    u32 gpid = 0;
-    if (task->real_parent && task->real_parent->real_parent)
-        bpf_probe_read_kernel(&gpid, sizeof(gpid),
-            &task->real_parent->real_parent->tgid);
-    return gpid;
+  struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+  u32 gpid = 0;
+  if (task->real_parent && task->real_parent->real_parent)
+    bpf_probe_read_kernel(&gpid, sizeof(gpid),
+                          &task->real_parent->real_parent->tgid);
+  return gpid;
 }
 
 static __always_inline u32 get_ns_pid(void) {
 #if defined(PIDNS_DEV) && defined(PIDNS_INO)
-    struct bpf_pidns_info ni = {};
-    if (bpf_get_ns_current_pid_tgid(PIDNS_DEV, PIDNS_INO, &ni, sizeof(ni)) == 0)
-        return ni.tgid;
+  struct bpf_pidns_info ni = {};
+  if (bpf_get_ns_current_pid_tgid(PIDNS_DEV, PIDNS_INO, &ni, sizeof(ni)) == 0)
+    return ni.tgid;
 #endif
-    return bpf_get_current_pid_tgid() >> 32;
+  return bpf_get_current_pid_tgid() >> 32;
 }
 
 /* ── execve: auto-detect OpenClaw, enforce blocked execs + pipe heuristic ── */
 TRACEPOINT_PROBE(syscalls, sys_enter_execve) {
-    struct event_t evt = {};
-    u64 pid_tgid = bpf_get_current_pid_tgid();
-    u32 pid = pid_tgid >> 32;
+  struct event_t evt = {};
+  u64 pid_tgid = bpf_get_current_pid_tgid();
+  u32 pid = pid_tgid >> 32;
 
-    const char *fname = args->filename;
-    u64 h = simple_hash(fname, MAX_FILENAME_LEN);
+  const char *fname = args->filename;
+  u64 h = simple_hash(fname, MAX_FILENAME_LEN);
 
-    u8 *is_target = target_bins.lookup(&h);
-    if (is_target) {
-        u8 one = 1;
-        tracked_pids.update(&pid, &one);
+  u8 *is_target = target_bins.lookup(&h);
+  if (is_target) {
+    u8 one = 1;
+    tracked_pids.update(&pid, &one);
+  }
+
+  u8 *is_tracked = tracked_pids.lookup(&pid);
+  if (!is_tracked)
+    return 0;
+
+  evt.pid = pid;
+  evt.ns_pid = get_ns_pid();
+  evt.uid = bpf_get_current_uid_gid() & 0xFFFFFFFF;
+  bpf_get_current_comm(&evt.comm, sizeof(evt.comm));
+  bpf_probe_read_user_str(&evt.filename, sizeof(evt.filename), fname);
+
+  /* Layer 1: blocked executable */
+  u8 *is_blocked = blocked_hashes.lookup(&h);
+  if (is_blocked) {
+    evt.action = 1;
+    events.perf_submit(args, &evt, sizeof(evt));
+    bpf_send_signal(SIGKILL);
+    return 0;
+  }
+
+  /* Layer 3: pipe heuristic — record dangerous sources, kill sinks */
+  u8 *is_source = dangerous_sources.lookup(&h);
+  if (is_source) {
+    u64 now = bpf_ktime_get_ns();
+    u32 ppid = get_ppid();
+    pipe_sources.update(&ppid, &now);
+    u32 gpid = get_grandparent_pid();
+    if (gpid)
+      pipe_sources.update(&gpid, &now);
+  }
+
+  u8 *is_sink = dangerous_sinks.lookup(&h);
+  if (is_sink) {
+    u32 ppid = get_ppid();
+    u64 *src_ts = pipe_sources.lookup(&ppid);
+    if (!src_ts) {
+      u32 gpid = get_grandparent_pid();
+      src_ts = pipe_sources.lookup(&gpid);
     }
-
-    u8 *is_tracked = tracked_pids.lookup(&pid);
-    if (!is_tracked)
-        return 0;
-
-    evt.pid = pid;
-    evt.ns_pid = get_ns_pid();
-    evt.uid = bpf_get_current_uid_gid() & 0xFFFFFFFF;
-    bpf_get_current_comm(&evt.comm, sizeof(evt.comm));
-    bpf_probe_read_user_str(&evt.filename, sizeof(evt.filename), fname);
-
-    /* Layer 1: blocked executable */
-    u8 *is_blocked = blocked_hashes.lookup(&h);
-    if (is_blocked) {
+    if (src_ts) {
+      u64 now = bpf_ktime_get_ns();
+      if ((now - *src_ts) < PIPE_WINDOW_NS) {
         evt.action = 1;
         events.perf_submit(args, &evt, sizeof(evt));
         bpf_send_signal(SIGKILL);
         return 0;
+      }
     }
+  }
 
-    /* Layer 3: pipe heuristic — record dangerous sources, kill sinks */
-    u8 *is_source = dangerous_sources.lookup(&h);
-    if (is_source) {
-        u64 now = bpf_ktime_get_ns();
-        u32 ppid = get_ppid();
-        pipe_sources.update(&ppid, &now);
-        u32 gpid = get_grandparent_pid();
-        if (gpid)
-            pipe_sources.update(&gpid, &now);
-    }
-
-    u8 *is_sink = dangerous_sinks.lookup(&h);
-    if (is_sink) {
-        u32 ppid = get_ppid();
-        u64 *src_ts = pipe_sources.lookup(&ppid);
-        if (!src_ts) {
-            u32 gpid = get_grandparent_pid();
-            src_ts = pipe_sources.lookup(&gpid);
-        }
-        if (src_ts) {
-            u64 now = bpf_ktime_get_ns();
-            if ((now - *src_ts) < PIPE_WINDOW_NS) {
-                evt.action = 1;
-                events.perf_submit(args, &evt, sizeof(evt));
-                bpf_send_signal(SIGKILL);
-                return 0;
-            }
-        }
-    }
-
-    evt.action = 0;
-    events.perf_submit(args, &evt, sizeof(evt));
-    return 0;
+  evt.action = 0;
+  events.perf_submit(args, &evt, sizeof(evt));
+  return 0;
 }
 
 /* ── execve exit: deny_rules need /proc/cmdline after process replacement ──
@@ -156,100 +160,150 @@ TRACEPOINT_PROBE(syscalls, sys_enter_execve) {
  * We submit a second event here so userspace can match deny_rules correctly.
  */
 TRACEPOINT_PROBE(syscalls, sys_exit_execve) {
-    u64 pid_tgid = bpf_get_current_pid_tgid();
-    u32 pid = pid_tgid >> 32;
+  u64 pid_tgid = bpf_get_current_pid_tgid();
+  u32 pid = pid_tgid >> 32;
 
-    u8 *is_tracked = tracked_pids.lookup(&pid);
-    if (!is_tracked)
-        return 0;
+  u8 *is_tracked = tracked_pids.lookup(&pid);
+  if (!is_tracked)
+    return 0;
 
+  struct event_t evt = {};
+  evt.pid = pid;
+  evt.ns_pid = get_ns_pid();
+  evt.uid = bpf_get_current_uid_gid() & 0xFFFFFFFF;
+  bpf_get_current_comm(&evt.comm, sizeof(evt.comm));
+  __builtin_memcpy(evt.filename, evt.comm, sizeof(evt.comm));
+  evt.action = 2; /* post-exec: /proc/cmdline now has new argv */
+  events.perf_submit(args, &evt, sizeof(evt));
+  return 0;
+}
+
+/* ── openat: enforce blocked paths ── */
+TRACEPOINT_PROBE(syscalls, sys_enter_openat) {
+  u64 pid_tgid = bpf_get_current_pid_tgid();
+  u32 pid = pid_tgid >> 32;
+
+  u8 *is_tracked = tracked_pids.lookup(&pid);
+  if (!is_tracked)
+    return 0;
+
+  const char *fname = args->filename;
+  u64 h = simple_hash(fname, MAX_FILENAME_LEN);
+
+  u8 *is_blocked = blocked_path_hashes.lookup(&h);
+  if (is_blocked) {
     struct event_t evt = {};
     evt.pid = pid;
     evt.ns_pid = get_ns_pid();
     evt.uid = bpf_get_current_uid_gid() & 0xFFFFFFFF;
     bpf_get_current_comm(&evt.comm, sizeof(evt.comm));
-    __builtin_memcpy(evt.filename, evt.comm, sizeof(evt.comm));
-    evt.action = 2;  /* post-exec: /proc/cmdline now has new argv */
+    bpf_probe_read_user_str(&evt.filename, sizeof(evt.filename), fname);
+    evt.action = 1;
     events.perf_submit(args, &evt, sizeof(evt));
-    return 0;
-}
+    bpf_send_signal(SIGKILL);
+  }
 
-/* ── openat: enforce blocked paths ── */
-TRACEPOINT_PROBE(syscalls, sys_enter_openat) {
-    u64 pid_tgid = bpf_get_current_pid_tgid();
-    u32 pid = pid_tgid >> 32;
-
-    u8 *is_tracked = tracked_pids.lookup(&pid);
-    if (!is_tracked)
-        return 0;
-
-    const char *fname = args->filename;
-    u64 h = simple_hash(fname, MAX_FILENAME_LEN);
-
-    u8 *is_blocked = blocked_path_hashes.lookup(&h);
-    if (is_blocked) {
-        struct event_t evt = {};
-        evt.pid = pid;
-        evt.ns_pid = get_ns_pid();
-        evt.uid = bpf_get_current_uid_gid() & 0xFFFFFFFF;
-        bpf_get_current_comm(&evt.comm, sizeof(evt.comm));
-        bpf_probe_read_user_str(&evt.filename, sizeof(evt.filename), fname);
-        evt.action = 1;
-        events.perf_submit(args, &evt, sizeof(evt));
-        bpf_send_signal(SIGKILL);
-    }
-
-    return 0;
+  return 0;
 }
 
 /* ── statx: enforce blocked paths (covers Rust coreutils / newer libc) ── */
 TRACEPOINT_PROBE(syscalls, sys_enter_statx) {
-    u64 pid_tgid = bpf_get_current_pid_tgid();
-    u32 pid = pid_tgid >> 32;
+  u64 pid_tgid = bpf_get_current_pid_tgid();
+  u32 pid = pid_tgid >> 32;
 
-    u8 *is_tracked = tracked_pids.lookup(&pid);
-    if (!is_tracked)
-        return 0;
-
-    const char *fname = (const char *)args->filename;
-    u64 h = simple_hash(fname, MAX_FILENAME_LEN);
-
-    u8 *is_blocked = blocked_path_hashes.lookup(&h);
-    if (is_blocked) {
-        struct event_t evt = {};
-        evt.pid = pid;
-        evt.ns_pid = get_ns_pid();
-        evt.uid = bpf_get_current_uid_gid() & 0xFFFFFFFF;
-        bpf_get_current_comm(&evt.comm, sizeof(evt.comm));
-        bpf_probe_read_user_str(&evt.filename, sizeof(evt.filename), fname);
-        evt.action = 1;
-        events.perf_submit(args, &evt, sizeof(evt));
-        bpf_send_signal(SIGKILL);
-    }
-
+  u8 *is_tracked = tracked_pids.lookup(&pid);
+  if (!is_tracked)
     return 0;
+
+  const char *fname = (const char *)args->filename;
+  u64 h = simple_hash(fname, MAX_FILENAME_LEN);
+
+  u8 *is_blocked = blocked_path_hashes.lookup(&h);
+  if (is_blocked) {
+    struct event_t evt = {};
+    evt.pid = pid;
+    evt.ns_pid = get_ns_pid();
+    evt.uid = bpf_get_current_uid_gid() & 0xFFFFFFFF;
+    bpf_get_current_comm(&evt.comm, sizeof(evt.comm));
+    bpf_probe_read_user_str(&evt.filename, sizeof(evt.filename), fname);
+    evt.action = 1;
+    events.perf_submit(args, &evt, sizeof(evt));
+    bpf_send_signal(SIGKILL);
+  }
+
+  return 0;
+}
+
+/* ── connect: enforce blocked network IPs ── */
+TRACEPOINT_PROBE(syscalls, sys_enter_connect) {
+  u64 pid_tgid = bpf_get_current_pid_tgid();
+  u32 pid = pid_tgid >> 32;
+
+  u8 *is_tracked = tracked_pids.lookup(&pid);
+  if (!is_tracked)
+    return 0;
+
+  struct sockaddr *addr = (struct sockaddr *)args->uservaddr;
+  short family = 0;
+  bpf_probe_read_user(&family, sizeof(family), &addr->sa_family);
+
+  if (family == 2) { /* AF_INET */
+    /* Read the IPv4 address */
+    u32 ip = 0;
+    bpf_probe_read_user(&ip, sizeof(ip),
+                        (void *)addr +
+                            4); /* offset of sin_addr in sockaddr_in */
+
+    u8 *is_blocked = blocked_ips.lookup(&ip);
+    if (is_blocked) {
+      struct event_t evt = {};
+      evt.pid = pid;
+      evt.ns_pid = get_ns_pid();
+      evt.uid = bpf_get_current_uid_gid() & 0xFFFFFFFF;
+      bpf_get_current_comm(&evt.comm, sizeof(evt.comm));
+      /* Store the blocked IP in the filename field for reporting */
+      char ip_str[16];
+      u8 a = ip & 0xFF;
+      u8 b = (ip >> 8) & 0xFF;
+      u8 c = (ip >> 16) & 0xFF;
+      u8 d = (ip >> 24) & 0xFF;
+      /* Simple formatting into filename buffer. eBPF doesn't have snprintf
+       * easily */
+      /* We will format it as "IP_BLOCKED" and parse it in userspace, or we can
+       * just send the raw IP */
+      /* Actually, passing string literal works. */
+      const char msg[] = "NETWORK_CONNECT";
+      bpf_probe_read_kernel_str(&evt.filename, sizeof(evt.filename), msg);
+
+      evt.action = 1;
+      events.perf_submit(args, &evt, sizeof(evt));
+      bpf_send_signal(SIGKILL);
+    }
+  }
+
+  return 0;
 }
 
 /* ── fork: propagate tracking from parent to child ── */
 TRACEPOINT_PROBE(sched, sched_process_fork) {
-    u32 parent_pid = args->parent_pid;
-    u32 child_pid = args->child_pid;
+  u32 parent_pid = args->parent_pid;
+  u32 child_pid = args->child_pid;
 
-    u8 *tracked = tracked_pids.lookup(&parent_pid);
-    if (tracked) {
-        u8 one = 1;
-        tracked_pids.update(&child_pid, &one);
-    }
+  u8 *tracked = tracked_pids.lookup(&parent_pid);
+  if (tracked) {
+    u8 one = 1;
+    tracked_pids.update(&child_pid, &one);
+  }
 
-    return 0;
+  return 0;
 }
 
 /* ── exit: clean up tracked set ── */
 TRACEPOINT_PROBE(sched, sched_process_exit) {
-    u64 pid_tgid = bpf_get_current_pid_tgid();
-    u32 pid = pid_tgid >> 32;
+  u64 pid_tgid = bpf_get_current_pid_tgid();
+  u32 pid = pid_tgid >> 32;
 
-    tracked_pids.delete(&pid);
+  tracked_pids.delete(&pid);
 
-    return 0;
+  return 0;
 }

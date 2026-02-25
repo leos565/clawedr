@@ -61,6 +61,9 @@ MONITOR_LOG_FILE = os.environ.get("CLAWEDR_LOG_FILE", "/var/log/clawedr_monitor.
 
 _bpf_instance = None
 _deny_rules: dict[str, dict] = {}
+_malicious_hashes: dict[str, str] = {}
+_hash_to_rule_id: dict[int, str] = {}
+_ip_to_rule_id: dict[str, str] = {}
 
 PATH_PREFIXES = ("/usr/bin/", "/usr/sbin/", "/bin/", "/sbin/", "/usr/local/bin/")
 
@@ -196,9 +199,29 @@ def load_bpf(source_path: str):
                 pid=ns_pid,
                 comm=comm,
             )
+        elif event.action == 1 and comm == "NETWORK_CONNECT":
+            # This is blocked_ips via sys_enter_connect
+            # We can extract IP from evt.filename or just use generic IP matched
+            # Since the IP enforcement is done, we know it hit `blocked_ips` map.
+            block_logger.warning(
+                "BLOCKED [IP/domain match] action=network-connect pid=%d comm=%s",
+                ns_pid, comm,
+            )
+            # Find rule ID if possible; otherwise generic
+            dispatch_alert_async(
+                rule_id="NET-BLOCK",
+                action="network-connect",
+                target="Network IP matched watch list",
+                pid=ns_pid,
+                comm=comm,
+            )
         elif event.action == 2:
             # Post-exec (sys_exit_execve): /proc/cmdline now has the new argv.
-            # This is when deny_rules must run — at enter, cmdline was still the shell.
+            
+            # Layer 4: Userspace file hash check
+            _check_malicious_hashes(ns_pid, comm, filename)
+            
+            # Layer 2: Userspace deny_rules check
             matched_rule = _check_deny_rules(ns_pid, comm, filename)
             if not matched_rule:
                 logger.debug(
@@ -228,6 +251,51 @@ def _find_rule_id_for_block(filename: str) -> str:
         return _hash_to_rule_id[h2]
     return "UNKNOWN"
 
+
+# ---------------------------------------------------------------------------
+# Layer 4: malicious_hashes — userspace sha256 matching
+# ---------------------------------------------------------------------------
+
+def _check_malicious_hashes(pid: int, comm: str, filename: str) -> str | None:
+    if not _malicious_hashes:
+        return None
+    
+    import hashlib
+    try:
+        # Read file via proc to get exact binary loaded
+        # Note: /proc/pid/exe points to the real executable
+        exe_path = f"/proc/{pid}/exe"
+        if not os.path.exists(exe_path):
+            exe_path = filename
+            
+        sha256 = hashlib.sha256()
+        with open(exe_path, "rb") as f:
+            for chunk in iter(lambda: f.read(65536), b""):
+                sha256.update(chunk)
+        file_hash = sha256.hexdigest()
+    except OSError:
+        return None
+        
+    for rule_id, target_hash in _malicious_hashes.items():
+        if file_hash == target_hash:
+            block_logger.warning(
+                "BLOCKED [%s] (malicious_hash=%s) pid=%d comm=%s",
+                rule_id, target_hash, pid, comm,
+            )
+            dispatch_alert_async(
+                rule_id=rule_id,
+                action="exec_hash",
+                target=f"{filename} ({file_hash})",
+                pid=pid,
+                comm=comm,
+            )
+            try:
+                os.kill(pid, 9)
+            except OSError:
+                pass
+            return rule_id
+            
+    return None
 
 # ---------------------------------------------------------------------------
 # Layer 2: deny_rules — userspace argv matching
@@ -430,6 +498,8 @@ def apply_policy(policy: dict) -> None:
     _apply_blocked_executables(policy, exempted)
     _apply_blocked_paths(policy, exempted)
     _apply_deny_rules(policy, exempted)
+    _apply_malicious_hashes(policy, exempted)
+    _apply_blocked_ips(policy, exempted)
     _apply_pipe_heuristic()
 
 
@@ -564,6 +634,67 @@ def _apply_deny_rules(policy: dict, exempted: set[str]) -> None:
 
     logger.info("Loaded %d deny_rules for userspace matching (%d skipped)",
                 len(_deny_rules), skipped)
+
+# ---------------------------------------------------------------------------
+# malicious_hashes logic
+# ---------------------------------------------------------------------------
+
+def _apply_malicious_hashes(policy: dict, exempted: set[str]) -> None:
+    global _malicious_hashes
+    raw = policy.get("malicious_hashes", {})
+    _malicious_hashes = {}
+    skipped = 0
+    for rule_id, h in raw.items():
+        if rule_id in exempted:
+            skipped += 1
+            continue
+        _malicious_hashes[rule_id] = h.lower()
+        
+    logger.info("Loaded %d malicious hashes for userspace checking (%d skipped)", len(_malicious_hashes), skipped)
+
+# ---------------------------------------------------------------------------
+# blocked_ips logic
+# ---------------------------------------------------------------------------
+
+def _apply_blocked_ips(policy: dict, exempted: set[str]) -> None:
+    global _ip_to_rule_id
+    if _bpf_instance is None:
+        return
+        
+    raw_ips = policy.get("blocked_ips", {})
+    raw_domains = policy.get("blocked_domains", {})
+    
+    _ip_to_rule_id = {}
+    ip_map = _bpf_instance["blocked_ips"]
+    ip_map.clear()
+    
+    import socket, struct
+    loaded = 0
+    
+    for rule_id, ip in raw_ips.items():
+        if rule_id in exempted:
+            continue
+        try:
+            ip_int = struct.unpack("!I", socket.inet_aton(ip))[0]
+            ip_map[ctypes.c_uint32(ip_int)] = ctypes.c_uint8(1)
+            _ip_to_rule_id[ip] = rule_id
+            loaded += 1
+        except Exception:
+            pass
+            
+    for rule_id, dom in raw_domains.items():
+        if rule_id in exempted:
+            continue
+        try:
+            ip = socket.gethostbyname(dom)
+            ip_int = struct.unpack("!I", socket.inet_aton(ip))[0]
+            ip_map[ctypes.c_uint32(ip_int)] = ctypes.c_uint8(1)
+            _ip_to_rule_id[ip] = rule_id
+            loaded += 1
+        except Exception:
+            pass
+            
+    logger.info("Loaded %d network IPs/domains to BPF map", loaded)
 
 
 # ---------------------------------------------------------------------------
