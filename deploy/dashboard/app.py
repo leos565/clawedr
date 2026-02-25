@@ -131,6 +131,30 @@ async def get_status():
     return JSONResponse(status)
 
 
+@app.get("/api/sessions")
+async def get_sessions():
+    """Return active OpenClaw sessions."""
+    import shutil
+    import subprocess
+
+    openclaw = shutil.which("openclaw")
+    if not openclaw:
+        return JSONResponse({"sessions": [], "error": "openclaw not found"})
+
+    try:
+        result = subprocess.run(
+            [openclaw, "sessions", "--active", "5", "--json"],
+            capture_output=True, text=True, timeout=5,
+        )
+        if result.returncode != 0:
+            return JSONResponse({"sessions": [], "error": result.stderr.strip()})
+
+        data = json.loads(result.stdout)
+        return JSONResponse(data)
+    except Exception as exc:
+        return JSONResponse({"sessions": [], "error": str(exc)})
+
+
 @app.get("/", response_class=HTMLResponse)
 async def dashboard():
     """Serve the Dashboard UI."""

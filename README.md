@@ -58,7 +58,7 @@ clawedr/
 ├── builder/                      # THE FORGE — private build tools
 │   ├── threat_aggregator.py      # Fetches ClawSec advisory feed
 │   ├── compiler.py               # Compiles rules into kernel policies
-│   ├── master_rules.yaml         # Manual overrides (source of truth)
+│   ├── master_rules.yaml         # Manual overrides (source of truth, Rule IDs)
 │   ├── config.yaml               # Forge environment config (VM host, etc.)
 │   └── tests/
 │       ├── test_mac_sb.py        # macOS Seatbelt enforcement tests
@@ -66,15 +66,22 @@ clawedr/
 │
 ├── deploy/                       # THE REGISTRY — public artifacts
 │   ├── install.sh                # One-liner OS-detecting dispatcher
-│   ├── compiled_policy.json      # Linux eBPF policy (blocked hashes, domains, executables)
+│   ├── compiled_policy.json      # Universal policy (Rule IDs for both OSes)
 │   ├── linux/
 │   │   ├── bpf_hooks.c           # eBPF tracepoint hooks (execve interception)
 │   │   ├── monitor.py            # Shield daemon — hot-reloads BPF maps
 │   │   └── shield_linux.sh       # Linux setup script (systemd integration)
-│   └── macos/
-│       ├── clawedr.sb            # Compiled Seatbelt LISP profile
-│       ├── log_tailer.py         # Sandbox log monitor + update notifier
-│       └── shield_mac.sh         # macOS setup script
+│   ├── macos/
+│   │   ├── clawedr.sb            # Compiled Seatbelt LISP profile
+│   │   ├── log_tailer.py         # Sandbox log monitor + alert dispatcher
+│   │   ├── apply_macos_policy.py # Runtime Seatbelt generator (applies exemptions)
+│   │   └── shield_mac.sh         # macOS setup script
+│   ├── shared/
+│   │   ├── user_rules.py         # Reads/writes ~/.clawedr/user_rules.yaml
+│   │   └── alert_dispatcher.py   # Pushes alerts to OpenClaw chat
+│   └── dashboard/
+│       ├── app.py                # FastAPI backend (alerts, rules, exemptions)
+│       └── templates/index.html  # Browser-based dashboard UI
 │
 ├── main.py                       # Forge CLI (sync / compile / test / publish)
 ├── requirements-dev.txt          # Forge-only Python dependencies
@@ -186,6 +193,74 @@ The Shield uses Apple's Seatbelt sandbox:
 Logs appear in **Console.app** when `pyoslog` is installed (filter by subsystem `com.clawedr.shield`). Otherwise they go to `/tmp/clawedr_log_tailer.log`.
 
 Seatbelt profiles are bound at process start and cannot be hot-reloaded.
+
+## Rule IDs
+
+Every rule in ClawEDR has a unique, stable identifier for traceability and user exemptions:
+
+| Prefix | Category | Example |
+|--------|----------|---------|
+| `BIN-xxx` | Blocked executables | `BIN-001` → `nc` |
+| `DOM-xxx` | Blocked domains | `DOM-016` → `pastebin.com` |
+| `PATH-MAC-xxx` | macOS blocked paths | `PATH-MAC-001` → `~/.ssh` |
+| `PATH-LIN-xxx` | Linux blocked paths | `PATH-LIN-002` → `/etc/shadow` |
+| `LIN-xxx` | Linux deny rules | `LIN-001` → port 4444 block |
+| `MAC-xxx` | macOS deny rules | `MAC-006` → osascript block |
+| `THRT-*` | Threat feed entries | Auto-generated hash-based IDs |
+
+Rule IDs are defined in `builder/master_rules.yaml` and propagated into `compiled_policy.json`. When a block occurs, the Shield logs and alerts reference the exact Rule ID.
+
+## Dashboard
+
+ClawEDR includes a local web dashboard for monitoring alerts and managing user exemptions.
+
+### Running the Dashboard
+
+```sh
+# Install dependencies (if not already)
+pip install fastapi uvicorn
+
+# Start on port 8477 (default)
+python3 -m deploy.dashboard.app
+
+# Or with a custom port / policy path
+CLAWEDR_DASHBOARD_PORT=9000 CLAWEDR_POLICY_PATH=/path/to/compiled_policy.json python3 -m deploy.dashboard.app
+```
+
+Open [http://localhost:8477](http://localhost:8477) in your browser.
+
+### Features
+
+- **Alerts tab** — Real-time view of blocked actions with Rule IDs. Click "Exempt" to quickly bypass a rule.
+- **Policy Rules tab** — Browse all active rules with inline toggle switches. Search by Rule ID, value, or category. Exempted rules are visually dimmed.
+- **Sessions dropdown** — Shows active OpenClaw instances being monitored (queries `openclaw sessions --active 5 --json`).
+
+### API Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/status` | Shield health: OS, policy state, OpenClaw availability |
+| `GET` | `/api/alerts` | Recent blocked actions parsed from logs |
+| `GET` | `/api/rules` | Full compiled policy with Rule IDs |
+| `GET` | `/api/user-rules` | Current user exemptions from `~/.clawedr/user_rules.yaml` |
+| `POST` | `/api/user-rules` | Update exemptions (JSON body: `{"exempted_rule_ids": [...]}`) |
+| `GET` | `/api/sessions` | Active OpenClaw sessions |
+
+## User Exemptions
+
+Users can bypass specific rules by ID without modifying the system policy. Exemptions are stored in `~/.clawedr/user_rules.yaml`:
+
+```yaml
+exempted_rule_ids:
+  - "BIN-001"    # Allow nc
+  - "LIN-004"    # Allow stratum+tcp
+```
+
+- **Linux:** `monitor.py` skips loading exempted Rule IDs into BPF maps at runtime.
+- **macOS:** `apply_macos_policy.py` generates `clawedr.sb` excluding exempted rules.
+- **Persistence:** `~/.clawedr/` is never touched by `install.sh`, so exemptions survive updates.
+
+The easiest way to manage exemptions is through the Dashboard toggle switches.
 
 ## Testing
 
