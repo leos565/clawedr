@@ -8,26 +8,26 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-primary: #0a0e14;
-            --bg-secondary: #111820;
-            --bg-card: #161e28;
-            --bg-card-hover: #1c2633;
-            --border: #1e2a38;
-            --text-primary: #e6edf5;
-            --text-secondary: #8b9bb4;
-            --text-muted: #5a6a80;
-            --accent: #3b82f6;
-            --accent-hover: #2563eb;
+            --bg-primary: #f3f6f9;
+            --bg-secondary: #ffffff;
+            --bg-card: #ffffff;
+            --bg-card-hover: #f8fafc;
+            --border: #e2e8f0;
+            --text-primary: #0f172a;
+            --text-secondary: #334155;
+            --text-muted: #64748b;
+            --accent: #2563eb;
+            --accent-hover: #1d4ed8;
             --danger: #ef4444;
-            --danger-glow: rgba(239, 68, 68, 0.15);
-            --success: #22c55e;
+            --danger-glow: rgba(239, 68, 68, 0.1);
+            --success: #10b981;
             --warning: #f59e0b;
             --purple: #8b5cf6;
-            --purple-bg: rgba(139, 92, 246, 0.12);
-            --purple-border: rgba(139, 92, 246, 0.3);
-            --tag-bg: rgba(59, 130, 246, 0.12);
-            --tag-border: rgba(59, 130, 246, 0.25);
-            --shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+            --purple-bg: rgba(139, 92, 246, 0.1);
+            --purple-border: rgba(139, 92, 246, 0.2);
+            --tag-bg: #eff6ff;
+            --tag-border: #bfdbfe;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
             --radius: 12px;
             --radius-sm: 8px;
         }
@@ -42,14 +42,34 @@
             font-family: 'Inter', -apple-system, sans-serif;
             background: var(--bg-primary);
             color: var(--text-primary);
-            min-height: 100vh;
+            height: 100vh;
+            overflow: hidden;
             line-height: 1.5;
+            display: flex;
         }
 
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 24px;
+        .app-layout {
+            display: flex;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 260px;
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            padding: 24px 16px;
+            z-index: 10;
+        }
+
+        .main-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 32px 48px;
+            background: var(--bg-primary);
         }
 
         /* Header */
@@ -357,12 +377,41 @@
             color: var(--danger);
         }
 
-        .severity-critical { background: rgba(239, 68, 68, 0.2); border-color: rgba(239, 68, 68, 0.4); color: #f87171; }
-        .severity-high { background: rgba(245, 158, 11, 0.2); border-color: rgba(245, 158, 11, 0.4); color: #fbbf24; }
-        .severity-medium { background: rgba(59, 130, 246, 0.2); border-color: rgba(59, 130, 246, 0.4); color: #60a5fa; }
-        .severity-low { background: rgba(107, 114, 128, 0.2); border-color: rgba(107, 114, 128, 0.4); color: #9ca3af; }
-        .severity-info { background: rgba(34, 197, 94, 0.15); border-color: rgba(34, 197, 94, 0.3); color: #4ade80; }
-        .severity-unknown { background: var(--tag-bg); border-color: var(--tag-border); color: var(--accent); }
+        .severity-critical {
+            background: rgba(239, 68, 68, 0.2);
+            border-color: rgba(239, 68, 68, 0.4);
+            color: #f87171;
+        }
+
+        .severity-high {
+            background: rgba(245, 158, 11, 0.2);
+            border-color: rgba(245, 158, 11, 0.4);
+            color: #fbbf24;
+        }
+
+        .severity-medium {
+            background: rgba(59, 130, 246, 0.2);
+            border-color: rgba(59, 130, 246, 0.4);
+            color: #60a5fa;
+        }
+
+        .severity-low {
+            background: rgba(107, 114, 128, 0.2);
+            border-color: rgba(107, 114, 128, 0.4);
+            color: #9ca3af;
+        }
+
+        .severity-info {
+            background: rgba(34, 197, 94, 0.15);
+            border-color: rgba(34, 197, 94, 0.3);
+            color: #4ade80;
+        }
+
+        .severity-unknown {
+            background: var(--tag-bg);
+            border-color: var(--tag-border);
+            color: var(--accent);
+        }
 
         .alert-description {
             font-size: 12px;
@@ -427,11 +476,25 @@
             border-color: var(--text-muted);
         }
 
-        .alert-card.critical { border-left: 3px solid #ef4444; }
-        .alert-card.high { border-left: 3px solid #f59e0b; }
-        .alert-card.medium { border-left: 3px solid #3b82f6; }
-        .alert-card.low { border-left: 3px solid #6b7280; }
-        .alert-card.info { border-left: 3px solid #22c55e; }
+        .alert-card.critical {
+            border-left: 3px solid #ef4444;
+        }
+
+        .alert-card.high {
+            border-left: 3px solid #f59e0b;
+        }
+
+        .alert-card.medium {
+            border-left: 3px solid #3b82f6;
+        }
+
+        .alert-card.low {
+            border-left: 3px solid #6b7280;
+        }
+
+        .alert-card.info {
+            border-left: 3px solid #22c55e;
+        }
 
         .alert-card-header {
             display: flex;
@@ -924,136 +987,190 @@
 </head>
 
 <body>
-    <div class="container">
-        <header>
-            <div class="logo">
-                <div class="logo-icon">🛡️</div>
+    <div class="app-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="logo" style="margin-bottom: 40px;">
+                <div class="logo-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                    </svg>
+                </div>
                 <h1>ClawEDR <span>Dashboard</span></h1>
             </div>
-            <div class="header-right">
+
+            <nav class="sidebar-nav tabs"
+                style="flex-direction: column; gap: 8px; background: transparent; border: none; padding: 0; margin-bottom: auto;">
+                <button class="tab active sidebar-link" data-tab="alerts"
+                    style="text-align: left; display: flex; align-items: center; gap: 12px; padding: 10px 16px;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path
+                            d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z">
+                        </path>
+                        <line x1="12" y1="9" x2="12" y2="13"></line>
+                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                    </svg>
+                    Alerts Dashboard
+                </button>
+                <button class="tab sidebar-link" data-tab="rules"
+                    style="text-align: left; display: flex; align-items: center; gap: 12px; padding: 10px 16px;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                        <line x1="16" y1="2" x2="16" y2="6"></line>
+                        <line x1="8" y1="2" x2="8" y2="6"></line>
+                        <line x1="3" y1="10" x2="21" y2="10"></line>
+                    </svg>
+                    Policy Rules
+                </button>
+            </nav>
+
+            <div class="sidebar-footer" style="margin-top: 24px; display: flex; flex-direction: column; gap: 12px;">
                 <div class="sessions-dropdown" id="sessionsDropdown">
-                    <button class="sessions-trigger" onclick="toggleSessions()">
-                        <span>🟢 OpenClaw Instances</span>
+                    <button class="sessions-trigger" onclick="toggleSessions()"
+                        style="width: 100%; justify-content: space-between;">
+                        <span style="display: flex; align-items: center; gap: 6px;">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--success)"
+                                stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="10"></circle>
+                            </svg>
+                            Instances
+                        </span>
                         <span class="count-badge" id="sessionCountBadge">0</span>
                     </button>
-                    <div class="sessions-menu" id="sessionsMenu">
+                    <div class="sessions-menu" id="sessionsMenu"
+                        style="bottom: 100%; top: auto; margin-bottom: 8px; left: 0;">
                         <div class="sessions-menu-header">Monitored Sessions</div>
                         <div id="sessionsListContainer">
                             <div class="sessions-empty">No active sessions</div>
                         </div>
                     </div>
                 </div>
-                <div class="status-badge" id="statusBadge">
-                    <div class="status-dot"></div>
-                    <span>Loading...</span>
-                </div>
             </div>
-        </header>
+        </aside>
 
-        <div class="tabs">
-            <button class="tab active" data-tab="alerts">🚨 Alerts</button>
-            <button class="tab" data-tab="rules">📋 Policy Rules</button>
-        </div>
+        <main class="main-content">
+            <header style="padding: 0 0 24px 0; margin-bottom: 24px;">
+                <h2 id="pageTitle" style="font-size: 20px; font-weight: 600;">Alerts Dashboard</h2>
+                <div class="header-right">
+                    <div class="status-badge" id="statusBadge">
+                        <div class="status-dot"></div>
+                        <span>Loading...</span>
+                    </div>
+                </div>
+            </header>
 
-        <!-- Alerts Tab -->
-        <div class="tab-panel active" id="tab-alerts">
-            <div class="card">
-                <div class="card-header">
-                    <span class="card-title">Threat Alerts</span>
-                    <span class="card-count" id="alertCount">0 alerts</span>
-                </div>
-                <div class="filters-bar">
-                    <div class="filter-group">
-                        <span class="filter-label">Time</span>
-                        <select class="filter-select" id="timeFilter" onchange="applyFilters()">
-                            <option value="">All time</option>
-                            <option value="1">Last hour</option>
-                            <option value="6">Last 6 hours</option>
-                            <option value="24" selected>Last 24 hours</option>
-                            <option value="168">Last 7 days</option>
-                        </select>
+            <!-- Alerts Tab -->
+            <div class="tab-panel active" id="tab-alerts">
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">Threat Alerts</span>
+                        <span class="card-count" id="alertCount">0 alerts</span>
                     </div>
-                    <div class="filter-group">
-                        <span class="filter-label">Severity</span>
-                        <select class="filter-select" id="severityFilter" onchange="applyFilters()">
-                            <option value="">All severities</option>
-                            <option value="critical">Critical</option>
-                            <option value="high">High</option>
-                            <option value="medium">Medium</option>
-                            <option value="low">Low</option>
-                            <option value="info">Info</option>
-                        </select>
+                    <div class="filters-bar">
+                        <div class="filter-group">
+                            <span class="filter-label">Time</span>
+                            <select class="filter-select" id="timeFilter" onchange="applyFilters()">
+                                <option value="">All time</option>
+                                <option value="1">Last hour</option>
+                                <option value="6">Last 6 hours</option>
+                                <option value="24" selected>Last 24 hours</option>
+                                <option value="168">Last 7 days</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <span class="filter-label">Severity</span>
+                            <select class="filter-select" id="severityFilter" onchange="applyFilters()">
+                                <option value="">All severities</option>
+                                <option value="critical">Critical</option>
+                                <option value="high">High</option>
+                                <option value="medium">Medium</option>
+                                <option value="low">Low</option>
+                                <option value="info">Info</option>
+                            </select>
+                        </div>
                     </div>
-                </div>
-                <div id="alertsContainer">
-                    <div class="empty-state">
-                        <div class="icon">📭</div>
-                        <p>No recent alerts</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Rules Tab -->
-        <div class="tab-panel" id="tab-rules">
-            <!-- Custom Rules Card -->
-            <div class="card">
-                <div class="card-header">
-                    <span class="card-title">✨ Custom Rules</span>
-                    <div style="display:flex;align-items:center;gap:12px;">
-                        <span class="card-count" id="customCount">0 rules</span>
-                        <button class="btn btn-purple btn-sm" onclick="openAddModal()" style="padding:6px 16px;">+ Add
-                            Rule</button>
-                    </div>
-                </div>
-                <p style="color:var(--text-muted);font-size:12px;margin-bottom:16px;">
-                    User-defined blocking rules. These are enforced alongside the system policy and persist across
-                    updates.
-                </p>
-                <div id="customRulesContainer">
-                    <div class="empty-state" style="padding:24px;">
-                        <p>No custom rules yet. Click "Add Rule" to block a hash, domain, executable, path, or argument
-                            pattern.</p>
+                    <div id="alertsContainer">
+                        <div class="empty-state">
+                            <div class="icon">
+                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                    <line x1="3" y1="9" x2="21" y2="9"></line>
+                                    <line x1="9" y1="21" x2="9" y2="9"></line>
+                                </svg>
+                            </div>
+                            <p>No recent alerts</p>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- System Rules Card -->
-            <div class="card">
-                <div class="card-header">
-                    <span class="card-title">System Rules</span>
-                    <div style="display:flex;align-items:center;gap:12px;">
-                        <span class="card-count" id="exemptionCount">0 exempted</span>
-                        <button class="btn btn-ghost btn-sm" onclick="loadRules()" style="padding:6px 14px;">↻
-                            Refresh</button>
+            <!-- Rules Tab -->
+            <div class="tab-panel" id="tab-rules">
+                <!-- Custom Rules Card -->
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">✨ Custom Rules</span>
+                        <div style="display:flex;align-items:center;gap:12px;">
+                            <span class="card-count" id="customCount">0 rules</span>
+                            <button class="btn btn-purple btn-sm" onclick="openAddModal()" style="padding:6px 16px;">+
+                                Add
+                                Rule</button>
+                        </div>
+                    </div>
+                    <p style="color:var(--text-muted);font-size:12px;margin-bottom:16px;">
+                        User-defined blocking rules. These are enforced alongside the system policy and persist across
+                        updates.
+                    </p>
+                    <div id="customRulesContainer">
+                        <div class="empty-state" style="padding:24px;">
+                            <p>No custom rules yet. Click "Add Rule" to block a hash, domain, executable, path, or
+                                argument
+                                pattern.</p>
+                        </div>
                     </div>
                 </div>
-                <input type="text" class="search-input" id="ruleSearch"
-                    placeholder="Search rules by ID, value, or category..." oninput="filterRules()">
-                <div class="platform-pills">
-                    <button class="platform-pill active" data-platform="auto"
-                        onclick="setPlatformFilter('auto')">Auto</button>
-                    <button class="platform-pill" data-platform="all" onclick="setPlatformFilter('all')">All
-                        Platforms</button>
-                    <button class="platform-pill" data-platform="macos"
-                        onclick="setPlatformFilter('macos')">macOS</button>
-                    <button class="platform-pill" data-platform="linux"
-                        onclick="setPlatformFilter('linux')">Linux</button>
-                </div>
-                <p style="color:var(--text-muted);font-size:12px;margin-bottom:20px;">
-                    Toggle the switch to exempt a rule. Exemptions are saved to
-                    <code
-                        style="background:var(--bg-secondary);padding:2px 6px;border-radius:4px;">~/.clawedr/user_rules.yaml</code>
-                </p>
-                <div id="rulesContainer">
-                    <div class="empty-state">
-                        <p>Loading rules...</p>
+
+                <!-- System Rules Card -->
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">System Rules</span>
+                        <div style="display:flex;align-items:center;gap:12px;">
+                            <span class="card-count" id="exemptionCount">0 exempted</span>
+                            <button class="btn btn-ghost btn-sm" onclick="loadRules()" style="padding:6px 14px;">↻
+                                Refresh</button>
+                        </div>
+                    </div>
+                    <input type="text" class="search-input" id="ruleSearch"
+                        placeholder="Search rules by ID, value, or category..." oninput="filterRules()">
+                    <div class="platform-pills">
+                        <button class="platform-pill active" data-platform="auto"
+                            onclick="setPlatformFilter('auto')">Auto</button>
+                        <button class="platform-pill" data-platform="all" onclick="setPlatformFilter('all')">All
+                            Platforms</button>
+                        <button class="platform-pill" data-platform="macos"
+                            onclick="setPlatformFilter('macos')">macOS</button>
+                        <button class="platform-pill" data-platform="linux"
+                            onclick="setPlatformFilter('linux')">Linux</button>
+                    </div>
+                    <p style="color:var(--text-muted);font-size:12px;margin-bottom:20px;">
+                        Toggle the switch to exempt a rule. Exemptions are saved to
+                        <code
+                            style="background:var(--bg-secondary);padding:2px 6px;border-radius:4px;">~/.clawedr/user_rules.yaml</code>
+                    </p>
+                    <div id="rulesContainer">
+                        <div class="empty-state">
+                            <p>Loading rules...</p>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
 
-        <div class="footer">ClawEDR v2.0 — Kernel-level endpoint detection for AI agents</div>
+            <div class="footer">ClawEDR v2.0 — Kernel-level endpoint detection for AI agents</div>
+        </main>
     </div>
 
     <!-- Save Banner -->
@@ -1061,6 +1178,23 @@
         <p>You have unsaved exemption changes</p>
         <button class="btn btn-primary" onclick="saveExemptions()">Save & Apply</button>
         <button class="btn btn-ghost" onclick="cancelExemptions()">Cancel</button>
+    </div>
+
+    <!-- Alert Details Modal -->
+    <div class="modal-overlay" id="alertDetailsModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>Alert Details</h2>
+                <button class="modal-close" onclick="closeAlertDetails()">✕</button>
+            </div>
+            <div class="modal-body" id="alertDetailsBody"
+                style="font-size: 13px; color: var(--text-secondary); line-height: 1.6; word-break: break-all;">
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-ghost" onclick="closeAlertDetails()">Close</button>
+                <button class="btn btn-danger" id="alertDetailsExemptBtn">Exempt Rule</button>
+            </div>
+        </div>
     </div>
 
     <!-- Add/Edit Rule Modal -->
@@ -1075,23 +1209,50 @@
                     <label class="form-label">Rule Type</label>
                     <div class="type-grid" id="typeGrid">
                         <div class="type-card" data-type="executable" onclick="selectType('executable')">
-                            <div class="type-icon">⚙️</div>
+                            <div class="type-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"
+                                    stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="3"></circle>
+                                    <path
+                                        d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
+                                    </path>
+                                </svg></div>
                             <div class="type-name">Executable</div>
                         </div>
                         <div class="type-card" data-type="domain" onclick="selectType('domain')">
-                            <div class="type-icon">🌐</div>
+                            <div class="type-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"
+                                    stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <line x1="2" y1="12" x2="22" y2="12"></line>
+                                    <path
+                                        d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z">
+                                    </path>
+                                </svg></div>
                             <div class="type-name">Domain/IP</div>
                         </div>
                         <div class="type-card" data-type="hash" onclick="selectType('hash')">
-                            <div class="type-icon">🔑</div>
+                            <div class="type-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"
+                                    stroke="currentColor" stroke-width="2">
+                                    <path
+                                        d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4">
+                                    </path>
+                                </svg></div>
                             <div class="type-name">Hash</div>
                         </div>
                         <div class="type-card" data-type="path" onclick="selectType('path')">
-                            <div class="type-icon">📁</div>
+                            <div class="type-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"
+                                    stroke="currentColor" stroke-width="2">
+                                    <path
+                                        d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z">
+                                    </path>
+                                </svg></div>
                             <div class="type-name">Path</div>
                         </div>
                         <div class="type-card" data-type="argument" onclick="selectType('argument')">
-                            <div class="type-icon">📝</div>
+                            <div class="type-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"
+                                    stroke="currentColor" stroke-width="2">
+                                    <line x1="17" y1="3" x2="21" y2="7"></line>
+                                    <path d="M21 7L7 21H3v-4L17 3z"></path>
+                                </svg></div>
                             <div class="type-name">Argument</div>
                         </div>
                     </div>
@@ -1139,6 +1300,12 @@
                 document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
                 tab.classList.add('active');
                 document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+
+                // Update page title
+                const titleNode = document.getElementById('pageTitle');
+                if (titleNode) {
+                    titleNode.textContent = tab.textContent.trim();
+                }
             });
         });
 
@@ -1204,23 +1371,24 @@
 
         function applyFilters() { loadAlerts(); }
 
+        let activeDisplayedAlerts = [];
         function renderAlerts(alerts) {
             const c = document.getElementById('alertsContainer');
-            if (!alerts.length) { c.innerHTML = '<div class="empty-state"><div class="icon">📭</div><p>No alerts match the current filters</p></div>'; return; }
-            const severityOrder = { critical: 0, high: 1, medium: 2, low: 3, info: 4, unknown: 5 };
-            const sorted = [...alerts].sort((a, b) => (severityOrder[a.severity] ?? 99) - (severityOrder[b.severity] ?? 99));
-            c.innerHTML = '<div class="alerts-grid">' + sorted.map(a => {
+            if (!alerts.length) { c.innerHTML = '<div class="empty-state"><div class="icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg></div><p>No recent alerts</p></div>'; return; }
+            const sorted = [...alerts].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            activeDisplayedAlerts = sorted;
+            c.innerHTML = '<div class="alerts-grid">' + sorted.map((a, idx) => {
                 const sev = (a.severity || 'unknown').toLowerCase();
                 const sevClass = 'severity-' + sev;
                 const rid = JSON.stringify(a.rule_id);
-                return `<div class="alert-card ${sev}">
+                return `<div class="alert-card ${sev}" style="cursor:pointer;" onclick='openAlertDetails(${idx})'>
           <div class="alert-card-header">
             <div class="alert-card-meta">
               <span class="timestamp">${esc(a.timestamp)}</span>
               <span class="rule-tag danger">${esc(a.rule_id)}</span>
               <span class="rule-tag ${sevClass}">${esc(sev)}</span>
             </div>
-            <button class="btn btn-ghost btn-sm" onclick="exemptRule(${rid})">Exempt</button>
+            <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); exemptRule(${rid})">Exempt</button>
           </div>
           <div class="alert-card-body">
             <div class="alert-card-details">${esc(a.details)}</div>
@@ -1265,7 +1433,13 @@
             document.getElementById('customCount').textContent = customRules.length + ' rule' + (customRules.length !== 1 ? 's' : '');
             if (!customRules.length) { c.innerHTML = '<div class="empty-state" style="padding:24px;"><p>No custom rules yet. Click "Add Rule" to block a hash, domain, executable, path, or argument pattern.</p></div>'; return; }
 
-            const typeIcons = { executable: '⚙️', domain: '🌐', hash: '🔑', path: '📁', argument: '📝' };
+            const typeIcons = {
+                executable: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>',
+                domain: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>',
+                hash: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path></svg>',
+                path: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>',
+                argument: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="17" y1="3" x2="21" y2="7"></line><path d="M21 7L7 21H3v-4L17 3z"></path></svg>'
+            };
             let html = '';
             for (const r of customRules) {
                 const plat = r.platform || 'both';
@@ -1424,9 +1598,36 @@
         // Close modal on overlay click
         document.getElementById('ruleModal').addEventListener('click', e => { if (e.target === e.currentTarget) closeModal(); });
         // Close modal on Escape
-        document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeModal(); closeAlertDetails(); } });
 
         function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+        function openAlertDetails(idx) {
+            const a = activeDisplayedAlerts[idx];
+            if (!a) return;
+            const body = document.getElementById('alertDetailsBody');
+            body.innerHTML = `
+                <div style="margin-bottom: 12px; padding: 12px; background: var(--bg-secondary); border-radius: 8px;">
+                    <div style="margin-bottom: 12px;"><strong>Timestamp:</strong><br><span style="color: var(--text-primary);">${esc(a.timestamp)}</span></div>
+                    <div style="margin-bottom: 12px;"><strong>Rule ID:</strong><br><span class="rule-tag danger">${esc(a.rule_id)}</span></div>
+                    <div style="margin-bottom: 12px;"><strong>Severity:</strong><br><span class="rule-tag severity-${(a.severity || 'unknown').toLowerCase()}">${esc(a.severity)}</span></div>
+                    <div style="margin-bottom: 12px;"><strong>Details:</strong><br><span style="color: var(--text-primary);">${esc(a.details)}</span></div>
+                    ${a.description ? `<div style="margin-bottom: 12px;"><strong>Description:</strong><br><span style="color: var(--text-primary);">${esc(a.description)}</span></div>` : ''}
+                </div>
+            `;
+            document.getElementById('alertDetailsExemptBtn').onclick = () => {
+                closeAlertDetails();
+                exemptRule(a.rule_id);
+            };
+            document.getElementById('alertDetailsModal').classList.add('open');
+        }
+
+        function closeAlertDetails() {
+            document.getElementById('alertDetailsModal').classList.remove('open');
+        }
+
+        // Close alert details on overlay click
+        document.getElementById('alertDetailsModal').addEventListener('click', e => { if (e.target === e.currentTarget) closeAlertDetails(); });
 
         // ── Init ──
         loadStatus().then(() => loadRules().then(() => loadUserRules()));
