@@ -217,9 +217,14 @@ System Rule IDs are defined in `builder/master_rules.yaml` and compiled into `co
 
 ## Dashboard
 
-ClawEDR includes a local web dashboard for monitoring alerts and managing user exemptions.
+ClawEDR includes a local web dashboard for monitoring alerts and managing rules. **The dashboard is installed and auto-started by `install.sh` on both macOS and Linux.**
 
-### Running the Dashboard
+- **macOS:** Runs as a launchd service (`com.clawedr.dashboard`). Starts on boot, auto-restarts on failure.
+- **Linux:** Runs as a systemd service (`clawedr-dashboard`). Starts on boot, auto-restarts on failure.
+
+The dashboard listens on `http://localhost:8477` by default (override with `CLAWEDR_DASHBOARD_PORT`).
+
+### Manual Start (development)
 
 ```sh
 # Install dependencies (if not already)
@@ -230,6 +235,20 @@ python3 -m deploy.dashboard.app
 
 # Or with a custom port / policy path
 CLAWEDR_DASHBOARD_PORT=9000 CLAWEDR_POLICY_PATH=/path/to/compiled_policy.json python3 -m deploy.dashboard.app
+```
+
+### Service Management
+
+```sh
+# macOS
+sudo launchctl unload /Library/LaunchDaemons/com.clawedr.dashboard.plist   # stop
+sudo launchctl load -w /Library/LaunchDaemons/com.clawedr.dashboard.plist  # start
+cat /tmp/clawedr_dashboard.log  # view logs
+
+# Linux
+sudo systemctl stop clawedr-dashboard     # stop
+sudo systemctl start clawedr-dashboard    # start
+sudo journalctl -u clawedr-dashboard -f   # view logs
 ```
 
 Open [http://localhost:8477](http://localhost:8477) in your browser.

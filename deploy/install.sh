@@ -14,6 +14,9 @@ CLAWEDR_VERSION="${CLAWEDR_VERSION:-latest}"
 # hardcoded default.  Override with CLAWEDR_BASE_URL if needed.
 CLAWEDR_BASE_URL="${CLAWEDR_BASE_URL:-https://raw.githubusercontent.com/leos565/clawedr/main/deploy}"
 
+CLAWEDR_DIR="/usr/local/share/clawedr"
+CLAWEDR_DASHBOARD_PORT="${CLAWEDR_DASHBOARD_PORT:-8477}"
+
 log()  { printf '[clawedr] %s\n' "$*"; }
 die()  { log "ERROR: $*"; exit 1; }
 
@@ -36,6 +39,118 @@ fetch() {
     fi
 }
 
+# ---------------------------------------------------------------------------
+# Dashboard: pip deps + service install (shared by both platforms)
+# ---------------------------------------------------------------------------
+
+install_dashboard_deps() {
+    log "Installing Dashboard dependencies (fastapi, uvicorn)..."
+
+    # Prefer pip3, fall back to pip
+    PIP=""
+    if command -v pip3 >/dev/null 2>&1; then
+        PIP="pip3"
+    elif command -v pip >/dev/null 2>&1; then
+        PIP="pip"
+    fi
+
+    if [ -z "$PIP" ]; then
+        log "WARNING: pip not found — attempting python3 -m pip"
+        PIP="python3 -m pip"
+    fi
+
+    $PIP install --quiet --break-system-packages fastapi uvicorn 2>/dev/null \
+        || $PIP install --quiet fastapi uvicorn 2>/dev/null \
+        || log "WARNING: Could not install fastapi/uvicorn via pip. Install manually: pip3 install fastapi uvicorn"
+}
+
+install_dashboard_launchd() {
+    log "Installing Dashboard launchd service..."
+
+    PLIST_LABEL="com.clawedr.dashboard"
+    PLIST_DIR="/Library/LaunchDaemons"
+    PLIST_PATH="$PLIST_DIR/$PLIST_LABEL.plist"
+
+    # Find python3 binary path
+    PYTHON3="$(command -v python3 || echo /usr/bin/python3)"
+
+    cat > "$PLIST_PATH" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>$PLIST_LABEL</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>$PYTHON3</string>
+        <string>$CLAWEDR_DIR/dashboard/app.py</string>
+    </array>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>CLAWEDR_POLICY_PATH</key>
+        <string>$CLAWEDR_DIR/compiled_policy.json</string>
+        <key>CLAWEDR_DASHBOARD_PORT</key>
+        <string>$CLAWEDR_DASHBOARD_PORT</string>
+        <key>PYTHONPATH</key>
+        <string>$CLAWEDR_DIR</string>
+    </dict>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/tmp/clawedr_dashboard.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/clawedr_dashboard.log</string>
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+</dict>
+</plist>
+PLIST
+
+    launchctl unload "$PLIST_PATH" 2>/dev/null || true
+    launchctl load -w "$PLIST_PATH" 2>/dev/null || true
+    log "Dashboard launchd service installed and started at http://localhost:$CLAWEDR_DASHBOARD_PORT"
+}
+
+install_dashboard_systemd() {
+    log "Installing Dashboard systemd service..."
+
+    PYTHON3="$(command -v python3 || echo /usr/bin/python3)"
+    SERVICE_PATH="/etc/systemd/system/clawedr-dashboard.service"
+
+    cat > "$SERVICE_PATH" <<SERVICE
+[Unit]
+Description=ClawEDR Dashboard
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=$PYTHON3 $CLAWEDR_DIR/dashboard/app.py
+Environment=CLAWEDR_POLICY_PATH=$CLAWEDR_DIR/compiled_policy.json
+Environment=CLAWEDR_DASHBOARD_PORT=$CLAWEDR_DASHBOARD_PORT
+Environment=PYTHONPATH=$CLAWEDR_DIR
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=clawedr-dashboard
+
+[Install]
+WantedBy=multi-user.target
+SERVICE
+
+    systemctl daemon-reload 2>/dev/null || true
+    systemctl enable clawedr-dashboard 2>/dev/null || true
+    systemctl restart clawedr-dashboard 2>/dev/null || true
+    log "Dashboard systemd service installed and started at http://localhost:$CLAWEDR_DASHBOARD_PORT"
+}
+
+# ---------------------------------------------------------------------------
+# macOS install
+# ---------------------------------------------------------------------------
+
 install_macos() {
     log "Detected macOS — installing ClawEDR Shield"
 
@@ -54,25 +169,34 @@ install_macos() {
     fetch "$CLAWEDR_BASE_URL/dashboard/app.py"               "$tmpdir/dashboard_app.py"
     fetch "$CLAWEDR_BASE_URL/dashboard/templates/index.html" "$tmpdir/dashboard_index.html"
 
-    mkdir -p /usr/local/share/clawedr/shared
-    mkdir -p /usr/local/share/clawedr/dashboard/templates
-    cp "$tmpdir/clawedr.sb"              /usr/local/share/clawedr/
-    cp "$tmpdir/log_tailer.py"           /usr/local/share/clawedr/
-    cp "$tmpdir/apply_macos_policy.py"   /usr/local/share/clawedr/
-    cp "$tmpdir/compiled_policy.json"    /usr/local/share/clawedr/
-    cp "$tmpdir/user_rules.py"           /usr/local/share/clawedr/shared/
-    cp "$tmpdir/alert_dispatcher.py"     /usr/local/share/clawedr/shared/
-    cp "$tmpdir/dashboard_app.py"        /usr/local/share/clawedr/dashboard/app.py
-    cp "$tmpdir/dashboard_index.html"    /usr/local/share/clawedr/dashboard/templates/index.html
-    touch /usr/local/share/clawedr/shared/__init__.py
+    mkdir -p "$CLAWEDR_DIR/shared"
+    mkdir -p "$CLAWEDR_DIR/dashboard/templates"
+    cp "$tmpdir/clawedr.sb"              "$CLAWEDR_DIR/"
+    cp "$tmpdir/log_tailer.py"           "$CLAWEDR_DIR/"
+    cp "$tmpdir/apply_macos_policy.py"   "$CLAWEDR_DIR/"
+    cp "$tmpdir/compiled_policy.json"    "$CLAWEDR_DIR/"
+    cp "$tmpdir/user_rules.py"           "$CLAWEDR_DIR/shared/"
+    cp "$tmpdir/alert_dispatcher.py"     "$CLAWEDR_DIR/shared/"
+    cp "$tmpdir/dashboard_app.py"        "$CLAWEDR_DIR/dashboard/app.py"
+    cp "$tmpdir/dashboard_index.html"    "$CLAWEDR_DIR/dashboard/templates/index.html"
+    touch "$CLAWEDR_DIR/shared/__init__.py"
+    touch "$CLAWEDR_DIR/dashboard/__init__.py"
     chmod +x "$tmpdir/shield_mac.sh"
     sh "$tmpdir/shield_mac.sh"
 
     # Zero-Habit Hijack: install the openclaw wrapper
     install_openclaw_wrapper
 
+    # Dashboard
+    install_dashboard_deps
+    install_dashboard_launchd
+
     log "macOS Shield installed successfully"
 }
+
+# ---------------------------------------------------------------------------
+# Linux install
+# ---------------------------------------------------------------------------
 
 install_linux() {
     log "Detected Linux — installing ClawEDR Shield"
@@ -91,27 +215,36 @@ install_linux() {
     fetch "$CLAWEDR_BASE_URL/dashboard/app.py"               "$tmpdir/dashboard_app.py"
     fetch "$CLAWEDR_BASE_URL/dashboard/templates/index.html" "$tmpdir/dashboard_index.html"
 
-    mkdir -p /usr/local/share/clawedr/shared
-    mkdir -p /usr/local/share/clawedr/dashboard/templates
-    cp "$tmpdir/compiled_policy.json" /usr/local/share/clawedr/
-    cp "$tmpdir/bpf_hooks.c"         /usr/local/share/clawedr/
-    cp "$tmpdir/monitor.py"          /usr/local/share/clawedr/
-    cp "$tmpdir/user_rules.py"       /usr/local/share/clawedr/shared/
-    cp "$tmpdir/alert_dispatcher.py" /usr/local/share/clawedr/shared/
-    cp "$tmpdir/dashboard_app.py"    /usr/local/share/clawedr/dashboard/app.py
-    cp "$tmpdir/dashboard_index.html" /usr/local/share/clawedr/dashboard/templates/index.html
-    touch /usr/local/share/clawedr/shared/__init__.py
+    mkdir -p "$CLAWEDR_DIR/shared"
+    mkdir -p "$CLAWEDR_DIR/dashboard/templates"
+    cp "$tmpdir/compiled_policy.json" "$CLAWEDR_DIR/"
+    cp "$tmpdir/bpf_hooks.c"         "$CLAWEDR_DIR/"
+    cp "$tmpdir/monitor.py"          "$CLAWEDR_DIR/"
+    cp "$tmpdir/user_rules.py"       "$CLAWEDR_DIR/shared/"
+    cp "$tmpdir/alert_dispatcher.py" "$CLAWEDR_DIR/shared/"
+    cp "$tmpdir/dashboard_app.py"    "$CLAWEDR_DIR/dashboard/app.py"
+    cp "$tmpdir/dashboard_index.html" "$CLAWEDR_DIR/dashboard/templates/index.html"
+    touch "$CLAWEDR_DIR/shared/__init__.py"
+    touch "$CLAWEDR_DIR/dashboard/__init__.py"
     chmod +x "$tmpdir/shield_linux.sh"
     sh "$tmpdir/shield_linux.sh"
 
     install_openclaw_wrapper_linux
 
+    # Dashboard
+    install_dashboard_deps
+    install_dashboard_systemd
+
     log "Linux Shield installed successfully"
 }
 
+# ---------------------------------------------------------------------------
+# openclaw wrapper — macOS
+# ---------------------------------------------------------------------------
+
 install_openclaw_wrapper() {
-    CLAWEDR_REAL="/usr/local/share/clawedr/openclaw-real"
-    CLAWEDR_SB="/usr/local/share/clawedr/clawedr.sb"
+    CLAWEDR_REAL="$CLAWEDR_DIR/openclaw-real"
+    CLAWEDR_SB="$CLAWEDR_DIR/clawedr.sb"
 
     # Find real openclaw (before we overwrite)
     # Run lookup as SUDO_USER when available — root's PATH may not include Homebrew
@@ -228,6 +361,10 @@ WRAPPER
     fi
 }
 
+# ---------------------------------------------------------------------------
+# openclaw wrapper — Linux
+# ---------------------------------------------------------------------------
+
 install_openclaw_wrapper_linux() {
     log "Installing openclaw wrapper at /usr/local/bin/openclaw"
     cat > /usr/local/bin/openclaw <<'WRAPPER'
@@ -281,35 +418,60 @@ WRAPPER
     chmod +x /usr/local/bin/openclaw
 }
 
+# ---------------------------------------------------------------------------
+# Uninstall
+# ---------------------------------------------------------------------------
+
 uninstall_macos() {
     log "Uninstalling ClawEDR (macOS)"
+
+    # Stop dashboard
+    PLIST_PATH="/Library/LaunchDaemons/com.clawedr.dashboard.plist"
+    if [ -f "$PLIST_PATH" ]; then
+        launchctl unload "$PLIST_PATH" 2>/dev/null || true
+        rm -f "$PLIST_PATH"
+        log "Dashboard launchd service removed"
+    fi
+
     pkill -f "log_tailer.py" 2>/dev/null || true
-    # Restore openclaw if we overwrote it (older installs overwrote both paths)
+    pkill -f "clawedr.*dashboard" 2>/dev/null || true
+
+    # Restore openclaw if we overwrote it
     _restore() {
         local path="$1"
         [ ! -e "$path" ] || ! grep -q "CLAWEDR_SB" "$path" 2>/dev/null && return 0
-        if [ -f /usr/local/share/clawedr/openclaw-real ]; then
-            resolved=$(grep 'exec node "' /usr/local/share/clawedr/openclaw-real 2>/dev/null | sed 's/.*exec node "\([^"]*\)".*/\1/')
+        if [ -f "$CLAWEDR_DIR/openclaw-real" ]; then
+            resolved=$(grep 'exec node "' "$CLAWEDR_DIR/openclaw-real" 2>/dev/null | sed 's/.*exec node "\([^"]*\)".*/\1/')
             if [ -n "$resolved" ] && [ -f "$resolved" ]; then
                 log "Restoring openclaw at $path"
                 rm -f "$path"
-                ln -sf "$resolved" "$path" 2>/dev/null || cp /usr/local/share/clawedr/openclaw-real "$path"
+                ln -sf "$resolved" "$path" 2>/dev/null || cp "$CLAWEDR_DIR/openclaw-real" "$path"
                 [ -x "$path" ] || chmod +x "$path"
             fi
         fi
     }
     _restore /opt/homebrew/bin/openclaw
     _restore /usr/local/bin/openclaw
-    rm -rf /usr/local/share/clawedr
+    rm -rf "$CLAWEDR_DIR"
+    rm -f /tmp/clawedr_dashboard.log
     log "ClawEDR uninstalled"
 }
 
 uninstall_linux() {
     log "Uninstalling ClawEDR (Linux)"
+
+    # Stop dashboard
+    systemctl stop clawedr-dashboard 2>/dev/null || true
+    systemctl disable clawedr-dashboard 2>/dev/null || true
+    rm -f /etc/systemd/system/clawedr-dashboard.service
+    systemctl daemon-reload 2>/dev/null || true
+    log "Dashboard systemd service removed"
+
     pkill -f "monitor.py" 2>/dev/null || true
+    pkill -f "clawedr.*dashboard" 2>/dev/null || true
     systemctl stop clawedr-monitor 2>/dev/null || true
     rm -f /tmp/clawedr-monitor.pid /var/log/clawedr_monitor.log
-    rm -rf /usr/local/share/clawedr
+    rm -rf "$CLAWEDR_DIR"
     rm -f /usr/local/bin/openclaw
     log "ClawEDR uninstalled. Run 'npm install -g openclaw' to restore openclaw."
 }
@@ -332,7 +494,9 @@ case "$OS" in
     linux) install_linux ;;
 esac
 
+log ""
 log "Done. Run 'openclaw <your-agent>' to start with protection enabled."
+log "Dashboard is running at http://localhost:$CLAWEDR_DASHBOARD_PORT"
 if [ "$OS" = "macos" ]; then
     log ""
     log "macOS: Run 'source ~/.zshrc' (or open a new terminal), then restart the"
