@@ -225,6 +225,16 @@ install_macos() {
 install_linux() {
     log "Detected Linux — installing ClawEDR Shield"
 
+    # Stop clawedr services if running so install can replace files and restart cleanly
+    if command -v systemctl >/dev/null 2>&1; then
+        for svc in clawedr-monitor clawedr-dashboard; do
+            if systemctl is-active --quiet "$svc" 2>/dev/null; then
+                log "Stopping existing $svc service..."
+                systemctl stop "$svc" 2>/dev/null || true
+            fi
+        done
+    fi
+
     tmpdir="$(mktemp -d)"
     trap 'rm -rf "$tmpdir"' EXIT
 

@@ -24,6 +24,8 @@ touch /var/log/clawedr_monitor.log 2>/dev/null || true
 
 log "Starting ClawEDR monitor daemon"
 if command -v systemd-run >/dev/null 2>&1 && pidof systemd >/dev/null 2>&1; then
+    # Stop existing unit so systemd-run can start fresh (avoids conflict if already running)
+    systemctl stop clawedr-monitor 2>/dev/null || true
     systemd-run --unit=clawedr-monitor \
         --description="ClawEDR Shield Monitor" \
         --collect \
