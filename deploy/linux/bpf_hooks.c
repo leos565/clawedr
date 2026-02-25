@@ -29,7 +29,7 @@ struct event_t {
     u32 uid;
     char comm[TASK_COMM_LEN];
     char filename[MAX_FILENAME_LEN];
-    u8  action; // 0 = observed, 1 = blocked (SIGKILL)
+    u8  action; // 0 = observed (enter), 1 = blocked (SIGKILL), 2 = post-exec (exit, for deny_rules)
 };
 
 /* --- Maps populated by monitor.py --- */
@@ -130,6 +130,30 @@ TRACEPOINT_PROBE(syscalls, sys_enter_execve) {
     }
 
     evt.action = 0;
+    events.perf_submit(args, &evt, sizeof(evt));
+    return 0;
+}
+
+/* ── execve exit: deny_rules need /proc/cmdline after process replacement ──
+ * At sys_enter_execve, /proc/pid/cmdline still shows the OLD process (shell).
+ * At sys_exit_execve, the process has been replaced; cmdline has the NEW argv.
+ * We submit a second event here so userspace can match deny_rules correctly.
+ */
+TRACEPOINT_PROBE(syscalls, sys_exit_execve) {
+    u64 pid_tgid = bpf_get_current_pid_tgid();
+    u32 pid = pid_tgid >> 32;
+
+    u8 *is_tracked = tracked_pids.lookup(&pid);
+    if (!is_tracked)
+        return 0;
+
+    struct event_t evt = {};
+    evt.pid = pid;
+    evt.ns_pid = get_ns_pid();
+    evt.uid = bpf_get_current_uid_gid() & 0xFFFFFFFF;
+    bpf_get_current_comm(&evt.comm, sizeof(evt.comm));
+    __builtin_memcpy(evt.filename, evt.comm, sizeof(evt.comm));
+    evt.action = 2;  /* post-exec: /proc/cmdline now has new argv */
     events.perf_submit(args, &evt, sizeof(evt));
     return 0;
 }

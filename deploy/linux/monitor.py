@@ -196,13 +196,17 @@ def load_bpf(source_path: str):
                 pid=ns_pid,
                 comm=comm,
             )
-        else:
+        elif event.action == 2:
+            # Post-exec (sys_exit_execve): /proc/cmdline now has the new argv.
+            # This is when deny_rules must run — at enter, cmdline was still the shell.
             matched_rule = _check_deny_rules(ns_pid, comm, filename)
             if not matched_rule:
                 logger.info(
                     "[observed] pid=%d uid=%d comm=%s file=%s",
                     ns_pid, event.uid, comm, filename,
                 )
+        # else action=0: sys_enter_execve — cmdline still shows old process.
+        # Skip deny_rules and logging; the exit event (action=2) carries the real argv.
 
     _bpf_instance["events"].open_perf_buffer(_print_event)
     return _bpf_instance
