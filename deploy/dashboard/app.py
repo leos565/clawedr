@@ -49,8 +49,8 @@ if not os.path.exists(POLICY_PATH):
 
 BLOCK_LOG_PATHS = [
     "/var/log/clawedr.log",
-    "/tmp/clawedr_log_tailer.log",
     os.path.expanduser("~/Library/Logs/clawedr.log"),
+    "/tmp/clawedr_log_tailer.log",
 ]
 
 _BLOCK_LINE_RE = re.compile(
@@ -83,7 +83,7 @@ def _find_openclaw() -> Optional[str]:
     return None
 
 
-def _parse_log_lines(max_lines: int = 200) -> list[dict]:
+def _parse_log_lines(max_lines: int = 1000) -> list[dict]:
     """Parse recent BLOCKED entries from the log files."""
     alerts: list[dict] = []
     for log_path in BLOCK_LOG_PATHS:

@@ -27,6 +27,7 @@ from shared.alert_dispatcher import dispatch_alert_async
 from shared.user_rules import get_custom_rules, USER_RULES_PATH
 
 logger = logging.getLogger("clawedr.log_tailer")
+block_logger = logging.getLogger("clawedr.blocked")
 
 # Subsystem for macOS Console.app filtering (e.g. predicate: subsystem == "com.clawedr.shield")
 OSLOG_SUBSYSTEM = "com.clawedr.shield"
@@ -39,6 +40,7 @@ SEATBELT_PROFILE = os.environ.get(
     "CLAWEDR_SB_PATH", "/usr/local/share/clawedr/clawedr.sb"
 )
 POLL_INTERVAL = int(os.environ.get("CLAWEDR_POLL_INTERVAL", "10"))
+BLOCK_LOG_FILE = "/var/log/clawedr.log"
 
 # Regex to extract blocked path/process from sandbox violation log lines
 _DENY_RE = re.compile(r"deny\(?\d*\)?\s+([\w\-\*]+)\s+(.*)", re.IGNORECASE)
@@ -114,7 +116,7 @@ def tail_sandbox_log():
                 if len(seen_events) > 5000:
                     seen_events.clear()
 
-                logger.info("SANDBOX EVENT: %s", line)
+                logger.debug("SANDBOX EVENT: %s", line)
 
                 # Try to extract what was denied and dispatch an alert
                 match = _DENY_RE.search(line)
@@ -150,7 +152,7 @@ def tail_sandbox_log():
                         continue
 
                     # Log the blocked event in the format expected by the dashboard
-                    logger.warning("BLOCKED [%s] action=%s target=%s", rule_id, action, target)
+                    block_logger.warning("BLOCKED [%s] action=%s target=%s", rule_id, action, target)
 
                     dispatch_alert_async(
                         rule_id=rule_id,
@@ -225,6 +227,17 @@ def _configure_logging() -> None:
     stream = logging.StreamHandler(sys.stderr)
     stream.setFormatter(fmt)
     root.addHandler(stream)
+
+    # Dedicated alert logging to /var/log/clawedr.log (persistent)
+    block_logger.setLevel(logging.WARNING)
+    block_logger.propagate = False
+    block_logger.addHandler(stream) # Also log to stderr for visibility in /tmp log
+    try:
+        block_fh = logging.FileHandler(BLOCK_LOG_FILE)
+        block_fh.setFormatter(fmt)
+        block_logger.addHandler(block_fh)
+    except PermissionError:
+        logger.warning("Cannot write to %s — block file logging disabled", BLOCK_LOG_FILE)
 
     try:
         import pyoslog

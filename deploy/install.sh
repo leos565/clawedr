@@ -199,6 +199,11 @@ install_macos() {
     mkdir -p "$CLAWEDR_DIR/dashboard/templates"
     mkdir -p "/etc/clawedr"
     chmod 777 "/etc/clawedr" || true
+    
+    # Initialize persistent log file with wide permissions
+    touch "/var/log/clawedr.log"
+    chmod 666 "/var/log/clawedr.log" || true
+    
     cp "$tmpdir/clawedr.sb"              "$CLAWEDR_DIR/"
     cp "$tmpdir/log_tailer.py"           "$CLAWEDR_DIR/"
     cp "$tmpdir/apply_macos_policy.py"   "$CLAWEDR_DIR/"
@@ -257,6 +262,11 @@ install_linux() {
     mkdir -p "$CLAWEDR_DIR/dashboard/templates"
     mkdir -p "/etc/clawedr"
     chmod 777 "/etc/clawedr" || true
+    
+    # Initialize persistent log file with wide permissions
+    touch "/var/log/clawedr.log"
+    chmod 666 "/var/log/clawedr.log" || true
+    
     cp "$tmpdir/compiled_policy.json" "$CLAWEDR_DIR/"
     cp "$tmpdir/bpf_hooks.c"         "$CLAWEDR_DIR/"
     cp "$tmpdir/monitor.py"          "$CLAWEDR_DIR/"

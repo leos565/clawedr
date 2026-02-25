@@ -201,7 +201,7 @@ def load_bpf(source_path: str):
             # This is when deny_rules must run — at enter, cmdline was still the shell.
             matched_rule = _check_deny_rules(ns_pid, comm, filename)
             if not matched_rule:
-                logger.info(
+                logger.debug(
                     "[observed] pid=%d uid=%d comm=%s file=%s",
                     ns_pid, event.uid, comm, filename,
                 )
