@@ -2,8 +2,11 @@
 ClawEDR Universal Policy Compiler.
 
 Consumes the merged threat data (from the Threat Aggregator) and produces:
-  - deploy/compiled_policy.json  (Linux eBPF policy)
+  - deploy/compiled_policy.json  (universal policy with Rule IDs)
   - deploy/macos/clawedr.sb      (macOS Seatbelt LISP profile)
+
+All rules carry their Rule ID so that the Shield daemons and the
+Dashboard can reference them precisely.
 """
 
 from __future__ import annotations
@@ -35,19 +38,43 @@ def compile_linux_policy(rules: dict[str, Any]) -> dict[str, Any]:
     """Build the Linux eBPF policy structure.
 
     The policy is a flat mapping consumed by bpf_hooks.c / monitor.py.
+    All entries are keyed by Rule ID.
     """
     policy: dict[str, Any] = {
         "version": rules.get("version", "2.0"),
-        "blocked_executables": rules.get("blocked_executables", []),
-        "blocked_domains": rules.get("blocked_domains", []),
-        "malicious_hashes": rules.get("malicious_hashes", []),
-        "blocked_paths": rules.get("blocked_paths", {}).get("linux", []),
-        "deny_rules": [],
+        "blocked_executables": dict(rules.get("blocked_executables", {})),
+        "blocked_domains": dict(rules.get("blocked_domains", {})),
+        "malicious_hashes": dict(rules.get("malicious_hashes", {})),
+        "blocked_paths": dict(rules.get("blocked_paths", {}).get("linux", {})),
+        "deny_rules": {},
     }
 
-    for rule in rules.get("custom_deny_rules", {}).get("linux", []):
-        policy["deny_rules"].append(rule)
+    for rule_id, rule in rules.get("custom_deny_rules", {}).get("linux", {}).items():
+        policy["deny_rules"][rule_id] = rule
 
+    return policy
+
+
+def compile_universal_policy(rules: dict[str, Any]) -> dict[str, Any]:
+    """Build a universal policy containing rules for both OSes.
+
+    This is the single artifact shipped to end-users. The local Shield
+    daemons filter rules by platform and apply user exemptions at runtime.
+    """
+    policy: dict[str, Any] = {
+        "version": rules.get("version", "2.0"),
+        "blocked_executables": dict(rules.get("blocked_executables", {})),
+        "blocked_domains": dict(rules.get("blocked_domains", {})),
+        "malicious_hashes": dict(rules.get("malicious_hashes", {})),
+        "blocked_paths": {
+            "linux": dict(rules.get("blocked_paths", {}).get("linux", {})),
+            "macos": dict(rules.get("blocked_paths", {}).get("macos", {})),
+        },
+        "deny_rules": {
+            "linux": dict(rules.get("custom_deny_rules", {}).get("linux", {})),
+            "macos": dict(rules.get("custom_deny_rules", {}).get("macos", {})),
+        },
+    }
     return policy
 
 
@@ -83,13 +110,17 @@ def compile_macos_seatbelt(rules: dict[str, Any]) -> str:
 
     In Seatbelt LISP the last matching rule wins, so (allow default)
     goes first and specific deny rules follow to override it.
+
+    Each rule is annotated with its Rule ID as a comment.
     """
     lines = [_SB_HEADER]
 
     # ── Blocked paths ──
     lines.append(";;; --- Blocked paths ---")
-    for path in rules.get("blocked_paths", {}).get("macos", []):
+    blocked_paths = rules.get("blocked_paths", {}).get("macos", {})
+    for rule_id, path in blocked_paths.items():
         sb_path = path.replace("~", "/Users/*")
+        lines.append(f";;; [{rule_id}]")
         if "*" in sb_path:
             regex_path = sb_path.replace("*", "[^/]+")
             lines.append(f'(deny file-read* (regex #"^{regex_path}"))')
@@ -99,10 +130,11 @@ def compile_macos_seatbelt(rules: dict[str, Any]) -> str:
             lines.append(f'(deny file-write* (subpath "{sb_path}"))')
 
     # ── Blocked executables ──
-    execs = rules.get("blocked_executables", [])
+    execs = rules.get("blocked_executables", {})
     if execs:
         lines.append(";;; --- Blocked executables ---")
-        for name in execs:
+        for rule_id, name in execs.items():
+            lines.append(f";;; [{rule_id}]")
             if "/" in name:
                 lines.append(f'(deny process-exec (literal "{name}"))')
             else:
@@ -113,18 +145,19 @@ def compile_macos_seatbelt(rules: dict[str, Any]) -> str:
 
     # Seatbelt does not support hostname-based filters; domain blocking is
     # enforced at the application layer by log_tailer.py / openclaw wrapper.
-    blocked_domains = rules.get("blocked_domains", [])
+    blocked_domains = rules.get("blocked_domains", {})
     if blocked_domains:
         lines.append(";;; --- Blocked domains (enforced by log_tailer.py, not kernel-level) ---")
-        for domain in blocked_domains:
-            lines.append(f';;;   - {domain}')
+        for rule_id, domain in blocked_domains.items():
+            lines.append(f';;;   [{rule_id}] {domain}')
 
     # ── Custom deny rules (raw Seatbelt directives) ──
-    custom_rules = rules.get("custom_deny_rules", {}).get("macos", [])
+    custom_rules = rules.get("custom_deny_rules", {}).get("macos", {})
     if custom_rules:
         lines.append(";;; --- Custom deny rules ---")
-        for custom in custom_rules:
+        for rule_id, custom in custom_rules.items():
             if isinstance(custom, str):
+                lines.append(f";;; [{rule_id}]")
                 lines.append(custom)
 
     lines.append("")
@@ -148,8 +181,9 @@ def compile_all(merged_path: Path = MERGED_RULES_PATH) -> None:
     """Compile both Linux and macOS policies from merged rules."""
     rules = load_merged_rules(merged_path)
 
-    linux_policy = compile_linux_policy(rules)
-    write_linux_policy(linux_policy)
+    # Write the universal compiled_policy.json (used by both platforms at runtime)
+    universal_policy = compile_universal_policy(rules)
+    write_linux_policy(universal_policy)
 
     sb_content = compile_macos_seatbelt(rules)
     write_macos_seatbelt(sb_content)

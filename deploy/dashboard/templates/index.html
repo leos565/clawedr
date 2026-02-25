@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ClawEDR Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-primary: #0a0e14;
+      --bg-secondary: #111820;
+      --bg-card: #161e28;
+      --bg-card-hover: #1c2633;
+      --border: #1e2a38;
+      --text-primary: #e6edf5;
+      --text-secondary: #8b9bb4;
+      --text-muted: #5a6a80;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --danger: #ef4444;
+      --danger-glow: rgba(239, 68, 68, 0.15);
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --tag-bg: rgba(59, 130, 246, 0.12);
+      --tag-border: rgba(59, 130, 246, 0.25);
+      --shadow: 0 4px 24px rgba(0,0,0,0.3);
+      --radius: 12px;
+      --radius-sm: 8px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      line-height: 1.5;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    /* ── Header ── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 0 32px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 32px;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-icon {
+      width: 40px;
+      height: 40px;
+      background: linear-gradient(135deg, var(--accent), #8b5cf6);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+    }
+
+    .logo h1 {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+
+    .logo h1 span { color: var(--text-muted); font-weight: 400; }
+
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--success);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    /* ── Tabs ── */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      background: var(--bg-secondary);
+      padding: 4px;
+      border-radius: var(--radius);
+      margin-bottom: 28px;
+      border: 1px solid var(--border);
+    }
+
+    .tab {
+      flex: 1;
+      padding: 12px 20px;
+      border: none;
+      background: transparent;
+      color: var(--text-secondary);
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      border-radius: var(--radius-sm);
+      transition: all 0.2s;
+    }
+
+    .tab:hover { color: var(--text-primary); }
+
+    .tab.active {
+      background: var(--bg-card);
+      color: var(--text-primary);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 16px;
+      box-shadow: var(--shadow);
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .card-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .card-count {
+      font-size: 13px;
+      color: var(--text-muted);
+      background: var(--bg-secondary);
+      padding: 4px 10px;
+      border-radius: 12px;
+    }
+
+    /* ── Alerts Table ── */
+    .alert-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .alert-table th {
+      text-align: left;
+      padding: 10px 12px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .alert-table td {
+      padding: 12px;
+      font-size: 13px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-secondary);
+    }
+
+    .alert-table tr:last-child td { border-bottom: none; }
+
+    .alert-table tr:hover td { background: var(--bg-card-hover); }
+
+    .rule-tag {
+      display: inline-block;
+      padding: 3px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      background: var(--tag-bg);
+      border: 1px solid var(--tag-border);
+      border-radius: 6px;
+      color: var(--accent);
+    }
+
+    .rule-tag.danger {
+      background: var(--danger-glow);
+      border-color: rgba(239, 68, 68, 0.3);
+      color: var(--danger);
+    }
+
+    .timestamp {
+      font-family: 'SF Mono', monospace;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    /* ── Rules List ── */
+    .rule-group { margin-bottom: 24px; }
+
+    .rule-group-title {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .rule-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
+      margin-bottom: 4px;
+      transition: background 0.15s;
+    }
+
+    .rule-item:hover { background: var(--bg-card-hover); }
+
+    .rule-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .rule-value {
+      font-size: 13px;
+      font-family: 'SF Mono', monospace;
+      color: var(--text-primary);
+    }
+
+    /* ── Toggle Switch ── */
+    .toggle {
+      position: relative;
+      width: 40px;
+      height: 22px;
+      cursor: pointer;
+    }
+
+    .toggle input { display: none; }
+
+    .toggle-slider {
+      position: absolute;
+      inset: 0;
+      background: var(--border);
+      border-radius: 11px;
+      transition: 0.2s;
+    }
+
+    .toggle-slider::before {
+      content: '';
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      left: 3px;
+      bottom: 3px;
+      background: var(--text-secondary);
+      border-radius: 50%;
+      transition: 0.2s;
+    }
+
+    .toggle input:checked + .toggle-slider { background: var(--accent); }
+    .toggle input:checked + .toggle-slider::before {
+      transform: translateX(18px);
+      background: white;
+    }
+
+    /* ── Buttons ── */
+    .btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: white;
+    }
+
+    .btn-primary:hover { background: var(--accent-hover); transform: translateY(-1px); }
+
+    .btn-ghost {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+    }
+
+    .btn-ghost:hover { border-color: var(--text-muted); color: var(--text-primary); }
+
+    /* ── Empty State ── */
+    .empty-state {
+      text-align: center;
+      padding: 48px 24px;
+      color: var(--text-muted);
+    }
+
+    .empty-state .icon { font-size: 48px; margin-bottom: 16px; }
+    .empty-state p { font-size: 14px; }
+
+    /* ── Footer ── */
+    .footer {
+      text-align: center;
+      padding: 32px 0 16px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    /* ── Save Banner ── */
+    .save-banner {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: var(--bg-card);
+      border: 1px solid var(--accent);
+      border-radius: var(--radius);
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+      transition: transform 0.3s ease;
+      z-index: 100;
+    }
+
+    .save-banner.visible { transform: translateX(-50%) translateY(0); }
+    .save-banner p { font-size: 13px; color: var(--text-secondary); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="logo">
+        <div class="logo-icon">🛡️</div>
+        <h1>ClawEDR <span>Dashboard</span></h1>
+      </div>
+      <div class="status-badge" id="statusBadge">
+        <div class="status-dot"></div>
+        <span>Loading...</span>
+      </div>
+    </header>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="alerts">🚨 Alerts</button>
+      <button class="tab" data-tab="rules">📋 Policy Rules</button>
+      <button class="tab" data-tab="exemptions">⚙️ User Exemptions</button>
+    </div>
+
+    <!-- Alerts Tab -->
+    <div class="tab-panel active" id="tab-alerts">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Recent Blocked Actions</span>
+          <span class="card-count" id="alertCount">0 alerts</span>
+        </div>
+        <div id="alertsContainer">
+          <div class="empty-state">
+            <div class="icon">🔒</div>
+            <p>No recent alerts. Your system is clean.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Rules Tab -->
+    <div class="tab-panel" id="tab-rules">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Active Policy Rules</span>
+          <button class="btn btn-ghost" onclick="loadRules()">↻ Refresh</button>
+        </div>
+        <div id="rulesContainer">
+          <div class="empty-state"><p>Loading rules...</p></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Exemptions Tab -->
+    <div class="tab-panel" id="tab-exemptions">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">User Exemptions</span>
+          <span class="card-count" id="exemptionCount">0 exempted</span>
+        </div>
+        <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 20px;">
+          Toggle rules off to exempt them from enforcement. Changes are saved to
+          <code style="background: var(--bg-secondary); padding: 2px 6px; border-radius: 4px;">~/.clawedr/user_rules.yaml</code>
+        </p>
+        <div id="exemptionsContainer">
+          <div class="empty-state"><p>Loading rules...</p></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">ClawEDR v2.0 — Kernel-level endpoint detection for AI agents</div>
+  </div>
+
+  <!-- Save Banner -->
+  <div class="save-banner" id="saveBanner">
+    <p>You have unsaved changes</p>
+    <button class="btn btn-primary" onclick="saveExemptions()">Save & Apply</button>
+    <button class="btn btn-ghost" onclick="cancelExemptions()">Cancel</button>
+  </div>
+
+  <script>
+    // ── State ──
+    let allRules = {};
+    let exemptedIds = new Set();
+    let pendingExemptions = null;
+
+    // ── Tabs ──
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+      });
+    });
+
+    // ── API Calls ──
+    async function fetchJSON(url) {
+      const res = await fetch(url);
+      return res.json();
+    }
+
+    async function loadStatus() {
+      try {
+        const status = await fetchJSON('/api/status');
+        const badge = document.getElementById('statusBadge');
+        const dot = badge.querySelector('.status-dot');
+        const text = badge.querySelector('span');
+        if (status.policy_exists && status.openclaw_available) {
+          dot.style.background = 'var(--success)';
+          text.textContent = status.os + ' • Protected';
+        } else {
+          dot.style.background = 'var(--warning)';
+          text.textContent = status.os + ' • Degraded';
+        }
+      } catch {
+        const badge = document.getElementById('statusBadge');
+        badge.querySelector('.status-dot').style.background = 'var(--danger)';
+        badge.querySelector('span').textContent = 'Offline';
+      }
+    }
+
+    async function loadAlerts() {
+      try {
+        const data = await fetchJSON('/api/alerts');
+        const container = document.getElementById('alertsContainer');
+        const countEl = document.getElementById('alertCount');
+        countEl.textContent = data.count + ' alert' + (data.count !== 1 ? 's' : '');
+
+        if (!data.alerts.length) {
+          container.innerHTML = '<div class="empty-state"><div class="icon">🔒</div><p>No recent alerts. Your system is clean.</p></div>';
+          return;
+        }
+
+        let html = '<table class="alert-table"><thead><tr><th>Time</th><th>Rule</th><th>Details</th><th></th></tr></thead><tbody>';
+        for (const a of data.alerts.reverse()) {
+          html += `<tr>
+            <td class="timestamp">${a.timestamp}</td>
+            <td><span class="rule-tag danger">${a.rule_id}</span></td>
+            <td>${escapeHtml(a.details)}</td>
+            <td><button class="btn btn-ghost" style="padding:4px 10px;font-size:11px;" onclick="exemptRule('${a.rule_id}')">Exempt</button></td>
+          </tr>`;
+        }
+        html += '</tbody></table>';
+        container.innerHTML = html;
+      } catch {
+        document.getElementById('alertsContainer').innerHTML = '<div class="empty-state"><p>Could not load alerts.</p></div>';
+      }
+    }
+
+    async function loadRules() {
+      try {
+        const data = await fetchJSON('/api/rules');
+        allRules = data;
+        renderRules(data);
+        renderExemptions(data);
+      } catch {
+        document.getElementById('rulesContainer').innerHTML = '<div class="empty-state"><p>Could not load rules.</p></div>';
+      }
+    }
+
+    async function loadUserRules() {
+      try {
+        const data = await fetchJSON('/api/user-rules');
+        exemptedIds = new Set(data.rules.exempted_rule_ids || []);
+        pendingExemptions = null;
+        renderExemptions(allRules);
+      } catch {
+        exemptedIds = new Set();
+      }
+    }
+
+    function renderRules(policy) {
+      const container = document.getElementById('rulesContainer');
+      let html = '';
+
+      const sections = [
+        { key: 'blocked_executables', title: 'Blocked Executables' },
+        { key: 'blocked_domains', title: 'Blocked Domains' },
+      ];
+
+      for (const s of sections) {
+        const items = policy[s.key] || {};
+        if (!Object.keys(items).length) continue;
+        html += `<div class="rule-group"><div class="rule-group-title">${s.title} (${Object.keys(items).length})</div>`;
+        for (const [id, val] of Object.entries(items)) {
+          const isExempt = exemptedIds.has(id);
+          html += `<div class="rule-item" style="${isExempt ? 'opacity:0.4;' : ''}">
+            <div class="rule-info"><span class="rule-tag">${id}</span><span class="rule-value">${escapeHtml(typeof val === 'string' ? val : JSON.stringify(val))}</span></div>
+            ${isExempt ? '<span style="font-size:11px;color:var(--warning);">EXEMPTED</span>' : ''}
+          </div>`;
+        }
+        html += '</div>';
+      }
+
+      // Blocked paths
+      const paths = policy.blocked_paths || {};
+      for (const [os, items] of Object.entries(paths)) {
+        if (!Object.keys(items).length) continue;
+        html += `<div class="rule-group"><div class="rule-group-title">Blocked Paths — ${os} (${Object.keys(items).length})</div>`;
+        for (const [id, val] of Object.entries(items)) {
+          const isExempt = exemptedIds.has(id);
+          html += `<div class="rule-item" style="${isExempt ? 'opacity:0.4;' : ''}">
+            <div class="rule-info"><span class="rule-tag">${id}</span><span class="rule-value">${escapeHtml(val)}</span></div>
+            ${isExempt ? '<span style="font-size:11px;color:var(--warning);">EXEMPTED</span>' : ''}
+          </div>`;
+        }
+        html += '</div>';
+      }
+
+      // Deny rules
+      const deny = policy.deny_rules || {};
+      for (const [os, items] of Object.entries(deny)) {
+        if (!Object.keys(items).length) continue;
+        html += `<div class="rule-group"><div class="rule-group-title">Deny Rules — ${os} (${Object.keys(items).length})</div>`;
+        for (const [id, val] of Object.entries(items)) {
+          const isExempt = exemptedIds.has(id);
+          const display = typeof val === 'string' ? val : (val.match || val.rule || JSON.stringify(val));
+          html += `<div class="rule-item" style="${isExempt ? 'opacity:0.4;' : ''}">
+            <div class="rule-info"><span class="rule-tag">${id}</span><span class="rule-value">${escapeHtml(display)}</span></div>
+            ${isExempt ? '<span style="font-size:11px;color:var(--warning);">EXEMPTED</span>' : ''}
+          </div>`;
+        }
+        html += '</div>';
+      }
+
+      container.innerHTML = html || '<div class="empty-state"><p>No rules loaded.</p></div>';
+    }
+
+    function renderExemptions(policy) {
+      const container = document.getElementById('exemptionsContainer');
+      const current = pendingExemptions || exemptedIds;
+
+      // Gather all rule IDs from policy
+      const allIds = [];
+      for (const [id, val] of Object.entries(policy.blocked_executables || {})) allIds.push({ id, val: typeof val === 'string' ? val : JSON.stringify(val), cat: 'Executable' });
+      for (const [id, val] of Object.entries(policy.blocked_domains || {})) allIds.push({ id, val, cat: 'Domain' });
+      for (const [os, items] of Object.entries(policy.blocked_paths || {})) for (const [id, val] of Object.entries(items)) allIds.push({ id, val, cat: `Path (${os})` });
+      for (const [os, items] of Object.entries(policy.deny_rules || {})) for (const [id, val] of Object.entries(items)) allIds.push({ id, val: typeof val === 'string' ? val : (val.match || val.rule || ''), cat: `Deny (${os})` });
+
+      document.getElementById('exemptionCount').textContent = current.size + ' exempted';
+
+      if (!allIds.length) {
+        container.innerHTML = '<div class="empty-state"><p>Load rules first.</p></div>';
+        return;
+      }
+
+      let html = '';
+      for (const r of allIds) {
+        const checked = !current.has(r.id);
+        html += `<div class="rule-item">
+          <div class="rule-info">
+            <span class="rule-tag">${r.id}</span>
+            <span class="rule-value">${escapeHtml(r.val)}</span>
+            <span style="font-size:11px;color:var(--text-muted);">${r.cat}</span>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" ${checked ? 'checked' : ''} onchange="toggleExemption('${r.id}', this.checked)">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>`;
+      }
+      container.innerHTML = html;
+    }
+
+    function toggleExemption(ruleId, enabled) {
+      if (!pendingExemptions) pendingExemptions = new Set(exemptedIds);
+      if (enabled) {
+        pendingExemptions.delete(ruleId);
+      } else {
+        pendingExemptions.add(ruleId);
+      }
+      document.getElementById('saveBanner').classList.add('visible');
+    }
+
+    async function saveExemptions() {
+      if (!pendingExemptions) return;
+      try {
+        await fetch('/api/user-rules', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ exempted_rule_ids: Array.from(pendingExemptions) }),
+        });
+        exemptedIds = new Set(pendingExemptions);
+        pendingExemptions = null;
+        document.getElementById('saveBanner').classList.remove('visible');
+        renderRules(allRules);
+        renderExemptions(allRules);
+      } catch (e) {
+        alert('Failed to save: ' + e.message);
+      }
+    }
+
+    function cancelExemptions() {
+      pendingExemptions = null;
+      document.getElementById('saveBanner').classList.remove('visible');
+      renderExemptions(allRules);
+    }
+
+    function exemptRule(ruleId) {
+      if (!pendingExemptions) pendingExemptions = new Set(exemptedIds);
+      pendingExemptions.add(ruleId);
+      document.getElementById('saveBanner').classList.add('visible');
+      // Switch to exemptions tab
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      document.querySelector('[data-tab="exemptions"]').classList.add('active');
+      document.getElementById('tab-exemptions').classList.add('active');
+      renderExemptions(allRules);
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    // ── Init ──
+    loadStatus();
+    loadAlerts();
+    loadRules().then(() => loadUserRules());
+
+    // Auto-refresh alerts every 10s
+    setInterval(loadAlerts, 10000);
+  </script>
+</body>
+</html>

@@ -1,318 +1,364 @@
 {
   "version": "2.0",
-  "blocked_executables": [
-    "nc",
-    "ncat",
-    "socat",
-    "nmap",
-    "masscan",
-    "arp-scan",
-    "xmrig",
-    "minerd",
-    "cgminer",
-    "cpuminer",
-    "ethminer",
-    "xmr-stak",
-    "hellminer",
-    "nanominer",
-    "phoenixminer",
-    "teamredminer",
-    "lolminer",
-    "t-rex",
-    "nbminer",
-    "gminer",
-    "srbminer",
-    "mimikatz",
-    "secretsdump",
-    "gdb",
-    "strace",
-    "ltrace",
-    "ptrace"
-  ],
-  "blocked_domains": [
-    "0x0.st",
-    "antpool.com",
-    "c3pool.com",
-    "ethermine.org",
-    "f2pool.com",
-    "file.io",
-    "mine.zergpool.com",
-    "minexmr.com",
-    "monerohash.com",
-    "nanopool.org",
-    "pastebin.com",
-    "pool.hashvault.pro",
-    "pool.minexmr.com",
-    "pool.supportxmr.com",
-    "poolin.me",
-    "slushpool.com",
-    "termbin.com",
-    "transfer.sh",
-    "xmr.2miners.com",
-    "xmr.pool.minergate.com"
-  ],
-  "malicious_hashes": [],
-  "blocked_paths": [
-    "/etc/passwd",
-    "/etc/shadow",
-    "/etc/sudoers",
-    "/etc/sudoers.d",
-    "/home/*/.aws",
-    "/home/*/.azure",
-    "/home/*/.config/gcloud",
-    "/home/*/.gnupg",
-    "/home/*/.kube/config",
-    "/home/*/.ssh",
-    "/root/.ssh",
-    "/var/run/docker.sock"
-  ],
-  "deny_rules": [
-    {
-      "rule": "block_reverse_shell_4444",
-      "match": "connect",
-      "port": 4444,
-      "action": "SIGKILL"
+  "blocked_executables": {
+    "BIN-001": "nc",
+    "BIN-002": "ncat",
+    "BIN-003": "socat",
+    "BIN-004": "nmap",
+    "BIN-005": "masscan",
+    "BIN-006": "arp-scan",
+    "BIN-007": "xmrig",
+    "BIN-008": "minerd",
+    "BIN-009": "cgminer",
+    "BIN-010": "cpuminer",
+    "BIN-011": "ethminer",
+    "BIN-012": "xmr-stak",
+    "BIN-013": "hellminer",
+    "BIN-014": "nanominer",
+    "BIN-015": "phoenixminer",
+    "BIN-016": "teamredminer",
+    "BIN-017": "lolminer",
+    "BIN-018": "t-rex",
+    "BIN-019": "nbminer",
+    "BIN-020": "gminer",
+    "BIN-021": "srbminer",
+    "BIN-022": "mimikatz",
+    "BIN-023": "secretsdump",
+    "BIN-024": "gdb",
+    "BIN-025": "strace",
+    "BIN-026": "ltrace",
+    "BIN-027": "ptrace"
+  },
+  "blocked_domains": {
+    "DOM-001": "pool.supportxmr.com",
+    "DOM-002": "pool.minexmr.com",
+    "DOM-003": "xmr.pool.minergate.com",
+    "DOM-004": "monerohash.com",
+    "DOM-005": "minexmr.com",
+    "DOM-006": "nanopool.org",
+    "DOM-007": "mine.zergpool.com",
+    "DOM-008": "xmr.2miners.com",
+    "DOM-009": "pool.hashvault.pro",
+    "DOM-010": "c3pool.com",
+    "DOM-011": "f2pool.com",
+    "DOM-012": "antpool.com",
+    "DOM-013": "ethermine.org",
+    "DOM-014": "slushpool.com",
+    "DOM-015": "poolin.me",
+    "DOM-016": "pastebin.com",
+    "DOM-017": "termbin.com",
+    "DOM-018": "transfer.sh",
+    "DOM-019": "file.io",
+    "DOM-020": "0x0.st"
+  },
+  "malicious_hashes": {},
+  "blocked_paths": {
+    "linux": {
+      "PATH-LIN-001": "/root/.ssh",
+      "PATH-LIN-002": "/etc/shadow",
+      "PATH-LIN-003": "/etc/passwd",
+      "PATH-LIN-004": "/etc/sudoers",
+      "PATH-LIN-005": "/etc/sudoers.d",
+      "PATH-LIN-006": "/home/*/.ssh",
+      "PATH-LIN-007": "/home/*/.gnupg",
+      "PATH-LIN-008": "/home/*/.aws",
+      "PATH-LIN-009": "/home/*/.azure",
+      "PATH-LIN-010": "/home/*/.config/gcloud",
+      "PATH-LIN-011": "/home/*/.kube/config",
+      "PATH-LIN-012": "/var/run/docker.sock"
     },
-    {
-      "rule": "block_reverse_shell_1337",
-      "match": "connect",
-      "port": 1337,
-      "action": "SIGKILL"
-    },
-    {
-      "rule": "crypto_stratum_tcp",
-      "match": "* --url *stratum+tcp://*",
-      "action": "SIGKILL"
-    },
-    {
-      "rule": "crypto_stratum_tcp2",
-      "match": "* -o stratum+tcp://*",
-      "action": "SIGKILL"
-    },
-    {
-      "rule": "crypto_stratum_ssl",
-      "match": "* --url *stratum+ssl://*",
-      "action": "SIGKILL"
-    },
-    {
-      "rule": "crypto_stratum_ssl2",
-      "match": "* -o stratum+ssl://*",
-      "action": "SIGKILL"
-    },
-    {
-      "rule": "crypto_donate_level",
-      "match": "--donate-level=",
-      "action": "SIGKILL"
-    },
-    {
-      "rule": "crypto_threads_hint",
-      "match": "--cpu-max-threads-hint",
-      "action": "SIGKILL"
-    },
-    {
-      "rule": "crypto_algo_rx",
-      "match": "--algo=rx/0",
-      "action": "SIGKILL"
-    },
-    {
-      "rule": "crypto_pool_arg",
-      "match": "-o pool.",
-      "action": "SIGKILL"
-    },
-    {
-      "rule": "id_theft_cat_ssh",
-      "match": "cat ~/.ssh/id_rsa",
-      "action": "SIGKILL"
-    },
-    {
-      "rule": "id_theft_cat_aws",
-      "match": "cat ~/.aws/credentials",
-      "action": "SIGKILL"
-    },
-    {
-      "rule": "id_theft_curl_ssh",
-      "match": "curl -T ~/.ssh/id_rsa",
-      "action": "SIGKILL"
-    },
-    {
-      "rule": "id_theft_tar_ssh",
-      "match": "tar * -czf * ~/.ssh*",
-      "action": "SIGKILL"
-    },
-    {
-      "rule": "id_theft_zip_aws",
-      "match": "zip * -r * ~/.aws*",
-      "action": "SIGKILL"
-    },
-    {
-      "rule": "id_theft_tar_kube",
-      "match": "tar * -czf * ~/.kube*",
-      "action": "SIGKILL"
-    },
-    {
-      "rule": "obfuscation_base64_sh",
-      "match": "* | base64 -d | sh",
-      "action": "SIGKILL"
-    },
-    {
-      "rule": "obfuscation_base64_bash",
-      "match": "* | base64 -d | bash",
-      "action": "SIGKILL"
-    },
-    {
-      "rule": "obfuscation_base64_decode_sh",
-      "match": "* | base64 --decode | sh",
-      "action": "SIGKILL"
-    },
-    {
-      "rule": "obfuscation_python_base64",
-      "match": "python -c \"import base64*\"",
-      "action": "SIGKILL"
-    },
-    {
-      "rule": "obfuscation_node_eval",
-      "match": "node -e * child_process*",
-      "action": "SIGKILL"
-    },
-    {
-      "rule": "rce_curl_bash",
-      "match": "curl -sL * | bash",
-      "action": "SIGKILL"
-    },
-    {
-      "rule": "rce_curl_sh",
-      "match": "curl -sL * | sh",
-      "action": "SIGKILL"
-    },
-    {
-      "rule": "rce_wget_bash",
-      "match": "wget -qO- * | bash",
-      "action": "SIGKILL"
-    },
-    {
-      "rule": "rce_wget_sh",
-      "match": "wget -qO- * | sh",
-      "action": "SIGKILL"
-    },
-    {
-      "rule": "exfil_curl_pastebin",
-      "match": "curl -F * https://pastebin.com/api/",
-      "action": "SIGKILL"
-    },
-    {
-      "rule": "exfil_nc_termbin",
-      "match": "nc termbin.com 9999",
-      "action": "SIGKILL"
-    },
-    {
-      "rule": "exfil_tar_git",
-      "match": "tar -czf * .git/",
-      "action": "SIGKILL"
-    },
-    {
-      "rule": "exfil_grep_aws_git",
-      "match": "grep -r \"AKIA\" .git/",
-      "action": "SIGKILL"
-    },
-    {
-      "rule": "protection_kill_clawedr",
-      "match": "kill* clawedr",
-      "action": "SIGKILL"
-    },
-    {
-      "rule": "protection_pkill_clawedr",
-      "match": "pkill* clawedr",
-      "action": "SIGKILL"
-    },
-    {
-      "rule": "protection_systemctl_stop_clawedr",
-      "match": "systemctl stop clawedr",
-      "action": "SIGKILL"
-    },
-    {
-      "rule": "protection_rm_policy",
-      "match": "rm * compiled_policy.json",
-      "action": "SIGKILL"
-    },
-    {
-      "rule": "persistence_echo_bashrc",
-      "match": "echo * >> ~/.bashrc",
-      "action": "SIGKILL"
-    },
-    {
-      "rule": "persistence_echo_crontab",
-      "match": "echo * >> /etc/crontab",
-      "action": "SIGKILL"
-    },
-    {
-      "rule": "persistence_authorized_keys",
-      "match": "echo *ssh-rsa* >> ~/.ssh/authorized_keys",
-      "action": "SIGKILL"
-    },
-    {
-      "rule": "persistence_ld_preload",
-      "match": "echo * > /etc/ld.so.preload",
-      "action": "SIGKILL"
-    },
-    {
-      "rule": "persistence_add_root_user",
-      "match": "echo *root:x:0:0* >> /etc/passwd",
-      "action": "SIGKILL"
-    },
-    {
-      "rule": "evasion_setenforce_0",
-      "match": "setenforce 0",
-      "action": "SIGKILL"
-    },
-    {
-      "rule": "evasion_apparmor_unload",
-      "match": "apparmor_parser -R *",
-      "action": "SIGKILL"
-    },
-    {
-      "rule": "evasion_rm_logs",
-      "match": "rm -rf /var/log/*",
-      "action": "SIGKILL"
-    },
-    {
-      "rule": "evasion_history_c",
-      "match": "history -c",
-      "action": "SIGKILL"
-    },
-    {
-      "rule": "recon_aws_imds",
-      "match": "curl * 169.254.169.254/latest/meta-data/*",
-      "action": "SIGKILL"
-    },
-    {
-      "rule": "recon_gcp_metadata",
-      "match": "curl * metadata.google.internal*",
-      "action": "SIGKILL"
-    },
-    {
-      "rule": "escape_docker_sock",
-      "match": "curl --unix-socket /var/run/docker.sock *",
-      "action": "SIGKILL"
-    },
-    {
-      "rule": "escape_cgroups_release_agent",
-      "match": "echo * > /sys/fs/cgroup/memory/release_agent",
-      "action": "SIGKILL"
-    },
-    {
-      "rule": "escape_kubelet_api",
-      "match": "curl * http://localhost:10255/pods",
-      "action": "SIGKILL"
-    },
-    {
-      "rule": "recon_find_suid",
-      "match": "find / -perm -4000",
-      "action": "SIGKILL"
-    },
-    {
-      "rule": "recon_getcap",
-      "match": "getcap -r /",
-      "action": "SIGKILL"
+    "macos": {
+      "PATH-MAC-001": "~/.ssh",
+      "PATH-MAC-002": "~/.gnupg",
+      "PATH-MAC-003": "~/.aws",
+      "PATH-MAC-004": "~/.azure",
+      "PATH-MAC-005": "~/.config/gcloud",
+      "PATH-MAC-006": "~/.kube/config",
+      "PATH-MAC-007": "~/Library/Keychains",
+      "PATH-MAC-008": "/etc/master.passwd",
+      "PATH-MAC-009": "~/Library/Cookies",
+      "PATH-MAC-010": "~/Library/Application Support/Google/Chrome/Default/Login Data",
+      "PATH-MAC-011": "~/Library/Application Support/Google/Chrome/Default/Cookies",
+      "PATH-MAC-012": "~/Library/Application Support/Firefox/Profiles",
+      "PATH-MAC-013": "~/Library/Application Support/Arc/User Data/Default/Login Data",
+      "PATH-MAC-014": "~/Library/Messages",
+      "PATH-MAC-015": "~/Library/Mail",
+      "PATH-MAC-016": "~/Library/Accounts",
+      "PATH-MAC-017": "~/Library/Calendars",
+      "PATH-MAC-018": "~/Library/Suggestions",
+      "PATH-MAC-019": "/Library/Preferences/SystemConfiguration"
     }
-  ]
+  },
+  "deny_rules": {
+    "linux": {
+      "LIN-001": {
+        "rule": "block_reverse_shell_4444",
+        "match": "connect",
+        "port": 4444,
+        "action": "SIGKILL"
+      },
+      "LIN-002": {
+        "rule": "block_reverse_shell_1337",
+        "match": "connect",
+        "port": 1337,
+        "action": "SIGKILL"
+      },
+      "LIN-003": {
+        "rule": "crypto_stratum_tcp",
+        "match": "* --url *stratum+tcp://*",
+        "action": "SIGKILL"
+      },
+      "LIN-004": {
+        "rule": "crypto_stratum_tcp2",
+        "match": "* -o stratum+tcp://*",
+        "action": "SIGKILL"
+      },
+      "LIN-005": {
+        "rule": "crypto_stratum_ssl",
+        "match": "* --url *stratum+ssl://*",
+        "action": "SIGKILL"
+      },
+      "LIN-006": {
+        "rule": "crypto_stratum_ssl2",
+        "match": "* -o stratum+ssl://*",
+        "action": "SIGKILL"
+      },
+      "LIN-007": {
+        "rule": "crypto_donate_level",
+        "match": "--donate-level=",
+        "action": "SIGKILL"
+      },
+      "LIN-008": {
+        "rule": "crypto_threads_hint",
+        "match": "--cpu-max-threads-hint",
+        "action": "SIGKILL"
+      },
+      "LIN-009": {
+        "rule": "crypto_algo_rx",
+        "match": "--algo=rx/0",
+        "action": "SIGKILL"
+      },
+      "LIN-010": {
+        "rule": "crypto_pool_arg",
+        "match": "-o pool.",
+        "action": "SIGKILL"
+      },
+      "LIN-011": {
+        "rule": "id_theft_cat_ssh",
+        "match": "cat ~/.ssh/id_rsa",
+        "action": "SIGKILL"
+      },
+      "LIN-012": {
+        "rule": "id_theft_cat_aws",
+        "match": "cat ~/.aws/credentials",
+        "action": "SIGKILL"
+      },
+      "LIN-013": {
+        "rule": "id_theft_curl_ssh",
+        "match": "curl -T ~/.ssh/id_rsa",
+        "action": "SIGKILL"
+      },
+      "LIN-014": {
+        "rule": "id_theft_tar_ssh",
+        "match": "tar * -czf * ~/.ssh*",
+        "action": "SIGKILL"
+      },
+      "LIN-015": {
+        "rule": "id_theft_zip_aws",
+        "match": "zip * -r * ~/.aws*",
+        "action": "SIGKILL"
+      },
+      "LIN-016": {
+        "rule": "id_theft_tar_kube",
+        "match": "tar * -czf * ~/.kube*",
+        "action": "SIGKILL"
+      },
+      "LIN-017": {
+        "rule": "obfuscation_base64_sh",
+        "match": "* | base64 -d | sh",
+        "action": "SIGKILL"
+      },
+      "LIN-018": {
+        "rule": "obfuscation_base64_bash",
+        "match": "* | base64 -d | bash",
+        "action": "SIGKILL"
+      },
+      "LIN-019": {
+        "rule": "obfuscation_base64_decode_sh",
+        "match": "* | base64 --decode | sh",
+        "action": "SIGKILL"
+      },
+      "LIN-020": {
+        "rule": "obfuscation_python_base64",
+        "match": "python -c \"import base64*\"",
+        "action": "SIGKILL"
+      },
+      "LIN-021": {
+        "rule": "obfuscation_node_eval",
+        "match": "node -e * child_process*",
+        "action": "SIGKILL"
+      },
+      "LIN-022": {
+        "rule": "rce_curl_bash",
+        "match": "curl -sL * | bash",
+        "action": "SIGKILL"
+      },
+      "LIN-023": {
+        "rule": "rce_curl_sh",
+        "match": "curl -sL * | sh",
+        "action": "SIGKILL"
+      },
+      "LIN-024": {
+        "rule": "rce_wget_bash",
+        "match": "wget -qO- * | bash",
+        "action": "SIGKILL"
+      },
+      "LIN-025": {
+        "rule": "rce_wget_sh",
+        "match": "wget -qO- * | sh",
+        "action": "SIGKILL"
+      },
+      "LIN-026": {
+        "rule": "exfil_curl_pastebin",
+        "match": "curl -F * https://pastebin.com/api/",
+        "action": "SIGKILL"
+      },
+      "LIN-027": {
+        "rule": "exfil_nc_termbin",
+        "match": "nc termbin.com 9999",
+        "action": "SIGKILL"
+      },
+      "LIN-028": {
+        "rule": "exfil_tar_git",
+        "match": "tar -czf * .git/",
+        "action": "SIGKILL"
+      },
+      "LIN-029": {
+        "rule": "exfil_grep_aws_git",
+        "match": "grep -r \"AKIA\" .git/",
+        "action": "SIGKILL"
+      },
+      "LIN-030": {
+        "rule": "protection_kill_clawedr",
+        "match": "kill* clawedr",
+        "action": "SIGKILL"
+      },
+      "LIN-031": {
+        "rule": "protection_pkill_clawedr",
+        "match": "pkill* clawedr",
+        "action": "SIGKILL"
+      },
+      "LIN-032": {
+        "rule": "protection_systemctl_stop_clawedr",
+        "match": "systemctl stop clawedr",
+        "action": "SIGKILL"
+      },
+      "LIN-033": {
+        "rule": "protection_rm_policy",
+        "match": "rm * compiled_policy.json",
+        "action": "SIGKILL"
+      },
+      "LIN-034": {
+        "rule": "persistence_echo_bashrc",
+        "match": "echo * >> ~/.bashrc",
+        "action": "SIGKILL"
+      },
+      "LIN-035": {
+        "rule": "persistence_echo_crontab",
+        "match": "echo * >> /etc/crontab",
+        "action": "SIGKILL"
+      },
+      "LIN-036": {
+        "rule": "persistence_authorized_keys",
+        "match": "echo *ssh-rsa* >> ~/.ssh/authorized_keys",
+        "action": "SIGKILL"
+      },
+      "LIN-037": {
+        "rule": "persistence_ld_preload",
+        "match": "echo * > /etc/ld.so.preload",
+        "action": "SIGKILL"
+      },
+      "LIN-038": {
+        "rule": "persistence_add_root_user",
+        "match": "echo *root:x:0:0* >> /etc/passwd",
+        "action": "SIGKILL"
+      },
+      "LIN-039": {
+        "rule": "evasion_setenforce_0",
+        "match": "setenforce 0",
+        "action": "SIGKILL"
+      },
+      "LIN-040": {
+        "rule": "evasion_apparmor_unload",
+        "match": "apparmor_parser -R *",
+        "action": "SIGKILL"
+      },
+      "LIN-041": {
+        "rule": "evasion_rm_logs",
+        "match": "rm -rf /var/log/*",
+        "action": "SIGKILL"
+      },
+      "LIN-042": {
+        "rule": "evasion_history_c",
+        "match": "history -c",
+        "action": "SIGKILL"
+      },
+      "LIN-043": {
+        "rule": "recon_aws_imds",
+        "match": "curl * 169.254.169.254/latest/meta-data/*",
+        "action": "SIGKILL"
+      },
+      "LIN-044": {
+        "rule": "recon_gcp_metadata",
+        "match": "curl * metadata.google.internal*",
+        "action": "SIGKILL"
+      },
+      "LIN-045": {
+        "rule": "escape_docker_sock",
+        "match": "curl --unix-socket /var/run/docker.sock *",
+        "action": "SIGKILL"
+      },
+      "LIN-046": {
+        "rule": "escape_cgroups_release_agent",
+        "match": "echo * > /sys/fs/cgroup/memory/release_agent",
+        "action": "SIGKILL"
+      },
+      "LIN-047": {
+        "rule": "escape_kubelet_api",
+        "match": "curl * http://localhost:10255/pods",
+        "action": "SIGKILL"
+      },
+      "LIN-048": {
+        "rule": "recon_find_suid",
+        "match": "find / -perm -4000",
+        "action": "SIGKILL"
+      },
+      "LIN-049": {
+        "rule": "recon_getcap",
+        "match": "getcap -r /",
+        "action": "SIGKILL"
+      }
+    },
+    "macos": {
+      "MAC-001": "(deny network-outbound (remote tcp \"*:4444\"))",
+      "MAC-002": "(deny network-outbound (remote tcp \"*:1337\"))",
+      "MAC-003": "(deny network-outbound (remote tcp \"*:5555\"))",
+      "MAC-004": "(deny network-outbound (remote tcp \"*:9001\"))",
+      "MAC-005": "(deny network-outbound (remote tcp \"*:31337\"))",
+      "MAC-006": "(deny process-exec (literal \"/usr/bin/osascript\"))",
+      "MAC-007": "(deny process-exec (literal \"/usr/bin/security\"))",
+      "MAC-008": "(deny process-exec (literal \"/usr/bin/dscl\"))",
+      "MAC-009": "(deny process-exec (literal \"/usr/sbin/dseditgroup\"))",
+      "MAC-010": "(deny process-exec (literal \"/usr/bin/networksetup\"))",
+      "MAC-011": "(deny process-exec (literal \"/usr/bin/profiles\"))",
+      "MAC-012": "(deny process-exec (literal \"/usr/sbin/systemsetup\"))",
+      "MAC-013": "(deny process-exec (literal \"/usr/sbin/spctl\"))",
+      "MAC-014": "(deny process-exec (literal \"/usr/sbin/screencapture\"))",
+      "MAC-015": "(deny process-exec (literal \"/usr/bin/screencapture\"))",
+      "MAC-016": "(deny process-exec (literal \"/usr/libexec/ApplicationFirewall/socketfilterfw\"))",
+      "MAC-017": "(deny process-exec (literal \"/System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart\"))",
+      "MAC-018": "(deny network-bind (local ip \"*:*\"))",
+      "MAC-019": "(allow network-bind (local ip \"localhost:*\"))"
+    }
+  }
 }

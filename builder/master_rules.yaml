@@ -8,6 +8,14 @@
 #   blocked_executables  — binaries that should be SIGKILL'd on execve
 #   malicious_hashes     — SHA-256 hashes of known-bad files
 #   custom_deny_rules    — platform-specific kernel policy rules
+#
+# Every rule has a unique ID in the format:
+#   PATH-xxx  — blocked paths
+#   DOM-xxx   — blocked domains
+#   BIN-xxx   — blocked executables
+#   HASH-xxx  — malicious hashes
+#   LIN-xxx   — Linux deny rules
+#   MAC-xxx   — macOS deny rules
 
 version: "2.0"
 
@@ -17,107 +25,107 @@ version: "2.0"
 blocked_paths:
   macos:
     # Credential stores
-    - "~/.ssh"
-    - "~/.gnupg"
-    - "~/.aws"
-    - "~/.azure"
-    - "~/.config/gcloud"
-    - "~/.kube/config"
-    - "~/Library/Keychains"
-    - "/etc/master.passwd"
+    PATH-MAC-001: "~/.ssh"
+    PATH-MAC-002: "~/.gnupg"
+    PATH-MAC-003: "~/.aws"
+    PATH-MAC-004: "~/.azure"
+    PATH-MAC-005: "~/.config/gcloud"
+    PATH-MAC-006: "~/.kube/config"
+    PATH-MAC-007: "~/Library/Keychains"
+    PATH-MAC-008: "/etc/master.passwd"
     # Browser credential / cookie databases
-    - "~/Library/Cookies"
-    - "~/Library/Application Support/Google/Chrome/Default/Login Data"
-    - "~/Library/Application Support/Google/Chrome/Default/Cookies"
-    - "~/Library/Application Support/Firefox/Profiles"
-    - "~/Library/Application Support/Arc/User Data/Default/Login Data"
+    PATH-MAC-009: "~/Library/Cookies"
+    PATH-MAC-010: "~/Library/Application Support/Google/Chrome/Default/Login Data"
+    PATH-MAC-011: "~/Library/Application Support/Google/Chrome/Default/Cookies"
+    PATH-MAC-012: "~/Library/Application Support/Firefox/Profiles"
+    PATH-MAC-013: "~/Library/Application Support/Arc/User Data/Default/Login Data"
     # Private user data
-    - "~/Library/Messages"
-    - "~/Library/Mail"
-    - "~/Library/Accounts"
-    - "~/Library/Calendars"
-    - "~/Library/Suggestions"
+    PATH-MAC-014: "~/Library/Messages"
+    PATH-MAC-015: "~/Library/Mail"
+    PATH-MAC-016: "~/Library/Accounts"
+    PATH-MAC-017: "~/Library/Calendars"
+    PATH-MAC-018: "~/Library/Suggestions"
     # System
-    - "/Library/Preferences/SystemConfiguration"
+    PATH-MAC-019: "/Library/Preferences/SystemConfiguration"
   linux:
-    - "/root/.ssh"
-    - "/etc/shadow"
-    - "/etc/passwd"
-    - "/etc/sudoers"
-    - "/etc/sudoers.d"
-    - "/home/*/.ssh"
-    - "/home/*/.gnupg"
-    - "/home/*/.aws"
-    - "/home/*/.azure"
-    - "/home/*/.config/gcloud"
-    - "/home/*/.kube/config"
-    - "/var/run/docker.sock"
+    PATH-LIN-001: "/root/.ssh"
+    PATH-LIN-002: "/etc/shadow"
+    PATH-LIN-003: "/etc/passwd"
+    PATH-LIN-004: "/etc/sudoers"
+    PATH-LIN-005: "/etc/sudoers.d"
+    PATH-LIN-006: "/home/*/.ssh"
+    PATH-LIN-007: "/home/*/.gnupg"
+    PATH-LIN-008: "/home/*/.aws"
+    PATH-LIN-009: "/home/*/.azure"
+    PATH-LIN-010: "/home/*/.config/gcloud"
+    PATH-LIN-011: "/home/*/.kube/config"
+    PATH-LIN-012: "/var/run/docker.sock"
 
 # ── Blocked domains ───────────────────────────────────────────────────────
 # Known mining pools and C2 infrastructure. The threat feed adds more.
 
 blocked_domains:
   # Crypto mining pools
-  - "pool.supportxmr.com"
-  - "pool.minexmr.com"
-  - "xmr.pool.minergate.com"
-  - "monerohash.com"
-  - "minexmr.com"
-  - "nanopool.org"
-  - "mine.zergpool.com"
-  - "xmr.2miners.com"
-  - "pool.hashvault.pro"
-  - "c3pool.com"
-  - "f2pool.com"
-  - "antpool.com"
-  - "ethermine.org"
-  - "slushpool.com"
-  - "poolin.me"
+  DOM-001: "pool.supportxmr.com"
+  DOM-002: "pool.minexmr.com"
+  DOM-003: "xmr.pool.minergate.com"
+  DOM-004: "monerohash.com"
+  DOM-005: "minexmr.com"
+  DOM-006: "nanopool.org"
+  DOM-007: "mine.zergpool.com"
+  DOM-008: "xmr.2miners.com"
+  DOM-009: "pool.hashvault.pro"
+  DOM-010: "c3pool.com"
+  DOM-011: "f2pool.com"
+  DOM-012: "antpool.com"
+  DOM-013: "ethermine.org"
+  DOM-014: "slushpool.com"
+  DOM-015: "poolin.me"
   # Exfiltration endpoints
-  - "pastebin.com"
-  - "termbin.com"
-  - "transfer.sh"
-  - "file.io"
-  - "0x0.st"
+  DOM-016: "pastebin.com"
+  DOM-017: "termbin.com"
+  DOM-018: "transfer.sh"
+  DOM-019: "file.io"
+  DOM-020: "0x0.st"
 
 # ── Blocked executables ───────────────────────────────────────────────────
 # Binaries an agent has no legitimate reason to run.
 
 blocked_executables:
   # Reverse-shell / lateral movement
-  - "nc"
-  - "ncat"
-  - "socat"
+  BIN-001: "nc"
+  BIN-002: "ncat"
+  BIN-003: "socat"
   # Network recon
-  - "nmap"
-  - "masscan"
-  - "arp-scan"
+  BIN-004: "nmap"
+  BIN-005: "masscan"
+  BIN-006: "arp-scan"
   # Crypto miners
-  - "xmrig"
-  - "minerd"
-  - "cgminer"
-  - "cpuminer"
-  - "ethminer"
-  - "xmr-stak"
-  - "hellminer"
-  - "nanominer"
-  - "phoenixminer"
-  - "teamredminer"
-  - "lolminer"
-  - "t-rex"
-  - "nbminer"
-  - "gminer"
-  - "srbminer"
+  BIN-007: "xmrig"
+  BIN-008: "minerd"
+  BIN-009: "cgminer"
+  BIN-010: "cpuminer"
+  BIN-011: "ethminer"
+  BIN-012: "xmr-stak"
+  BIN-013: "hellminer"
+  BIN-014: "nanominer"
+  BIN-015: "phoenixminer"
+  BIN-016: "teamredminer"
+  BIN-017: "lolminer"
+  BIN-018: "t-rex"
+  BIN-019: "nbminer"
+  BIN-020: "gminer"
+  BIN-021: "srbminer"
   # Credential dumping
-  - "mimikatz"
-  - "secretsdump"
+  BIN-022: "mimikatz"
+  BIN-023: "secretsdump"
   # Debuggers / injectors (no legit agent use)
-  - "gdb"
-  - "strace"
-  - "ltrace"
-  - "ptrace"
+  BIN-024: "gdb"
+  BIN-025: "strace"
+  BIN-026: "ltrace"
+  BIN-027: "ptrace"
 
-malicious_hashes: []
+malicious_hashes: {}
 
 # ── Custom deny rules ─────────────────────────────────────────────────────
 # Platform-specific kernel-level enforcement rules.
@@ -127,212 +135,261 @@ malicious_hashes: []
 custom_deny_rules:
   macos:
     # ── Reverse-shell ports ──
-    - "(deny network-outbound (remote tcp \"*:4444\"))"
-    - "(deny network-outbound (remote tcp \"*:1337\"))"
-    - "(deny network-outbound (remote tcp \"*:5555\"))"
-    - "(deny network-outbound (remote tcp \"*:9001\"))"
-    - "(deny network-outbound (remote tcp \"*:31337\"))"
+    MAC-001: "(deny network-outbound (remote tcp \"*:4444\"))"
+    MAC-002: "(deny network-outbound (remote tcp \"*:1337\"))"
+    MAC-003: "(deny network-outbound (remote tcp \"*:5555\"))"
+    MAC-004: "(deny network-outbound (remote tcp \"*:9001\"))"
+    MAC-005: "(deny network-outbound (remote tcp \"*:31337\"))"
 
     # ── Dangerous macOS-specific tools ──
     # AppleScript — full GUI/app control, keystroke injection
-    - "(deny process-exec (literal \"/usr/bin/osascript\"))"
+    MAC-006: "(deny process-exec (literal \"/usr/bin/osascript\"))"
     # Keychain CLI — can dump stored passwords/certs
-    - "(deny process-exec (literal \"/usr/bin/security\"))"
+    MAC-007: "(deny process-exec (literal \"/usr/bin/security\"))"
     # Directory Services — create/modify/delete users
-    - "(deny process-exec (literal \"/usr/bin/dscl\"))"
-    - "(deny process-exec (literal \"/usr/sbin/dseditgroup\"))"
+    MAC-008: "(deny process-exec (literal \"/usr/bin/dscl\"))"
+    MAC-009: "(deny process-exec (literal \"/usr/sbin/dseditgroup\"))"
     # Network configuration
-    - "(deny process-exec (literal \"/usr/bin/networksetup\"))"
+    MAC-010: "(deny process-exec (literal \"/usr/bin/networksetup\"))"
     # MDM profiles — install/remove management profiles
-    - "(deny process-exec (literal \"/usr/bin/profiles\"))"
+    MAC-011: "(deny process-exec (literal \"/usr/bin/profiles\"))"
     # System settings changes
-    - "(deny process-exec (literal \"/usr/sbin/systemsetup\"))"
+    MAC-012: "(deny process-exec (literal \"/usr/sbin/systemsetup\"))"
     # Gatekeeper / SIP policy
-    - "(deny process-exec (literal \"/usr/sbin/spctl\"))"
+    MAC-013: "(deny process-exec (literal \"/usr/sbin/spctl\"))"
     # Screencapture — privacy/exfiltration concern
-    - "(deny process-exec (literal \"/usr/sbin/screencapture\"))"
-    - "(deny process-exec (literal \"/usr/bin/screencapture\"))"
+    MAC-014: "(deny process-exec (literal \"/usr/sbin/screencapture\"))"
+    MAC-015: "(deny process-exec (literal \"/usr/bin/screencapture\"))"
     # Firewall control
-    - "(deny process-exec (literal \"/usr/libexec/ApplicationFirewall/socketfilterfw\"))"
+    MAC-016: "(deny process-exec (literal \"/usr/libexec/ApplicationFirewall/socketfilterfw\"))"
     # Remote management
-    - "(deny process-exec (literal \"/System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart\"))"
+    MAC-017: "(deny process-exec (literal \"/System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart\"))"
 
     # ── Network bind: deny all, allow localhost (OpenClaw gateway needs loopback) ──
-    - "(deny network-bind (local ip \"*:*\"))"
-    - "(allow network-bind (local ip \"localhost:*\"))"
+    MAC-018: "(deny network-bind (local ip \"*:*\"))"
+    MAC-019: "(allow network-bind (local ip \"localhost:*\"))"
     # system-socket removed: blocks gateway host resolution (causes bind=loopback -> 0.0.0.0)
 
   linux:
     # ── Reverse shells ──
-    - rule: "block_reverse_shell_4444"
+    LIN-001:
+      rule: "block_reverse_shell_4444"
       match: "connect"
       port: 4444
       action: "SIGKILL"
-    - rule: "block_reverse_shell_1337"
+    LIN-002:
+      rule: "block_reverse_shell_1337"
       match: "connect"
       port: 1337
       action: "SIGKILL"
 
     # ── Crypto mining signatures ──
     # Scope to non-shell executables to avoid matching echo/printf commands.
-    - rule: "crypto_stratum_tcp"
+    LIN-003:
+      rule: "crypto_stratum_tcp"
       match: "* --url *stratum+tcp://*"
       action: "SIGKILL"
-    - rule: "crypto_stratum_tcp2"
+    LIN-004:
+      rule: "crypto_stratum_tcp2"
       match: "* -o stratum+tcp://*"
       action: "SIGKILL"
-    - rule: "crypto_stratum_ssl"
+    LIN-005:
+      rule: "crypto_stratum_ssl"
       match: "* --url *stratum+ssl://*"
       action: "SIGKILL"
-    - rule: "crypto_stratum_ssl2"
+    LIN-006:
+      rule: "crypto_stratum_ssl2"
       match: "* -o stratum+ssl://*"
       action: "SIGKILL"
-    - rule: "crypto_donate_level"
+    LIN-007:
+      rule: "crypto_donate_level"
       match: "--donate-level="
       action: "SIGKILL"
-    - rule: "crypto_threads_hint"
+    LIN-008:
+      rule: "crypto_threads_hint"
       match: "--cpu-max-threads-hint"
       action: "SIGKILL"
-    - rule: "crypto_algo_rx"
+    LIN-009:
+      rule: "crypto_algo_rx"
       match: "--algo=rx/0"
       action: "SIGKILL"
-    - rule: "crypto_pool_arg"
+    LIN-010:
+      rule: "crypto_pool_arg"
       match: "-o pool."
       action: "SIGKILL"
 
     # ── Credential theft ──
-    - rule: "id_theft_cat_ssh"
+    LIN-011:
+      rule: "id_theft_cat_ssh"
       match: "cat ~/.ssh/id_rsa"
       action: "SIGKILL"
-    - rule: "id_theft_cat_aws"
+    LIN-012:
+      rule: "id_theft_cat_aws"
       match: "cat ~/.aws/credentials"
       action: "SIGKILL"
-    - rule: "id_theft_curl_ssh"
+    LIN-013:
+      rule: "id_theft_curl_ssh"
       match: "curl -T ~/.ssh/id_rsa"
       action: "SIGKILL"
-    - rule: "id_theft_tar_ssh"
+    LIN-014:
+      rule: "id_theft_tar_ssh"
       match: "tar * -czf * ~/.ssh*"
       action: "SIGKILL"
-    - rule: "id_theft_zip_aws"
+    LIN-015:
+      rule: "id_theft_zip_aws"
       match: "zip * -r * ~/.aws*"
       action: "SIGKILL"
-    - rule: "id_theft_tar_kube"
+    LIN-016:
+      rule: "id_theft_tar_kube"
       match: "tar * -czf * ~/.kube*"
       action: "SIGKILL"
 
     # ── Obfuscated execution ──
-    - rule: "obfuscation_base64_sh"
+    LIN-017:
+      rule: "obfuscation_base64_sh"
       match: "* | base64 -d | sh"
       action: "SIGKILL"
-    - rule: "obfuscation_base64_bash"
+    LIN-018:
+      rule: "obfuscation_base64_bash"
       match: "* | base64 -d | bash"
       action: "SIGKILL"
-    - rule: "obfuscation_base64_decode_sh"
+    LIN-019:
+      rule: "obfuscation_base64_decode_sh"
       match: "* | base64 --decode | sh"
       action: "SIGKILL"
-    - rule: "obfuscation_python_base64"
+    LIN-020:
+      rule: "obfuscation_python_base64"
       match: 'python -c "import base64*"'
       action: "SIGKILL"
-    - rule: "obfuscation_node_eval"
+    LIN-021:
+      rule: "obfuscation_node_eval"
       match: "node -e * child_process*"
       action: "SIGKILL"
 
     # ── Remote code execution ──
-    - rule: "rce_curl_bash"
+    LIN-022:
+      rule: "rce_curl_bash"
       match: "curl -sL * | bash"
       action: "SIGKILL"
-    - rule: "rce_curl_sh"
+    LIN-023:
+      rule: "rce_curl_sh"
       match: "curl -sL * | sh"
       action: "SIGKILL"
-    - rule: "rce_wget_bash"
+    LIN-024:
+      rule: "rce_wget_bash"
       match: "wget -qO- * | bash"
       action: "SIGKILL"
-    - rule: "rce_wget_sh"
+    LIN-025:
+      rule: "rce_wget_sh"
       match: "wget -qO- * | sh"
       action: "SIGKILL"
 
     # ── Exfiltration ──
-    - rule: "exfil_curl_pastebin"
+    LIN-026:
+      rule: "exfil_curl_pastebin"
       match: "curl -F * https://pastebin.com/api/"
       action: "SIGKILL"
-    - rule: "exfil_nc_termbin"
+    LIN-027:
+      rule: "exfil_nc_termbin"
       match: "nc termbin.com 9999"
       action: "SIGKILL"
-    - rule: "exfil_tar_git"
+    LIN-028:
+      rule: "exfil_tar_git"
       match: "tar -czf * .git/"
       action: "SIGKILL"
-    - rule: "exfil_grep_aws_git"
+    LIN-029:
+      rule: "exfil_grep_aws_git"
       match: 'grep -r "AKIA" .git/'
       action: "SIGKILL"
 
     # ── Self-protection ──
-    - rule: "protection_kill_clawedr"
+    LIN-030:
+      rule: "protection_kill_clawedr"
       match: "kill* clawedr"
       action: "SIGKILL"
-    - rule: "protection_pkill_clawedr"
+    LIN-031:
+      rule: "protection_pkill_clawedr"
       match: "pkill* clawedr"
       action: "SIGKILL"
-    - rule: "protection_systemctl_stop_clawedr"
+    LIN-032:
+      rule: "protection_systemctl_stop_clawedr"
       match: "systemctl stop clawedr"
       action: "SIGKILL"
-    - rule: "protection_rm_policy"
+    LIN-033:
+      rule: "protection_rm_policy"
       match: "rm * compiled_policy.json"
       action: "SIGKILL"
 
     # ── Persistence ──
-    - rule: "persistence_echo_bashrc"
+    LIN-034:
+      rule: "persistence_echo_bashrc"
       match: "echo * >> ~/.bashrc"
       action: "SIGKILL"
-    - rule: "persistence_echo_crontab"
+    LIN-035:
+      rule: "persistence_echo_crontab"
       match: "echo * >> /etc/crontab"
       action: "SIGKILL"
-    - rule: "persistence_authorized_keys"
+    LIN-036:
+      rule: "persistence_authorized_keys"
       match: "echo *ssh-rsa* >> ~/.ssh/authorized_keys"
       action: "SIGKILL"
-    - rule: "persistence_ld_preload"
+    LIN-037:
+      rule: "persistence_ld_preload"
       match: "echo * > /etc/ld.so.preload"
       action: "SIGKILL"
-    - rule: "persistence_add_root_user"
+    LIN-038:
+      rule: "persistence_add_root_user"
       match: "echo *root:x:0:0* >> /etc/passwd"
       action: "SIGKILL"
 
     # ── Evasion ──
-    - rule: "evasion_setenforce_0"
+    LIN-039:
+      rule: "evasion_setenforce_0"
       match: "setenforce 0"
       action: "SIGKILL"
-    - rule: "evasion_apparmor_unload"
+    LIN-040:
+      rule: "evasion_apparmor_unload"
       match: "apparmor_parser -R *"
       action: "SIGKILL"
-    - rule: "evasion_rm_logs"
+    LIN-041:
+      rule: "evasion_rm_logs"
       match: "rm -rf /var/log/*"
       action: "SIGKILL"
-    - rule: "evasion_history_c"
+    LIN-042:
+      rule: "evasion_history_c"
       match: "history -c"
       action: "SIGKILL"
 
     # ── Cloud metadata / SSRF ──
-    - rule: "recon_aws_imds"
+    LIN-043:
+      rule: "recon_aws_imds"
       match: "curl * 169.254.169.254/latest/meta-data/*"
       action: "SIGKILL"
-    - rule: "recon_gcp_metadata"
+    LIN-044:
+      rule: "recon_gcp_metadata"
       match: "curl * metadata.google.internal*"
       action: "SIGKILL"
 
     # ── Container escape ──
-    - rule: "escape_docker_sock"
+    LIN-045:
+      rule: "escape_docker_sock"
       match: "curl --unix-socket /var/run/docker.sock *"
       action: "SIGKILL"
-    - rule: "escape_cgroups_release_agent"
+    LIN-046:
+      rule: "escape_cgroups_release_agent"
       match: "echo * > /sys/fs/cgroup/memory/release_agent"
       action: "SIGKILL"
-    - rule: "escape_kubelet_api"
+    LIN-047:
+      rule: "escape_kubelet_api"
       match: "curl * http://localhost:10255/pods"
       action: "SIGKILL"
 
     # ── Privilege escalation recon ──
-    - rule: "recon_find_suid"
+    LIN-048:
+      rule: "recon_find_suid"
       match: "find / -perm -4000"
       action: "SIGKILL"
-    - rule: "recon_getcap"
+    LIN-049:
+      rule: "recon_getcap"
       match: "getcap -r /"
       action: "SIGKILL"

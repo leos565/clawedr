@@ -15,11 +15,16 @@ Enforcement layers:
   3. deny_rules (single) — userspace argv matching via /proc/pid/cmdline
   4. deny_rules (pipes)  — BPF sibling heuristic (in-kernel)
 
+User overrides:
+  Reads ~/.clawedr/user_rules.yaml and skips loading any Rule IDs the
+  user has exempted.
+
 Lifecycle:
   1. Load bpf_hooks.c via BCC.
   2. Populate target_bins with OpenClaw binary path hashes.
   3. Bootstrap tracked_pids from /proc for already-running OpenClaw procs.
-  4. Load compiled_policy.json -> populate all BPF maps + in-memory rules.
+  4. Load compiled_policy.json -> apply user exemptions -> populate all
+     BPF maps + in-memory rules.
   5. Poll for policy file changes and hot-reload.
 """
 
@@ -36,6 +41,11 @@ import subprocess
 import sys
 import time
 
+# Add parent directory to path so we can import shared modules
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+from shared.user_rules import get_exempted_rule_ids
+from shared.alert_dispatcher import dispatch_alert_async
+
 logger = logging.getLogger("clawedr.monitor")
 block_logger = logging.getLogger("clawedr.blocked")
 
@@ -50,7 +60,7 @@ BLOCK_LOG_FILE = "/var/log/clawedr.log"
 MONITOR_LOG_FILE = os.environ.get("CLAWEDR_LOG_FILE", "/var/log/clawedr_monitor.log")
 
 _bpf_instance = None
-_deny_rules: list[dict] = []
+_deny_rules: dict[str, dict] = {}
 
 PATH_PREFIXES = ("/usr/bin/", "/usr/sbin/", "/bin/", "/sbin/", "/usr/local/bin/")
 
@@ -173,54 +183,92 @@ def load_bpf(source_path: str):
         filename = event.filename.decode(errors="replace")
         ns_pid = event.ns_pid if event.ns_pid else event.pid
         if event.action == 1:
+            # Blocked by BPF — find the matching rule ID
+            rule_id = _find_rule_id_for_block(filename)
             block_logger.warning(
-                "BLOCKED pid=%d uid=%d comm=%s file=%s",
-                ns_pid, event.uid, comm, filename,
+                "BLOCKED [%s] pid=%d uid=%d comm=%s file=%s",
+                rule_id, ns_pid, event.uid, comm, filename,
+            )
+            dispatch_alert_async(
+                rule_id=rule_id,
+                action="execve",
+                target=filename,
+                pid=ns_pid,
+                comm=comm,
             )
         else:
-            _check_deny_rules(ns_pid, comm, filename)
-            logger.info(
-                "[observed] pid=%d uid=%d comm=%s file=%s",
-                ns_pid, event.uid, comm, filename,
-            )
+            matched_rule = _check_deny_rules(ns_pid, comm, filename)
+            if not matched_rule:
+                logger.info(
+                    "[observed] pid=%d uid=%d comm=%s file=%s",
+                    ns_pid, event.uid, comm, filename,
+                )
 
     _bpf_instance["events"].open_perf_buffer(_print_event)
     return _bpf_instance
+
+
+# Reverse lookup: filename hash -> rule ID (populated during apply_policy)
+_hash_to_rule_id: dict[int, str] = {}
+
+
+def _find_rule_id_for_block(filename: str) -> str:
+    """Find the Rule ID that matches a blocked filename."""
+    h = _djb2_hash(filename)
+    if h in _hash_to_rule_id:
+        return _hash_to_rule_id[h]
+    # Try bare name
+    bare = os.path.basename(filename)
+    h2 = _djb2_hash(bare)
+    if h2 in _hash_to_rule_id:
+        return _hash_to_rule_id[h2]
+    return "UNKNOWN"
 
 
 # ---------------------------------------------------------------------------
 # Layer 2: deny_rules — userspace argv matching
 # ---------------------------------------------------------------------------
 
-def _check_deny_rules(pid: int, comm: str, filename: str) -> None:
-    """Read /proc/<pid>/cmdline and match against loaded deny_rules."""
+def _check_deny_rules(pid: int, comm: str, filename: str) -> str | None:
+    """Read /proc/<pid>/cmdline and match against loaded deny_rules.
+
+    Returns the Rule ID if matched, None otherwise.
+    """
     if not _deny_rules:
-        return
+        return None
     try:
         with open(f"/proc/{pid}/cmdline", "rb") as f:
             raw = f.read(4096)
     except OSError:
-        return
+        return None
 
     cmdline = raw.replace(b"\x00", b" ").decode(errors="replace").strip()
     if not cmdline:
-        return
+        return None
 
-    for rule in _deny_rules:
+    for rule_id, rule in _deny_rules.items():
         pattern = rule.get("match", "")
         if not pattern:
             continue
         if fnmatch.fnmatch(cmdline, pattern) or fnmatch.fnmatch(cmdline, f"*{pattern}*"):
-            rule_name = rule.get("rule", "unknown")
             block_logger.warning(
-                "BLOCKED (deny_rule=%s) pid=%d cmdline=%s",
-                rule_name, pid, cmdline[:200],
+                "BLOCKED [%s] (deny_rule=%s) pid=%d cmdline=%s",
+                rule_id, rule.get("rule", "unknown"), pid, cmdline[:200],
+            )
+            dispatch_alert_async(
+                rule_id=rule_id,
+                action="deny_rule",
+                target=cmdline[:200],
+                pid=pid,
+                comm=comm,
             )
             try:
                 os.kill(pid, 9)
             except OSError:
                 pass
-            return
+            return rule_id
+
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -325,30 +373,44 @@ def apply_policy(policy: dict) -> None:
         logger.warning("BPF not loaded — skipping map update")
         return
 
-    _apply_blocked_executables(policy)
-    _apply_blocked_paths(policy)
-    _apply_deny_rules(policy)
+    # Load user exemptions
+    exempted = get_exempted_rule_ids()
+    if exempted:
+        logger.info("User exemptions active: %s", ", ".join(sorted(exempted)))
+
+    _apply_blocked_executables(policy, exempted)
+    _apply_blocked_paths(policy, exempted)
+    _apply_deny_rules(policy, exempted)
     _apply_pipe_heuristic()
 
 
-def _apply_blocked_executables(policy: dict) -> None:
-    execs = policy.get("blocked_executables", [])
-    logger.info("Applying %d blocked executables", len(execs))
+def _apply_blocked_executables(policy: dict, exempted: set[str]) -> None:
+    execs = policy.get("blocked_executables", {})
+    logger.info("Applying %d blocked executables (%d exempted)",
+                len(execs), len(set(execs) & exempted))
 
     blocked_map = _bpf_instance["blocked_hashes"]
     blocked_map.clear()
+    _hash_to_rule_id.clear()
 
     loaded = 0
-    for name in execs:
+    skipped = 0
+    for rule_id, name in execs.items():
+        if rule_id in exempted:
+            logger.info("Skipping exempted rule %s (%s)", rule_id, name)
+            skipped += 1
+            continue
         for prefix in PATH_PREFIXES:
             h = _djb2_hash(prefix + name)
             blocked_map[ctypes.c_uint64(h)] = ctypes.c_uint8(1)
+            _hash_to_rule_id[h] = rule_id
             loaded += 1
         h = _djb2_hash(name)
         blocked_map[ctypes.c_uint64(h)] = ctypes.c_uint8(1)
+        _hash_to_rule_id[h] = rule_id
         loaded += 1
 
-    logger.info("Loaded %d entries into blocked_hashes BPF map", loaded)
+    logger.info("Loaded %d entries into blocked_hashes BPF map (%d skipped)", loaded, skipped)
 
 
 # ---------------------------------------------------------------------------
@@ -362,28 +424,26 @@ _SENSITIVE_SUBFILES = [
 ]
 
 
-def _expand_blocked_paths(raw_paths: list[str]) -> set[str]:
+def _expand_blocked_paths(raw_paths: dict[str, str]) -> dict[str, set[str]]:
     """Expand wildcard paths into concrete filesystem paths.
 
-    For patterns like /home/*/.ssh, enumerate real home dirs even when
-    the target subdir doesn't exist yet — we still want to block access
-    to e.g. /home/leo/.ssh/id_rsa before the directory is created.
+    Returns a mapping of rule_id -> set of concrete paths.
     """
-    concrete: set[str] = set()
-    for p in raw_paths:
+    result: dict[str, set[str]] = {}
+    for rule_id, p in raw_paths.items():
+        concrete: set[str] = set()
         if "*" in p:
             expanded = globmod.glob(p)
             if expanded:
                 for ep in expanded:
                     concrete.add(ep)
                     _add_subpaths(ep, concrete)
-            # Also expand the wildcard against parent dirs so we cover
-            # paths that don't exist yet (e.g. /home/user/.ssh).
             _expand_missing_wildcard(p, concrete)
         else:
             concrete.add(p)
             _add_subpaths(p, concrete)
-    return concrete
+        result[rule_id] = concrete
+    return result
 
 
 def _expand_missing_wildcard(pattern: str, out: set[str]) -> None:
@@ -407,21 +467,28 @@ def _add_subpaths(directory: str, out: set[str]) -> None:
         out.add(os.path.join(directory, sub))
 
 
-def _apply_blocked_paths(policy: dict) -> None:
-    raw_paths = policy.get("blocked_paths", [])
+def _apply_blocked_paths(policy: dict, exempted: set[str]) -> None:
+    raw_paths = policy.get("blocked_paths", {})
+    if isinstance(raw_paths, dict) and "linux" in raw_paths:
+        raw_paths = raw_paths.get("linux", {})
     if not raw_paths:
         return
 
-    concrete = _expand_blocked_paths(raw_paths)
+    # Filter out exempted rules
+    filtered = {rid: p for rid, p in raw_paths.items() if rid not in exempted}
+
+    expanded = _expand_blocked_paths(filtered)
 
     path_map = _bpf_instance["blocked_path_hashes"]
     path_map.clear()
 
     loaded = 0
-    for p in sorted(concrete):
-        h = _djb2_hash(p)
-        path_map[ctypes.c_uint64(h)] = ctypes.c_uint8(1)
-        loaded += 1
+    for rule_id, paths in expanded.items():
+        for p in sorted(paths):
+            h = _djb2_hash(p)
+            path_map[ctypes.c_uint64(h)] = ctypes.c_uint8(1)
+            _hash_to_rule_id[h] = rule_id
+            loaded += 1
 
     logger.info("Loaded %d entries into blocked_path_hashes BPF map", loaded)
 
@@ -430,11 +497,24 @@ def _apply_blocked_paths(policy: dict) -> None:
 # Layer 2: deny_rules — load into memory for userspace matching
 # ---------------------------------------------------------------------------
 
-def _apply_deny_rules(policy: dict) -> None:
+def _apply_deny_rules(policy: dict, exempted: set[str]) -> None:
     global _deny_rules
-    rules = policy.get("deny_rules", [])
-    _deny_rules = [r for r in rules if isinstance(r, dict) and r.get("match")]
-    logger.info("Loaded %d deny_rules for userspace matching", len(_deny_rules))
+    raw = policy.get("deny_rules", {})
+    if isinstance(raw, dict) and "linux" in raw:
+        raw = raw.get("linux", {})
+
+    _deny_rules = {}
+    skipped = 0
+    for rule_id, rule in raw.items():
+        if rule_id in exempted:
+            logger.info("Skipping exempted deny_rule %s", rule_id)
+            skipped += 1
+            continue
+        if isinstance(rule, dict) and rule.get("match"):
+            _deny_rules[rule_id] = rule
+
+    logger.info("Loaded %d deny_rules for userspace matching (%d skipped)",
+                len(_deny_rules), skipped)
 
 
 # ---------------------------------------------------------------------------

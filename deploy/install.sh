@@ -42,13 +42,29 @@ install_macos() {
     tmpdir="$(mktemp -d)"
     trap 'rm -rf "$tmpdir"' EXIT
 
-    fetch "$CLAWEDR_BASE_URL/macos/shield_mac.sh"  "$tmpdir/shield_mac.sh"
-    fetch "$CLAWEDR_BASE_URL/macos/clawedr.sb"      "$tmpdir/clawedr.sb"
-    fetch "$CLAWEDR_BASE_URL/macos/log_tailer.py"   "$tmpdir/log_tailer.py"
+    fetch "$CLAWEDR_BASE_URL/macos/shield_mac.sh"           "$tmpdir/shield_mac.sh"
+    fetch "$CLAWEDR_BASE_URL/macos/clawedr.sb"               "$tmpdir/clawedr.sb"
+    fetch "$CLAWEDR_BASE_URL/macos/log_tailer.py"            "$tmpdir/log_tailer.py"
+    fetch "$CLAWEDR_BASE_URL/macos/apply_macos_policy.py"    "$tmpdir/apply_macos_policy.py"
+    fetch "$CLAWEDR_BASE_URL/compiled_policy.json"           "$tmpdir/compiled_policy.json"
+    # Shared modules
+    fetch "$CLAWEDR_BASE_URL/shared/user_rules.py"           "$tmpdir/user_rules.py"
+    fetch "$CLAWEDR_BASE_URL/shared/alert_dispatcher.py"     "$tmpdir/alert_dispatcher.py"
+    # Dashboard
+    fetch "$CLAWEDR_BASE_URL/dashboard/app.py"               "$tmpdir/dashboard_app.py"
+    fetch "$CLAWEDR_BASE_URL/dashboard/templates/index.html" "$tmpdir/dashboard_index.html"
 
-    mkdir -p /usr/local/share/clawedr
-    cp "$tmpdir/clawedr.sb"    /usr/local/share/clawedr/
-    cp "$tmpdir/log_tailer.py" /usr/local/share/clawedr/
+    mkdir -p /usr/local/share/clawedr/shared
+    mkdir -p /usr/local/share/clawedr/dashboard/templates
+    cp "$tmpdir/clawedr.sb"              /usr/local/share/clawedr/
+    cp "$tmpdir/log_tailer.py"           /usr/local/share/clawedr/
+    cp "$tmpdir/apply_macos_policy.py"   /usr/local/share/clawedr/
+    cp "$tmpdir/compiled_policy.json"    /usr/local/share/clawedr/
+    cp "$tmpdir/user_rules.py"           /usr/local/share/clawedr/shared/
+    cp "$tmpdir/alert_dispatcher.py"     /usr/local/share/clawedr/shared/
+    cp "$tmpdir/dashboard_app.py"        /usr/local/share/clawedr/dashboard/app.py
+    cp "$tmpdir/dashboard_index.html"    /usr/local/share/clawedr/dashboard/templates/index.html
+    touch /usr/local/share/clawedr/shared/__init__.py
     chmod +x "$tmpdir/shield_mac.sh"
     sh "$tmpdir/shield_mac.sh"
 
@@ -64,15 +80,27 @@ install_linux() {
     tmpdir="$(mktemp -d)"
     trap 'rm -rf "$tmpdir"' EXIT
 
-    fetch "$CLAWEDR_BASE_URL/compiled_policy.json"    "$tmpdir/compiled_policy.json"
-    fetch "$CLAWEDR_BASE_URL/linux/shield_linux.sh"    "$tmpdir/shield_linux.sh"
-    fetch "$CLAWEDR_BASE_URL/linux/bpf_hooks.c"        "$tmpdir/bpf_hooks.c"
-    fetch "$CLAWEDR_BASE_URL/linux/monitor.py"         "$tmpdir/monitor.py"
+    fetch "$CLAWEDR_BASE_URL/compiled_policy.json"           "$tmpdir/compiled_policy.json"
+    fetch "$CLAWEDR_BASE_URL/linux/shield_linux.sh"          "$tmpdir/shield_linux.sh"
+    fetch "$CLAWEDR_BASE_URL/linux/bpf_hooks.c"              "$tmpdir/bpf_hooks.c"
+    fetch "$CLAWEDR_BASE_URL/linux/monitor.py"               "$tmpdir/monitor.py"
+    # Shared modules
+    fetch "$CLAWEDR_BASE_URL/shared/user_rules.py"           "$tmpdir/user_rules.py"
+    fetch "$CLAWEDR_BASE_URL/shared/alert_dispatcher.py"     "$tmpdir/alert_dispatcher.py"
+    # Dashboard
+    fetch "$CLAWEDR_BASE_URL/dashboard/app.py"               "$tmpdir/dashboard_app.py"
+    fetch "$CLAWEDR_BASE_URL/dashboard/templates/index.html" "$tmpdir/dashboard_index.html"
 
-    mkdir -p /usr/local/share/clawedr
+    mkdir -p /usr/local/share/clawedr/shared
+    mkdir -p /usr/local/share/clawedr/dashboard/templates
     cp "$tmpdir/compiled_policy.json" /usr/local/share/clawedr/
     cp "$tmpdir/bpf_hooks.c"         /usr/local/share/clawedr/
     cp "$tmpdir/monitor.py"          /usr/local/share/clawedr/
+    cp "$tmpdir/user_rules.py"       /usr/local/share/clawedr/shared/
+    cp "$tmpdir/alert_dispatcher.py" /usr/local/share/clawedr/shared/
+    cp "$tmpdir/dashboard_app.py"    /usr/local/share/clawedr/dashboard/app.py
+    cp "$tmpdir/dashboard_index.html" /usr/local/share/clawedr/dashboard/templates/index.html
+    touch /usr/local/share/clawedr/shared/__init__.py
     chmod +x "$tmpdir/shield_linux.sh"
     sh "$tmpdir/shield_linux.sh"
 

@@ -115,7 +115,7 @@ class TestLinuxBPFEnforcement:
     def test_policy_loads(self, vm_config, deploy_to_vm):
         result = _ssh_cmd(
             vm_config,
-            "python3 -c \"import json; p=json.load(open('/tmp/clawedr/compiled_policy.json')); print(len(p.get('blocked_executables',[])))\"",
+            "python3 -c \"import json; p=json.load(open('/tmp/clawedr/compiled_policy.json')); print(len(p.get('blocked_executables',{})))\"",
         )
         assert result.returncode == 0
         count = int(result.stdout.strip())
@@ -132,7 +132,7 @@ class TestLinuxBPFEnforcement:
             "python3 -c \""
             "import json; "
             "p=json.load(open('/tmp/clawedr/compiled_policy.json')); "
-            "assert 'nc' in p['blocked_executables'], 'nc not in blocked list'; "
+            "assert 'nc' in p['blocked_executables'].values(), 'nc not in blocked list'; "
             "print('nc is blocked')\"",
         )
         assert result.returncode == 0

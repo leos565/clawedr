@@ -8,14 +8,22 @@ watches for policy updates.
 Because sandbox-exec profiles are bound at process start, macOS cannot
 hot-reload — this script notifies the user to restart OpenClaw when new
 threat intelligence is available.
+
+Integrates with the OpenClaw alert dispatcher to push violation alerts
+into the active OpenClaw session.
 """
 
 import json
 import logging
 import os
+import re
 import subprocess
 import sys
 import time
+
+# Add parent directory to path so we can import shared modules
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+from shared.alert_dispatcher import dispatch_alert_async
 
 logger = logging.getLogger("clawedr.log_tailer")
 
@@ -31,6 +39,35 @@ SEATBELT_PROFILE = os.environ.get(
 )
 POLL_INTERVAL = int(os.environ.get("CLAWEDR_POLL_INTERVAL", "10"))
 
+# Regex to extract blocked path/process from sandbox violation log lines
+_DENY_RE = re.compile(r"deny\(?\d*\)?\s+([\w-]+)\s+(.*)", re.IGNORECASE)
+
+
+def _load_policy_rule_index() -> dict[str, str]:
+    """Load compiled_policy.json and build a reverse index: value -> rule_id.
+
+    This allows us to cross-reference sandbox violations back to Rule IDs.
+    """
+    index: dict[str, str] = {}
+    try:
+        with open(POLICY_PATH) as f:
+            policy = json.load(f)
+
+        for rule_id, path in policy.get("blocked_paths", {}).get("macos", {}).items():
+            index[path] = rule_id
+
+        for rule_id, name in policy.get("blocked_executables", {}).items():
+            index[name] = rule_id
+
+        for rule_id, directive in policy.get("deny_rules", {}).get("macos", {}).items():
+            if isinstance(directive, str):
+                index[directive] = rule_id
+
+    except (FileNotFoundError, json.JSONDecodeError) as exc:
+        logger.warning("Could not load policy for rule index: %s", exc)
+
+    return index
+
 
 def tail_sandbox_log():
     """Stream macOS sandbox violation events from the Unified Log."""
@@ -39,6 +76,8 @@ def tail_sandbox_log():
         "--predicate", 'subsystem == "com.apple.sandbox.reporter"',
     ]
     logger.info("Starting log stream: %s", " ".join(cmd))
+
+    rule_index = _load_policy_rule_index()
 
     proc = subprocess.Popen(
         cmd,
@@ -49,8 +88,30 @@ def tail_sandbox_log():
     try:
         for line in proc.stdout:
             line = line.strip()
-            if line:
-                logger.info("SANDBOX EVENT: %s", line)
+            if not line:
+                continue
+
+            logger.info("SANDBOX EVENT: %s", line)
+
+            # Try to extract what was denied and dispatch an alert
+            match = _DENY_RE.search(line)
+            if match:
+                action = match.group(1)  # e.g. "file-read-data"
+                target = match.group(2).strip()  # e.g. "/Users/leo/.ssh/id_rsa"
+
+                # Try to find a matching Rule ID
+                rule_id = "UNKNOWN"
+                for value, rid in rule_index.items():
+                    if value in target:
+                        rule_id = rid
+                        break
+
+                dispatch_alert_async(
+                    rule_id=rule_id,
+                    action=action,
+                    target=target,
+                )
+
     except KeyboardInterrupt:
         pass
     finally:
