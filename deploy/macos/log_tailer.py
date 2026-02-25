@@ -106,6 +106,9 @@ def tail_sandbox_log():
                         rule_id = rid
                         break
 
+                # Log the blocked event in the format expected by the dashboard
+                logger.warning("BLOCKED [%s] action=%s target=%s", rule_id, action, target)
+
                 dispatch_alert_async(
                     rule_id=rule_id,
                     action=action,
