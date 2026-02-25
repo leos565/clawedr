@@ -25,7 +25,7 @@ from pathlib import Path
 
 # Add parent directory to path so we can import shared modules
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from shared.user_rules import get_exempted_rule_ids
+from shared.user_rules import get_exempted_rule_ids, get_custom_rules
 
 logger = logging.getLogger("clawedr.apply_macos_policy")
 
@@ -156,6 +156,27 @@ def main() -> int:
         logger.info("User exemptions: %s", ", ".join(sorted(exempted)))
     else:
         logger.info("No user exemptions active")
+
+    # Merge custom rules into policy
+    custom = get_custom_rules()
+    if custom:
+        logger.info("Merging %d custom user rules into policy", len(custom))
+        for rule in custom:
+            rid = rule.get("id", "")
+            rtype = rule.get("type", "")
+            val = rule.get("value", "")
+            plat = rule.get("platform", "both")
+            if plat not in ("both", "macos"):
+                continue  # Skip Linux-only custom rules on macOS
+
+            if rtype == "executable":
+                policy.setdefault("blocked_executables", {})[rid] = val
+            elif rtype == "domain":
+                policy.setdefault("blocked_domains", {})[rid] = val
+            elif rtype == "path":
+                policy.setdefault("blocked_paths", {}).setdefault("macos", {})[rid] = val
+            elif rtype == "argument":
+                policy.setdefault("deny_rules", {}).setdefault("macos", {})[rid] = val
 
     # Generate Seatbelt profile
     sb_content = generate_seatbelt(policy, exempted)

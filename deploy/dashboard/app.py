@@ -29,7 +29,11 @@ from fastapi.staticfiles import StaticFiles
 
 # Add parent directory to path so we can import shared modules
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from shared.user_rules import load_user_rules, save_user_rules, USER_RULES_PATH
+from shared.user_rules import (
+    load_user_rules, save_user_rules, USER_RULES_PATH,
+    add_custom_rule, update_custom_rule, delete_custom_rule,
+    get_custom_rules, CUSTOM_RULE_TYPES,
+)
 
 logger = logging.getLogger("clawedr.dashboard")
 
@@ -107,13 +111,68 @@ async def get_user_rules():
 
 @app.post("/api/user-rules")
 async def update_user_rules(request: Request):
-    """Update the user's rule exemptions."""
+    """Update the user's rule exemptions (preserves custom_rules)."""
     try:
         body = await request.json()
+        # Preserve existing custom_rules when only exemptions are being saved
+        existing = load_user_rules()
+        if "custom_rules" not in body and "custom_rules" in existing:
+            body["custom_rules"] = existing["custom_rules"]
         save_user_rules(body)
         return JSONResponse({"status": "ok", "path": str(USER_RULES_PATH)})
     except Exception as exc:
         return JSONResponse({"error": str(exc)}, status_code=400)
+
+
+@app.get("/api/custom-rules")
+async def list_custom_rules():
+    """Return all user-defined custom blocking rules."""
+    return JSONResponse({
+        "custom_rules": get_custom_rules(),
+        "supported_types": list(CUSTOM_RULE_TYPES.keys()),
+    })
+
+
+@app.post("/api/custom-rules")
+async def create_custom_rule(request: Request):
+    """Create a new custom blocking rule."""
+    try:
+        body = await request.json()
+        rule_type = body.get("type", "")
+        value = body.get("value", "")
+        platform = body.get("platform", "both")
+        rule, err = add_custom_rule(rule_type, value, platform)
+        if err:
+            return JSONResponse({"error": err}, status_code=400)
+        return JSONResponse({"status": "ok", "rule": rule})
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+
+
+@app.put("/api/custom-rules/{rule_id}")
+async def modify_custom_rule(rule_id: str, request: Request):
+    """Update an existing custom rule."""
+    try:
+        body = await request.json()
+        rule, err = update_custom_rule(
+            rule_id,
+            value=body.get("value"),
+            platform=body.get("platform"),
+        )
+        if err:
+            return JSONResponse({"error": err}, status_code=400)
+        return JSONResponse({"status": "ok", "rule": rule})
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+
+
+@app.delete("/api/custom-rules/{rule_id}")
+async def remove_custom_rule(rule_id: str):
+    """Delete a custom rule."""
+    ok, err = delete_custom_rule(rule_id)
+    if not ok:
+        return JSONResponse({"error": err}, status_code=404)
+    return JSONResponse({"status": "ok", "deleted": rule_id})
 
 
 @app.get("/api/status")

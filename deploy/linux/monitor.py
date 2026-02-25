@@ -43,7 +43,7 @@ import time
 
 # Add parent directory to path so we can import shared modules
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from shared.user_rules import get_exempted_rule_ids
+from shared.user_rules import get_exempted_rule_ids, get_custom_rules
 from shared.alert_dispatcher import dispatch_alert_async
 
 logger = logging.getLogger("clawedr.monitor")
@@ -377,6 +377,36 @@ def apply_policy(policy: dict) -> None:
     exempted = get_exempted_rule_ids()
     if exempted:
         logger.info("User exemptions active: %s", ", ".join(sorted(exempted)))
+
+    # Merge in custom rules from ~/.clawedr/user_rules.yaml
+    custom = get_custom_rules()
+    if custom:
+        logger.info("Merging %d custom user rules into policy", len(custom))
+        for rule in custom:
+            rid = rule.get("id", "")
+            rtype = rule.get("type", "")
+            val = rule.get("value", "")
+            plat = rule.get("platform", "both")
+            if plat not in ("both", "linux"):
+                continue  # Skip macOS-only custom rules on Linux
+
+            if rtype == "executable":
+                policy.setdefault("blocked_executables", {})[rid] = val
+            elif rtype == "domain":
+                policy.setdefault("blocked_domains", {})[rid] = val
+            elif rtype == "hash":
+                policy.setdefault("malicious_hashes", {})[rid] = val.removeprefix("sha256:")
+            elif rtype == "path":
+                policy.setdefault("blocked_paths", {})[rid] = val
+            elif rtype == "argument":
+                # Inject as a deny_rule with argv matching
+                deny_list = policy.setdefault("deny_rules", [])
+                deny_list.append({
+                    "id": rid,
+                    "match": val,
+                    "action": "deny",
+                    "scope": "argv",
+                })
 
     _apply_blocked_executables(policy, exempted)
     _apply_blocked_paths(policy, exempted)

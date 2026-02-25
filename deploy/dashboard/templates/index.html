@@ -22,6 +22,9 @@
             --danger-glow: rgba(239, 68, 68, 0.15);
             --success: #22c55e;
             --warning: #f59e0b;
+            --purple: #8b5cf6;
+            --purple-bg: rgba(139, 92, 246, 0.12);
+            --purple-border: rgba(139, 92, 246, 0.3);
             --tag-bg: rgba(59, 130, 246, 0.12);
             --tag-border: rgba(59, 130, 246, 0.25);
             --shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
@@ -49,7 +52,7 @@
             padding: 24px;
         }
 
-        /* ── Header ── */
+        /* Header */
         header {
             display: flex;
             align-items: center;
@@ -93,7 +96,7 @@
             gap: 16px;
         }
 
-        /* Sessions Dropdown */
+        /* Sessions */
         .sessions-dropdown {
             position: relative;
         }
@@ -197,7 +200,7 @@
             color: var(--text-muted);
         }
 
-        /* Status Badge */
+        /* Status */
         .status-badge {
             display: flex;
             align-items: center;
@@ -230,7 +233,7 @@
             }
         }
 
-        /* ── Tabs ── */
+        /* Tabs */
         .tabs {
             display: flex;
             gap: 4px;
@@ -273,7 +276,7 @@
             display: block;
         }
 
-        /* ── Cards ── */
+        /* Cards */
         .card {
             background: var(--bg-card);
             border: 1px solid var(--border);
@@ -293,7 +296,6 @@
         .card-title {
             font-size: 16px;
             font-weight: 600;
-            color: var(--text-primary);
         }
 
         .card-count {
@@ -304,7 +306,7 @@
             border-radius: 12px;
         }
 
-        /* ── Alerts Table ── */
+        /* Alert Table */
         .alert-table {
             width: 100%;
             border-collapse: collapse;
@@ -336,6 +338,7 @@
             background: var(--bg-card-hover);
         }
 
+        /* Tags */
         .rule-tag {
             display: inline-block;
             padding: 3px 10px;
@@ -360,13 +363,19 @@
             color: var(--warning);
         }
 
+        .rule-tag.custom {
+            background: var(--purple-bg);
+            border-color: var(--purple-border);
+            color: var(--purple);
+        }
+
         .timestamp {
             font-family: 'SF Mono', monospace;
             font-size: 12px;
             color: var(--text-muted);
         }
 
-        /* ── Rules List ── */
+        /* Rules */
         .rule-group {
             margin-bottom: 24px;
         }
@@ -390,6 +399,7 @@
             border-radius: var(--radius-sm);
             margin-bottom: 4px;
             transition: background 0.15s;
+            gap: 8px;
         }
 
         .rule-item:hover {
@@ -413,7 +423,13 @@
             text-overflow: ellipsis;
         }
 
-        /* ── Toggle ── */
+        .rule-actions {
+            display: flex;
+            gap: 4px;
+            flex-shrink: 0;
+        }
+
+        /* Toggle */
         .toggle {
             position: relative;
             width: 40px;
@@ -455,7 +471,7 @@
             background: white;
         }
 
-        /* ── Platform Pills ── */
+        /* Platform Pills */
         .platform-pills {
             display: flex;
             gap: 6px;
@@ -486,7 +502,7 @@
             color: white;
         }
 
-        /* ── Search ── */
+        /* Search */
         .search-input {
             width: 100%;
             padding: 10px 14px;
@@ -509,7 +525,7 @@
             color: var(--text-muted);
         }
 
-        /* ── Buttons ── */
+        /* Buttons */
         .btn {
             padding: 10px 20px;
             border: none;
@@ -542,7 +558,32 @@
             color: var(--text-primary);
         }
 
-        /* ── Empty / Footer / Banner ── */
+        .btn-danger {
+            background: transparent;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: var(--danger);
+        }
+
+        .btn-danger:hover {
+            background: var(--danger-glow);
+        }
+
+        .btn-sm {
+            padding: 4px 10px;
+            font-size: 11px;
+        }
+
+        .btn-purple {
+            background: var(--purple);
+            color: white;
+        }
+
+        .btn-purple:hover {
+            background: #7c3aed;
+            transform: translateY(-1px);
+        }
+
+        /* Empty / Footer / Banner */
         .empty-state {
             text-align: center;
             padding: 48px 24px;
@@ -590,6 +631,192 @@
         .save-banner p {
             font-size: 13px;
             color: var(--text-secondary);
+        }
+
+        /* ── Modal ── */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+            z-index: 300;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-overlay.open {
+            display: flex;
+        }
+
+        .modal {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            width: 520px;
+            max-width: 90vw;
+            box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
+            animation: modalIn 0.2s ease;
+        }
+
+        @keyframes modalIn {
+            from {
+                opacity: 0;
+                transform: translateY(12px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .modal-header h2 {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 20px;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+
+        .modal-close:hover {
+            color: var(--text-primary);
+            background: var(--bg-card-hover);
+        }
+
+        .modal-body {
+            padding: 24px;
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            padding: 16px 24px;
+            border-top: 1px solid var(--border);
+        }
+
+        /* Form */
+        .form-group {
+            margin-bottom: 18px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 10px 14px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-family: inherit;
+            font-size: 13px;
+            color: var(--text-primary);
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .form-input:focus {
+            border-color: var(--accent);
+        }
+
+        .form-select {
+            width: 100%;
+            padding: 10px 14px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-family: inherit;
+            font-size: 13px;
+            color: var(--text-primary);
+            outline: none;
+            appearance: none;
+            cursor: pointer;
+            transition: border-color 0.2s;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235a6a80' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            background-size: 16px;
+        }
+
+        .form-select:focus {
+            border-color: var(--accent);
+        }
+
+        .form-hint {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .form-error {
+            font-size: 12px;
+            color: var(--danger);
+            margin-top: 6px;
+            display: none;
+        }
+
+        .form-error.visible {
+            display: block;
+        }
+
+        /* Type cards in modal */
+        .type-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+        }
+
+        .type-card {
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.15s;
+        }
+
+        .type-card:hover {
+            border-color: var(--text-muted);
+        }
+
+        .type-card.selected {
+            border-color: var(--purple);
+            background: var(--purple-bg);
+        }
+
+        .type-card .type-icon {
+            font-size: 20px;
+            margin-bottom: 4px;
+        }
+
+        .type-card .type-name {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-primary);
         }
     </style>
 </head>
@@ -644,12 +871,36 @@
 
         <!-- Rules Tab -->
         <div class="tab-panel" id="tab-rules">
+            <!-- Custom Rules Card -->
             <div class="card">
                 <div class="card-header">
-                    <span class="card-title">Policy Rules</span>
+                    <span class="card-title">✨ Custom Rules</span>
+                    <div style="display:flex;align-items:center;gap:12px;">
+                        <span class="card-count" id="customCount">0 rules</span>
+                        <button class="btn btn-purple btn-sm" onclick="openAddModal()" style="padding:6px 16px;">+ Add
+                            Rule</button>
+                    </div>
+                </div>
+                <p style="color:var(--text-muted);font-size:12px;margin-bottom:16px;">
+                    User-defined blocking rules. These are enforced alongside the system policy and persist across
+                    updates.
+                </p>
+                <div id="customRulesContainer">
+                    <div class="empty-state" style="padding:24px;">
+                        <p>No custom rules yet. Click "Add Rule" to block a hash, domain, executable, path, or argument
+                            pattern.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- System Rules Card -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">System Rules</span>
                     <div style="display:flex;align-items:center;gap:12px;">
                         <span class="card-count" id="exemptionCount">0 exempted</span>
-                        <button class="btn btn-ghost" onclick="loadRules()" style="padding:6px 14px;">↻ Refresh</button>
+                        <button class="btn btn-ghost btn-sm" onclick="loadRules()" style="padding:6px 14px;">↻
+                            Refresh</button>
                     </div>
                 </div>
                 <input type="text" class="search-input" id="ruleSearch"
@@ -665,7 +916,7 @@
                         onclick="setPlatformFilter('linux')">Linux</button>
                 </div>
                 <p style="color:var(--text-muted);font-size:12px;margin-bottom:20px;">
-                    Toggle the switch to exempt a rule from enforcement. Exemptions are saved to
+                    Toggle the switch to exempt a rule. Exemptions are saved to
                     <code
                         style="background:var(--bg-secondary);padding:2px 6px;border-radius:4px;">~/.clawedr/user_rules.yaml</code>
                 </p>
@@ -680,15 +931,81 @@
         <div class="footer">ClawEDR v2.0 — Kernel-level endpoint detection for AI agents</div>
     </div>
 
+    <!-- Save Banner -->
     <div class="save-banner" id="saveBanner">
         <p>You have unsaved exemption changes</p>
         <button class="btn btn-primary" onclick="saveExemptions()">Save & Apply</button>
         <button class="btn btn-ghost" onclick="cancelExemptions()">Cancel</button>
     </div>
 
+    <!-- Add/Edit Rule Modal -->
+    <div class="modal-overlay" id="ruleModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 id="modalTitle">Add Custom Rule</h2>
+                <button class="modal-close" onclick="closeModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Rule Type</label>
+                    <div class="type-grid" id="typeGrid">
+                        <div class="type-card" data-type="executable" onclick="selectType('executable')">
+                            <div class="type-icon">⚙️</div>
+                            <div class="type-name">Executable</div>
+                        </div>
+                        <div class="type-card" data-type="domain" onclick="selectType('domain')">
+                            <div class="type-icon">🌐</div>
+                            <div class="type-name">Domain/IP</div>
+                        </div>
+                        <div class="type-card" data-type="hash" onclick="selectType('hash')">
+                            <div class="type-icon">🔑</div>
+                            <div class="type-name">Hash</div>
+                        </div>
+                        <div class="type-card" data-type="path" onclick="selectType('path')">
+                            <div class="type-icon">📁</div>
+                            <div class="type-name">Path</div>
+                        </div>
+                        <div class="type-card" data-type="argument" onclick="selectType('argument')">
+                            <div class="type-icon">📝</div>
+                            <div class="type-name">Argument</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="ruleValue">Value</label>
+                    <input type="text" class="form-input" id="ruleValue" placeholder="Enter value...">
+                    <div class="form-hint" id="ruleHint">Select a rule type above</div>
+                    <div class="form-error" id="ruleError"></div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="rulePlatform">Platform</label>
+                    <select class="form-select" id="rulePlatform">
+                        <option value="both">Both (macOS & Linux)</option>
+                        <option value="macos">macOS only</option>
+                        <option value="linux">Linux only</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+                <button class="btn btn-purple" id="modalSubmit" onclick="submitRule()">Add Rule</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         let allRules = {}, allRuleItems = [], exemptedIds = new Set(), pendingExemptions = null;
+        let customRules = [];
         let detectedOS = null, platformFilter = 'auto';
+        let modalMode = 'add', editingRuleId = null, selectedType = null;
+
+        const TYPE_HINTS = {
+            executable: 'Binary name to block, e.g. "terraform", "curl"',
+            domain: 'Domain name or IP, e.g. "evil.com", "1.2.3.4"',
+            hash: 'SHA-256 hash (64 hex chars), optionally prefixed with "sha256:"',
+            path: 'Absolute path or ~/relative, e.g. "/var/secrets", "~/.aws"',
+            argument: 'Regex pattern for command arguments, e.g. "--password", "curl.*\\|sh"',
+        };
 
         // ── Tabs ──
         document.querySelectorAll('.tab').forEach(tab => {
@@ -700,14 +1017,11 @@
             });
         });
 
-        // ── Sessions ──
+        // Sessions
         function toggleSessions() { document.getElementById('sessionsMenu').classList.toggle('open'); }
-        document.addEventListener('click', e => {
-            if (!document.getElementById('sessionsDropdown').contains(e.target))
-                document.getElementById('sessionsMenu').classList.remove('open');
-        });
+        document.addEventListener('click', e => { if (!document.getElementById('sessionsDropdown').contains(e.target)) document.getElementById('sessionsMenu').classList.remove('open'); });
 
-        // ── Platform filter ──
+        // Platform filter
         function setPlatformFilter(v) {
             platformFilter = v;
             document.querySelectorAll('.platform-pill').forEach(p => p.classList.remove('active'));
@@ -718,31 +1032,20 @@
             if (platformFilter === 'auto') return detectedOS === 'Darwin' ? 'macos' : detectedOS === 'Linux' ? 'linux' : null;
             return platformFilter === 'all' ? null : platformFilter;
         }
-        function shouldShowRule(r) {
-            const p = getEffectivePlatform();
-            if (!p) return true;
-            return r.platform === 'general' || r.platform === p;
-        }
+        function shouldShowRule(r) { const p = getEffectivePlatform(); if (!p) return true; return r.platform === 'general' || r.platform === p; }
 
         // ── API ──
         async function fetchJSON(u) { return (await fetch(u)).json(); }
 
         async function loadStatus() {
             try {
-                const s = await fetchJSON('/api/status');
-                detectedOS = s.os;
-                const badge = document.getElementById('statusBadge');
-                const dot = badge.querySelector('.status-dot'), text = badge.querySelector('span');
+                const s = await fetchJSON('/api/status'); detectedOS = s.os;
+                const badge = document.getElementById('statusBadge'), dot = badge.querySelector('.status-dot'), text = badge.querySelector('span');
                 if (s.policy_exists && s.openclaw_available) { dot.style.background = 'var(--success)'; text.textContent = s.os + ' · Protected'; }
                 else { dot.style.background = 'var(--warning)'; text.textContent = s.os + ' · Degraded'; }
                 const label = detectedOS === 'Darwin' ? 'This Mac' : detectedOS === 'Linux' ? 'This Linux' : 'Auto';
-                const pill = document.querySelector('.platform-pill[data-platform="auto"]');
-                if (pill) pill.textContent = label;
-            } catch {
-                const b = document.getElementById('statusBadge');
-                b.querySelector('.status-dot').style.background = 'var(--danger)';
-                b.querySelector('span').textContent = 'Offline';
-            }
+                const pill = document.querySelector('.platform-pill[data-platform="auto"]'); if (pill) pill.textContent = label;
+            } catch { const b = document.getElementById('statusBadge'); b.querySelector('.status-dot').style.background = 'var(--danger)'; b.querySelector('span').textContent = 'Offline'; }
         }
 
         async function loadSessions() {
@@ -751,11 +1054,7 @@
                 document.getElementById('sessionCountBadge').textContent = ss.length;
                 const c = document.getElementById('sessionsListContainer');
                 if (!ss.length) { c.innerHTML = '<div class="sessions-empty">No active sessions</div>'; return; }
-                c.innerHTML = ss.map(s => {
-                    const id = s.id || s.session_id || 'unknown', short = typeof id === 'string' ? id.substring(0, 12) + '…' : id;
-                    const ch = s.channel || s.reply_channel || '';
-                    return `<div class="session-item"><div class="session-dot"></div><span class="session-id" title="${escapeHtml(String(id))}">${escapeHtml(String(short))}</span>${ch ? `<span class="session-channel">${escapeHtml(ch)}</span>` : ''}</div>`;
-                }).join('');
+                c.innerHTML = ss.map(s => { const id = s.id || s.session_id || 'unknown', short = typeof id === 'string' ? id.substring(0, 12) + '…' : id, ch = s.channel || s.reply_channel || ''; return `<div class="session-item"><div class="session-dot"></div><span class="session-id" title="${esc(String(id))}">${esc(String(short))}</span>${ch ? `<span class="session-channel">${esc(ch)}</span>` : ''}</div>`; }).join('');
             } catch { document.getElementById('sessionCountBadge').textContent = '?'; }
         }
 
@@ -765,9 +1064,7 @@
                 document.getElementById('alertCount').textContent = d.count + ' alert' + (d.count !== 1 ? 's' : '');
                 const c = document.getElementById('alertsContainer');
                 if (!d.alerts.length) { c.innerHTML = '<div class="empty-state"><div class="icon">📭</div><p>No recent alerts</p></div>'; return; }
-                c.innerHTML = '<table class="alert-table"><thead><tr><th>Time</th><th>Rule</th><th>Details</th><th></th></tr></thead><tbody>'
-                    + d.alerts.reverse().map(a => `<tr><td class="timestamp">${a.timestamp}</td><td><span class="rule-tag danger">${a.rule_id}</span></td><td>${escapeHtml(a.details)}</td><td><button class="btn btn-ghost" style="padding:4px 10px;font-size:11px;" onclick="exemptRule('${a.rule_id}')">Exempt</button></td></tr>`).join('')
-                    + '</tbody></table>';
+                c.innerHTML = '<table class="alert-table"><thead><tr><th>Time</th><th>Rule</th><th>Details</th><th></th></tr></thead><tbody>' + d.alerts.reverse().map(a => `<tr><td class="timestamp">${a.timestamp}</td><td><span class="rule-tag danger">${a.rule_id}</span></td><td>${esc(a.details)}</td><td><button class="btn btn-ghost btn-sm" onclick="exemptRule('${a.rule_id}')">Exempt</button></td></tr>`).join('') + '</tbody></table>';
             } catch { document.getElementById('alertsContainer').innerHTML = '<div class="empty-state"><p>Could not load alerts.</p></div>'; }
         }
 
@@ -781,6 +1078,14 @@
             catch { exemptedIds = new Set(); }
         }
 
+        async function loadCustomRules() {
+            try {
+                const d = await fetchJSON('/api/custom-rules');
+                customRules = d.custom_rules || [];
+                renderCustomRules();
+            } catch { customRules = []; }
+        }
+
         function buildRuleItems(p) {
             allRuleItems = [];
             for (const [id, v] of Object.entries(p.blocked_executables || {})) allRuleItems.push({ id, val: String(v), cat: 'Executable', platform: 'general' });
@@ -792,28 +1097,53 @@
                 for (const [id, v] of Object.entries(items)) allRuleItems.push({ id, val: typeof v === 'string' ? v : (v.match || v.rule || JSON.stringify(v)), cat: 'Deny Rule', platform: os });
         }
 
+        // ── Render Custom Rules ──
+        function renderCustomRules() {
+            const c = document.getElementById('customRulesContainer');
+            document.getElementById('customCount').textContent = customRules.length + ' rule' + (customRules.length !== 1 ? 's' : '');
+            if (!customRules.length) { c.innerHTML = '<div class="empty-state" style="padding:24px;"><p>No custom rules yet. Click "Add Rule" to block a hash, domain, executable, path, or argument pattern.</p></div>'; return; }
+
+            const typeIcons = { executable: '⚙️', domain: '🌐', hash: '🔑', path: '📁', argument: '📝' };
+            let html = '';
+            for (const r of customRules) {
+                const plat = r.platform || 'both';
+                const platLabel = plat === 'both' ? '' : '(' + plat + ')';
+                html += `<div class="rule-item">
+          <div class="rule-info">
+            <span class="rule-tag custom">${r.id}</span>
+            <span style="font-size:16px;flex-shrink:0;">${typeIcons[r.type] || '📌'}</span>
+            <span class="rule-value" title="${esc(r.value)}">${esc(r.value)}</span>
+            <span style="font-size:11px;color:var(--text-muted);flex-shrink:0;">${r.type} ${platLabel}</span>
+          </div>
+          <div class="rule-actions">
+            <button class="btn btn-ghost btn-sm" onclick="editCustomRule('${r.id}')">Edit</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteCustomRule('${r.id}')">Delete</button>
+          </div>
+        </div>`;
+            }
+            c.innerHTML = html;
+        }
+
+        // ── Render System Rules ──
         function renderRules() {
             const c = document.getElementById('rulesContainer'), cur = pendingExemptions || exemptedIds;
             const q = (document.getElementById('ruleSearch')?.value || '').toLowerCase();
             const visible = allRuleItems.filter(r => shouldShowRule(r));
             document.getElementById('exemptionCount').textContent = cur.size + ' exempted';
-
             if (!visible.length && !allRuleItems.length) { c.innerHTML = '<div class="empty-state"><p>No rules loaded.</p></div>'; return; }
-
             const groups = {};
             for (const r of visible) {
                 if (q && !r.id.toLowerCase().includes(q) && !r.val.toLowerCase().includes(q) && !r.cat.toLowerCase().includes(q)) continue;
                 const label = r.platform === 'general' ? r.cat : `${r.cat} (${r.platform})`;
                 (groups[label] ??= []).push(r);
             }
-
             let html = '';
             for (const [cat, items] of Object.entries(groups)) {
                 const ec = items.filter(r => cur.has(r.id)).length;
                 html += `<div class="rule-group"><div class="rule-group-title">${ec ? `${cat} (${items.length}) · ${ec} exempted` : `${cat} (${items.length})`}</div>`;
                 for (const r of items) {
                     const ex = cur.has(r.id);
-                    html += `<div class="rule-item" style="${ex ? 'opacity:0.5;' : ''}"><div class="rule-info"><span class="rule-tag ${ex ? 'exempted' : ''}">${r.id}</span><span class="rule-value" title="${escapeHtml(r.val)}">${escapeHtml(r.val)}</span></div><label class="toggle"><input type="checkbox" ${ex ? '' : 'checked'} onchange="toggleExemption('${r.id}',this.checked)"><span class="toggle-slider"></span></label></div>`;
+                    html += `<div class="rule-item" style="${ex ? 'opacity:0.5;' : ''}"><div class="rule-info"><span class="rule-tag ${ex ? 'exempted' : ''}">${r.id}</span><span class="rule-value" title="${esc(r.val)}">${esc(r.val)}</span></div><label class="toggle"><input type="checkbox" ${ex ? '' : 'checked'} onchange="toggleExemption('${r.id}',this.checked)"><span class="toggle-slider"></span></label></div>`;
                 }
                 html += '</div>';
             }
@@ -822,13 +1152,13 @@
 
         function filterRules() { renderRules(); }
 
+        // ── Exemptions ──
         function toggleExemption(id, on) {
             if (!pendingExemptions) pendingExemptions = new Set(exemptedIds);
             on ? pendingExemptions.delete(id) : pendingExemptions.add(id);
             document.getElementById('saveBanner').classList.add('visible');
             renderRules();
         }
-
         async function saveExemptions() {
             if (!pendingExemptions) return;
             try {
@@ -837,9 +1167,7 @@
                 document.getElementById('saveBanner').classList.remove('visible'); renderRules();
             } catch (e) { alert('Failed to save: ' + e.message); }
         }
-
         function cancelExemptions() { pendingExemptions = null; document.getElementById('saveBanner').classList.remove('visible'); renderRules(); }
-
         function exemptRule(id) {
             if (!pendingExemptions) pendingExemptions = new Set(exemptedIds);
             pendingExemptions.add(id);
@@ -851,11 +1179,96 @@
             renderRules();
         }
 
-        function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+        // ── Modal ──
+        function openAddModal() {
+            modalMode = 'add'; editingRuleId = null; selectedType = null;
+            document.getElementById('modalTitle').textContent = 'Add Custom Rule';
+            document.getElementById('modalSubmit').textContent = 'Add Rule';
+            document.getElementById('ruleValue').value = '';
+            document.getElementById('rulePlatform').value = 'both';
+            document.getElementById('ruleError').classList.remove('visible');
+            document.querySelectorAll('.type-card').forEach(c => c.classList.remove('selected'));
+            document.getElementById('ruleHint').textContent = 'Select a rule type above';
+            document.getElementById('ruleModal').classList.add('open');
+            // Re-enable type selection
+            document.querySelectorAll('.type-card').forEach(c => { c.style.pointerEvents = 'auto'; c.style.opacity = '1'; });
+        }
+
+        function editCustomRule(id) {
+            const rule = customRules.find(r => r.id === id);
+            if (!rule) return;
+            modalMode = 'edit'; editingRuleId = id; selectedType = rule.type;
+            document.getElementById('modalTitle').textContent = 'Edit Custom Rule';
+            document.getElementById('modalSubmit').textContent = 'Save Changes';
+            document.getElementById('ruleValue').value = rule.value;
+            document.getElementById('rulePlatform').value = rule.platform || 'both';
+            document.getElementById('ruleError').classList.remove('visible');
+            // Highlight selected type and disable switching
+            document.querySelectorAll('.type-card').forEach(c => {
+                c.classList.toggle('selected', c.dataset.type === rule.type);
+                c.style.pointerEvents = 'none'; c.style.opacity = '0.5';
+            });
+            const sel = document.querySelector(`.type-card[data-type="${rule.type}"]`);
+            if (sel) { sel.style.opacity = '1'; }
+            document.getElementById('ruleHint').textContent = TYPE_HINTS[rule.type] || '';
+            document.getElementById('ruleModal').classList.add('open');
+        }
+
+        function closeModal() { document.getElementById('ruleModal').classList.remove('open'); }
+
+        function selectType(type) {
+            if (modalMode === 'edit') return;
+            selectedType = type;
+            document.querySelectorAll('.type-card').forEach(c => c.classList.toggle('selected', c.dataset.type === type));
+            document.getElementById('ruleHint').textContent = TYPE_HINTS[type] || '';
+            document.getElementById('ruleError').classList.remove('visible');
+            document.getElementById('ruleValue').placeholder = TYPE_HINTS[type] || 'Enter value...';
+            document.getElementById('ruleValue').focus();
+        }
+
+        async function submitRule() {
+            const errEl = document.getElementById('ruleError');
+            errEl.classList.remove('visible');
+
+            if (!selectedType) { errEl.textContent = 'Please select a rule type'; errEl.classList.add('visible'); return; }
+            const value = document.getElementById('ruleValue').value.trim();
+            if (!value) { errEl.textContent = 'Value cannot be empty'; errEl.classList.add('visible'); return; }
+            const platform = document.getElementById('rulePlatform').value;
+
+            try {
+                let res;
+                if (modalMode === 'add') {
+                    res = await fetch('/api/custom-rules', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: selectedType, value, platform }) });
+                } else {
+                    res = await fetch(`/api/custom-rules/${editingRuleId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ value, platform }) });
+                }
+                const data = await res.json();
+                if (data.error) { errEl.textContent = data.error; errEl.classList.add('visible'); return; }
+                closeModal();
+                await loadCustomRules();
+            } catch (e) { errEl.textContent = 'Request failed: ' + e.message; errEl.classList.add('visible'); }
+        }
+
+        async function deleteCustomRule(id) {
+            if (!confirm(`Delete custom rule ${id}?`)) return;
+            try {
+                const res = await fetch(`/api/custom-rules/${id}`, { method: 'DELETE' });
+                const data = await res.json();
+                if (data.error) { alert(data.error); return; }
+                await loadCustomRules();
+            } catch (e) { alert('Failed to delete: ' + e.message); }
+        }
+
+        // Close modal on overlay click
+        document.getElementById('ruleModal').addEventListener('click', e => { if (e.target === e.currentTarget) closeModal(); });
+        // Close modal on Escape
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+        function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
         // ── Init ──
         loadStatus().then(() => loadRules().then(() => loadUserRules()));
-        loadSessions(); loadAlerts();
+        loadSessions(); loadAlerts(); loadCustomRules();
         setInterval(loadAlerts, 10000);
         setInterval(loadSessions, 15000);
     </script>
