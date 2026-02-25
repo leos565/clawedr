@@ -207,8 +207,13 @@ Every rule in ClawEDR has a unique, stable identifier for traceability and user 
 | `LIN-xxx` | Linux deny rules | `LIN-001` → port 4444 block |
 | `MAC-xxx` | macOS deny rules | `MAC-006` → osascript block |
 | `THRT-*` | Threat feed entries | Auto-generated hash-based IDs |
+| `USR-BIN-xxx` | User custom executable | `USR-BIN-001` → `terraform` |
+| `USR-DOM-xxx` | User custom domain/IP | `USR-DOM-001` → `evil.com` |
+| `USR-HASH-xxx` | User custom hash | `USR-HASH-001` → SHA-256 |
+| `USR-PATH-xxx` | User custom path | `USR-PATH-001` → `/var/secrets` |
+| `USR-ARG-xxx` | User custom argument | `USR-ARG-001` → `--password` |
 
-Rule IDs are defined in `builder/master_rules.yaml` and propagated into `compiled_policy.json`. When a block occurs, the Shield logs and alerts reference the exact Rule ID.
+System Rule IDs are defined in `builder/master_rules.yaml` and compiled into `compiled_policy.json`. User custom Rule IDs (`USR-*`) are stored in `~/.clawedr/user_rules.yaml` and merged at runtime by the Shield daemons.
 
 ## Dashboard
 
@@ -232,8 +237,12 @@ Open [http://localhost:8477](http://localhost:8477) in your browser.
 ### Features
 
 - **Alerts tab** — Real-time view of blocked actions with Rule IDs. Click "Exempt" to quickly bypass a rule.
-- **Policy Rules tab** — Browse all active rules with inline toggle switches. Search by Rule ID, value, or category. Exempted rules are visually dimmed.
-- **Sessions dropdown** — Shows active OpenClaw instances being monitored (queries `openclaw sessions --active 5 --json`).
+- **Policy Rules tab** — Browse all active rules grouped by category:
+  - **Custom Rules** section — User-defined blocking rules with purple `USR-*` tags. Add, edit, and delete from the UI.
+  - **System Rules** section — Rules from `compiled_policy.json` with inline toggle switches for exemptions.
+- **Platform filtering** — Auto-detects OS and shows only relevant rules. Pill bar to switch between This Mac / All Platforms / macOS / Linux.
+- **Search** — Filter rules by Rule ID, value, or category.
+- **Sessions dropdown** — Shows active OpenClaw instances being monitored.
 
 ### API Endpoints
 
@@ -242,13 +251,21 @@ Open [http://localhost:8477](http://localhost:8477) in your browser.
 | `GET` | `/api/status` | Shield health: OS, policy state, OpenClaw availability |
 | `GET` | `/api/alerts` | Recent blocked actions parsed from logs |
 | `GET` | `/api/rules` | Full compiled policy with Rule IDs |
-| `GET` | `/api/user-rules` | Current user exemptions from `~/.clawedr/user_rules.yaml` |
-| `POST` | `/api/user-rules` | Update exemptions (JSON body: `{"exempted_rule_ids": [...]}`) |
+| `GET` | `/api/user-rules` | Current user exemptions and custom rules |
+| `POST` | `/api/user-rules` | Update exemptions (preserves custom rules) |
+| `GET` | `/api/custom-rules` | List all user-defined custom rules |
+| `POST` | `/api/custom-rules` | Add a custom rule (`{"type": "domain", "value": "evil.com", "platform": "both"}`) |
+| `PUT` | `/api/custom-rules/{id}` | Update a custom rule's value or platform |
+| `DELETE` | `/api/custom-rules/{id}` | Delete a custom rule |
 | `GET` | `/api/sessions` | Active OpenClaw sessions |
 
-## User Exemptions
+## User Rules
 
-Users can bypass specific rules by ID without modifying the system policy. Exemptions are stored in `~/.clawedr/user_rules.yaml`:
+All user customizations are stored in `~/.clawedr/user_rules.yaml` and are never overwritten by system updates.
+
+### Exemptions
+
+Bypass specific system rules by Rule ID:
 
 ```yaml
 exempted_rule_ids:
@@ -256,11 +273,46 @@ exempted_rule_ids:
   - "LIN-004"    # Allow stratum+tcp
 ```
 
-- **Linux:** `monitor.py` skips loading exempted Rule IDs into BPF maps at runtime.
-- **macOS:** `apply_macos_policy.py` generates `clawedr.sb` excluding exempted rules.
-- **Persistence:** `~/.clawedr/` is never touched by `install.sh`, so exemptions survive updates.
+### Custom Blocking Rules
 
-The easiest way to manage exemptions is through the Dashboard toggle switches.
+Users can add their own blocking rules from the Dashboard or by editing the YAML directly:
+
+```yaml
+custom_rules:
+  - id: USR-BIN-001
+    type: executable
+    value: terraform
+  - id: USR-DOM-001
+    type: domain
+    value: evil.com
+  - id: USR-HASH-001
+    type: hash
+    value: "sha256:a1b2c3d4e5f6..."  # 64 hex chars
+  - id: USR-PATH-001
+    type: path
+    value: /var/secrets
+    platform: linux               # Optional: linux, macos, or both (default)
+  - id: USR-ARG-001
+    type: argument
+    value: "--password"            # Regex pattern matched against argv
+```
+
+**Supported types:**
+
+| Type | Blocks | Validation |
+|------|--------|------------|
+| `executable` | Binary by name | No paths, no protected binaries (python3, node, etc.) |
+| `domain` | Domain name or IP | RFC-compliant, rejects URLs |
+| `hash` | SHA-256 file hash | 64 hex chars, optional `sha256:` prefix |
+| `path` | File/directory access | Must be absolute or `~/`, cannot be root |
+| `argument` | Command-line args (regex) | Must be valid regex |
+
+### How it works
+
+- **Linux:** `monitor.py` merges custom rules into BPF maps on every policy reload. Changes are hot-reloaded.
+- **macOS:** `apply_macos_policy.py` rebuilds `clawedr.sb` including custom rules. Requires OpenClaw restart (Seatbelt profiles bind at process start).
+- **Persistence:** `~/.clawedr/` is never touched by `install.sh`, so both exemptions and custom rules survive system updates.
+- **Dashboard:** The easiest way to manage rules. Toggle switches for exemptions, "+ Add Rule" modal for custom rules with server-side validation.
 
 ## Testing
 
