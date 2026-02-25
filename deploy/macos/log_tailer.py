@@ -43,30 +43,14 @@ POLL_INTERVAL = int(os.environ.get("CLAWEDR_POLL_INTERVAL", "10"))
 _DENY_RE = re.compile(r"deny\(?\d*\)?\s+([\w\-\*]+)\s+(.*)", re.IGNORECASE)
 
 
-def _load_policy_rule_index() -> dict[str, str]:
-    """Load compiled_policy.json and build a reverse index: value -> rule_id.
-
-    This allows us to cross-reference sandbox violations back to Rule IDs.
-    """
-    index: dict[str, str] = {}
+def _load_policy_rule_index() -> dict:
+    """Load compiled_policy.json to allow cross-referencing sandbox violations."""
     try:
         with open(POLICY_PATH) as f:
-            policy = json.load(f)
-
-        for rule_id, path in policy.get("blocked_paths", {}).get("macos", {}).items():
-            index[path] = rule_id
-
-        for rule_id, name in policy.get("blocked_executables", {}).items():
-            index[name] = rule_id
-
-        for rule_id, directive in policy.get("deny_rules", {}).get("macos", {}).items():
-            if isinstance(directive, str):
-                index[directive] = rule_id
-
+            return json.load(f)
     except (FileNotFoundError, json.JSONDecodeError) as exc:
         logger.warning("Could not load policy for rule index: %s", exc)
-
-    return index
+        return {}
 
 
 def tail_sandbox_log():
@@ -109,12 +93,32 @@ def tail_sandbox_log():
                     action = match.group(1)  # e.g. "file-read-data"
                     target = match.group(2).strip()  # e.g. "/Users/leo/.ssh/id_rsa"
 
-                    # Try to find a matching Rule ID
-                    rule_id = "UNKNOWN"
-                    for value, rid in rule_index.items():
-                        if value in target:
+                    # Try to find a matching Rule ID based on strict policy boundaries
+                    rule_id = None
+                    
+                    # 1. Check paths (target must be inside the directory)
+                    for rid, path in rule_index.get("blocked_paths", {}).get("macos", {}).items():
+                        if target.startswith(path):
                             rule_id = rid
                             break
+                    
+                    # 2. Check executables (target must be the exact file or end with /file)
+                    if not rule_id:
+                        for rid, name in rule_index.get("blocked_executables", {}).items():
+                            if target == name or target.endswith("/" + name):
+                                rule_id = rid
+                                break
+                                
+                    # 3. Check custom deny rules (loose match for fallback custom macros inside strings)
+                    if not rule_id:
+                        for rid, directive in rule_index.get("deny_rules", {}).get("macos", {}).items():
+                            if isinstance(directive, str) and target in directive:
+                                rule_id = rid
+                                break
+
+                    # Discard system-wide sandbox noise that isn't ours
+                    if not rule_id:
+                        continue
 
                     # Log the blocked event in the format expected by the dashboard
                     logger.warning("BLOCKED [%s] action=%s target=%s", rule_id, action, target)
