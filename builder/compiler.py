@@ -47,6 +47,7 @@ def compile_linux_policy(rules: dict[str, Any]) -> dict[str, Any]:
         "malicious_hashes": dict(rules.get("malicious_hashes", {})),
         "blocked_paths": dict(rules.get("blocked_paths", {}).get("linux", {})),
         "deny_rules": {},
+        "rule_metadata": dict(rules.get("rule_metadata", {})),
     }
 
     for rule_id, rule in rules.get("custom_deny_rules", {}).get("linux", {}).items():
@@ -74,6 +75,7 @@ def compile_universal_policy(rules: dict[str, Any]) -> dict[str, Any]:
             "linux": dict(rules.get("custom_deny_rules", {}).get("linux", {})),
             "macos": dict(rules.get("custom_deny_rules", {}).get("macos", {})),
         },
+        "rule_metadata": dict(rules.get("rule_metadata", {})),
     }
     return policy
 

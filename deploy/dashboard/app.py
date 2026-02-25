@@ -59,6 +59,16 @@ _BLOCK_LINE_RE = re.compile(
 )
 
 
+def _load_rule_metadata() -> dict:
+    """Load rule_metadata from compiled policy."""
+    try:
+        with open(POLICY_PATH) as f:
+            policy = json.load(f)
+        return policy.get("rule_metadata", {})
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+
 def _parse_log_lines(max_lines: int = 200) -> list[dict]:
     """Parse recent BLOCKED entries from the log files."""
     alerts: list[dict] = []
@@ -82,9 +92,50 @@ def _parse_log_lines(max_lines: int = 200) -> list[dict]:
 
 
 @app.get("/api/alerts")
-async def get_alerts():
-    """Return recent blocked actions."""
+async def get_alerts(
+    severity: str | None = None,
+    since_hours: float | None = None,
+):
+    """Return recent blocked actions, optionally filtered by severity and time."""
+    import datetime
+
     alerts = _parse_log_lines()
+    metadata = _load_rule_metadata()
+
+    # Enrich with description and severity
+    for a in alerts:
+        meta = metadata.get(a["rule_id"], {})
+        if isinstance(meta, dict):
+            a["description"] = meta.get("description", "")
+            a["severity"] = meta.get("severity", "unknown")
+        else:
+            a["description"] = ""
+            a["severity"] = "unknown"
+
+    # Filter by severity (e.g. ?severity=critical,high)
+    if severity:
+        allowed = {s.strip().lower() for s in severity.split(",")}
+        alerts = [a for a in alerts if a.get("severity", "unknown").lower() in allowed]
+
+    # Filter by time (e.g. ?since_hours=24)
+    if since_hours is not None and since_hours > 0:
+        try:
+            cutoff = datetime.datetime.now() - datetime.timedelta(hours=since_hours)
+            filtered = []
+            for a in alerts:
+                ts_str = a.get("timestamp", "")
+                # Parse "2024-02-25 12:34:56" or "2024-02-25 12:34:56.123"
+                ts_str = re.sub(r"[,.]\d+$", "", ts_str)
+                try:
+                    ts = datetime.datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S")
+                    if ts >= cutoff:
+                        filtered.append(a)
+                except ValueError:
+                    filtered.append(a)  # Keep if unparseable
+            alerts = filtered
+        except Exception:
+            pass
+
     return JSONResponse({"alerts": alerts, "count": len(alerts)})
 
 

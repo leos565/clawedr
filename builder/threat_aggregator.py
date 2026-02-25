@@ -103,6 +103,7 @@ def merge(master: dict[str, Any], feed_data: dict[str, Any]) -> dict[str, Any]:
         "malicious_hashes": {},
         "affected_skills": list(feed_data.get("affected_skills", [])),
         "custom_deny_rules": master.get("custom_deny_rules", {}),
+        "rule_metadata": dict(master.get("rule_metadata", {})),
     }
 
     # Merge blocked_paths per OS
@@ -120,6 +121,23 @@ def merge(master: dict[str, Any], feed_data: dict[str, Any]) -> dict[str, Any]:
     master_hashes = dict(master.get("malicious_hashes", {}))
     feed_hashes = dict(feed_data.get("malicious_hashes", {}))
     merged["malicious_hashes"] = {**master_hashes, **feed_hashes}
+
+    # Add default metadata for feed-sourced rules not in master
+    all_rule_ids = (
+        list(merged["blocked_paths"].get("macos", {}).keys())
+        + list(merged["blocked_paths"].get("linux", {}).keys())
+        + list(merged["blocked_domains"].keys())
+        + list(merged["malicious_hashes"].keys())
+        + list(merged["blocked_executables"].keys())
+        + list(merged.get("custom_deny_rules", {}).get("macos", {}).keys())
+        + list(merged.get("custom_deny_rules", {}).get("linux", {}).keys())
+    )
+    for rule_id in all_rule_ids:
+        if rule_id not in merged["rule_metadata"]:
+            merged["rule_metadata"][rule_id] = {
+                "description": "Community threat intelligence",
+                "severity": "high",
+            }
 
     return merged
 

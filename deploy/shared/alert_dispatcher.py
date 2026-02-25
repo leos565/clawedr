@@ -13,12 +13,17 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import shutil
 import subprocess
 import threading
 import time
 
 logger = logging.getLogger("clawedr.alert_dispatcher")
+
+POLICY_PATH = os.environ.get(
+    "CLAWEDR_POLICY_PATH", "/usr/local/share/clawedr/compiled_policy.json"
+)
 
 # Minimum interval between two dispatches (rate-limit, seconds)
 _MIN_DISPATCH_INTERVAL = 2.0
@@ -50,6 +55,19 @@ def _get_openclaw_cmd(base_cmd: list[str]) -> tuple[list[str], dict | None]:
             if _platform.system() == "Linux":
                 cmd = ["sudo", "-u", run_user, "--"] + cmd
     return cmd, env
+
+
+def _get_rule_metadata(rule_id: str) -> tuple[str | None, str | None]:
+    """Load policy and return (description, severity) for rule_id."""
+    try:
+        with open(POLICY_PATH) as f:
+            policy = json.load(f)
+        meta = policy.get("rule_metadata", {}).get(rule_id, {})
+        if isinstance(meta, dict):
+            return meta.get("description"), meta.get("severity")
+    except (FileNotFoundError, json.JSONDecodeError):
+        pass
+    return None, None
 
 
 def _get_active_session() -> dict | None:
@@ -120,13 +138,18 @@ def dispatch_alert(
         logger.debug("No active OpenClaw session — alert dispatch skipped")
         return False
 
+    description, severity = _get_rule_metadata(rule_id)
+    severity_label = f"[{severity.upper()}]" if severity else ""
+
     # Build alert message
-    parts = [f"🚨 **ClawEDR Alert** [{rule_id}]: Blocked `{action}` → `{target}`"]
+    parts = [f"🚨 **ClawEDR Alert** {severity_label} [{rule_id}]: Blocked `{action}` → `{target}`"]
+    if description:
+        parts.append(f"**Why blocked:** {description}")
     if pid is not None:
         parts.append(f"PID={pid}")
     if comm:
         parts.append(f"comm={comm}")
-    message = " | ".join(parts)
+    message = "\n".join(parts)
 
     # Build CLI command
     cmd = [

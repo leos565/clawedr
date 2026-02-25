@@ -357,6 +357,108 @@
             color: var(--danger);
         }
 
+        .severity-critical { background: rgba(239, 68, 68, 0.2); border-color: rgba(239, 68, 68, 0.4); color: #f87171; }
+        .severity-high { background: rgba(245, 158, 11, 0.2); border-color: rgba(245, 158, 11, 0.4); color: #fbbf24; }
+        .severity-medium { background: rgba(59, 130, 246, 0.2); border-color: rgba(59, 130, 246, 0.4); color: #60a5fa; }
+        .severity-low { background: rgba(107, 114, 128, 0.2); border-color: rgba(107, 114, 128, 0.4); color: #9ca3af; }
+        .severity-info { background: rgba(34, 197, 94, 0.15); border-color: rgba(34, 197, 94, 0.3); color: #4ade80; }
+        .severity-unknown { background: var(--tag-bg); border-color: var(--tag-border); color: var(--accent); }
+
+        .alert-description {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 4px;
+            line-height: 1.4;
+            max-width: 480px;
+        }
+
+        .filters-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .filter-label {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+        }
+
+        .filter-select {
+            padding: 6px 12px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-family: inherit;
+            font-size: 12px;
+            color: var(--text-primary);
+            cursor: pointer;
+        }
+
+        .filter-select:focus {
+            border-color: var(--accent);
+            outline: none;
+        }
+
+        .alerts-grid {
+            display: grid;
+            gap: 12px;
+        }
+
+        .alert-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 16px;
+            transition: border-color 0.2s;
+        }
+
+        .alert-card:hover {
+            border-color: var(--text-muted);
+        }
+
+        .alert-card.critical { border-left: 3px solid #ef4444; }
+        .alert-card.high { border-left: 3px solid #f59e0b; }
+        .alert-card.medium { border-left: 3px solid #3b82f6; }
+        .alert-card.low { border-left: 3px solid #6b7280; }
+        .alert-card.info { border-left: 3px solid #22c55e; }
+
+        .alert-card-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .alert-card-meta {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .alert-card-body {
+            margin-top: 10px;
+        }
+
+        .alert-card-details {
+            font-family: 'SF Mono', monospace;
+            font-size: 12px;
+            color: var(--text-secondary);
+            word-break: break-all;
+        }
+
         .rule-tag.exempted {
             background: rgba(245, 158, 11, 0.12);
             border-color: rgba(245, 158, 11, 0.3);
@@ -857,8 +959,31 @@
         <div class="tab-panel active" id="tab-alerts">
             <div class="card">
                 <div class="card-header">
-                    <span class="card-title">Recent Blocked Actions</span>
+                    <span class="card-title">Threat Alerts</span>
                     <span class="card-count" id="alertCount">0 alerts</span>
+                </div>
+                <div class="filters-bar">
+                    <div class="filter-group">
+                        <span class="filter-label">Time</span>
+                        <select class="filter-select" id="timeFilter" onchange="applyFilters()">
+                            <option value="">All time</option>
+                            <option value="1">Last hour</option>
+                            <option value="6">Last 6 hours</option>
+                            <option value="24" selected>Last 24 hours</option>
+                            <option value="168">Last 7 days</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <span class="filter-label">Severity</span>
+                        <select class="filter-select" id="severityFilter" onchange="applyFilters()">
+                            <option value="">All severities</option>
+                            <option value="critical">Critical</option>
+                            <option value="high">High</option>
+                            <option value="medium">Medium</option>
+                            <option value="low">Low</option>
+                            <option value="info">Info</option>
+                        </select>
+                    </div>
                 </div>
                 <div id="alertsContainer">
                     <div class="empty-state">
@@ -1058,14 +1183,51 @@
             } catch { document.getElementById('sessionCountBadge').textContent = '?'; }
         }
 
+        let cachedAlerts = [];
+
         async function loadAlerts() {
             try {
-                const d = await fetchJSON('/api/alerts');
+                const timeVal = document.getElementById('timeFilter')?.value || '';
+                const sevVal = document.getElementById('severityFilter')?.value || '';
+                let url = '/api/alerts';
+                const params = [];
+                if (timeVal) params.push('since_hours=' + encodeURIComponent(timeVal));
+                if (sevVal) params.push('severity=' + encodeURIComponent(sevVal));
+                if (params.length) url += '?' + params.join('&');
+
+                const d = await fetchJSON(url);
+                cachedAlerts = d.alerts || [];
                 document.getElementById('alertCount').textContent = d.count + ' alert' + (d.count !== 1 ? 's' : '');
-                const c = document.getElementById('alertsContainer');
-                if (!d.alerts.length) { c.innerHTML = '<div class="empty-state"><div class="icon">📭</div><p>No recent alerts</p></div>'; return; }
-                c.innerHTML = '<table class="alert-table"><thead><tr><th>Time</th><th>Rule</th><th>Details</th><th></th></tr></thead><tbody>' + d.alerts.reverse().map(a => `<tr><td class="timestamp">${a.timestamp}</td><td><span class="rule-tag danger">${a.rule_id}</span></td><td>${esc(a.details)}</td><td><button class="btn btn-ghost btn-sm" onclick="exemptRule('${a.rule_id}')">Exempt</button></td></tr>`).join('') + '</tbody></table>';
+                renderAlerts(cachedAlerts);
             } catch { document.getElementById('alertsContainer').innerHTML = '<div class="empty-state"><p>Could not load alerts.</p></div>'; }
+        }
+
+        function applyFilters() { loadAlerts(); }
+
+        function renderAlerts(alerts) {
+            const c = document.getElementById('alertsContainer');
+            if (!alerts.length) { c.innerHTML = '<div class="empty-state"><div class="icon">📭</div><p>No alerts match the current filters</p></div>'; return; }
+            const severityOrder = { critical: 0, high: 1, medium: 2, low: 3, info: 4, unknown: 5 };
+            const sorted = [...alerts].sort((a, b) => (severityOrder[a.severity] ?? 99) - (severityOrder[b.severity] ?? 99));
+            c.innerHTML = '<div class="alerts-grid">' + sorted.map(a => {
+                const sev = (a.severity || 'unknown').toLowerCase();
+                const sevClass = 'severity-' + sev;
+                const rid = JSON.stringify(a.rule_id);
+                return `<div class="alert-card ${sev}">
+          <div class="alert-card-header">
+            <div class="alert-card-meta">
+              <span class="timestamp">${esc(a.timestamp)}</span>
+              <span class="rule-tag danger">${esc(a.rule_id)}</span>
+              <span class="rule-tag ${sevClass}">${esc(sev)}</span>
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="exemptRule(${rid})">Exempt</button>
+          </div>
+          <div class="alert-card-body">
+            <div class="alert-card-details">${esc(a.details)}</div>
+            ${a.description ? `<div class="alert-description">${esc(a.description)}</div>` : ''}
+          </div>
+        </div>`;
+            }).join('') + '</div>';
         }
 
         async function loadRules() {

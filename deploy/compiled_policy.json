@@ -330,7 +330,6 @@
       "LIN-048": {
         "rule": "recon_find_suid",
         "match": "find / -perm -4000",
-        "executable": "find",
         "action": "SIGKILL"
       },
       "LIN-049": {
@@ -359,6 +358,588 @@
       "MAC-017": "(deny process-exec (literal \"/System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart\"))",
       "MAC-018": "(deny network-bind (local ip \"*:*\"))",
       "MAC-019": "(allow network-bind (local ip \"localhost:*\"))"
+    }
+  },
+  "rule_metadata": {
+    "PATH-MAC-001": {
+      "description": "SSH private keys and authorized_keys; enables credential theft and lateral movement",
+      "severity": "critical"
+    },
+    "PATH-MAC-002": {
+      "description": "GPG keys and passphrase store; enables signing/decrypt impersonation",
+      "severity": "critical"
+    },
+    "PATH-MAC-003": {
+      "description": "AWS credentials; enables cloud account takeover and resource abuse",
+      "severity": "critical"
+    },
+    "PATH-MAC-004": {
+      "description": "Azure credentials; enables cloud account takeover",
+      "severity": "critical"
+    },
+    "PATH-MAC-005": {
+      "description": "GCP credentials; enables cloud account takeover",
+      "severity": "critical"
+    },
+    "PATH-MAC-006": {
+      "description": "Kubernetes kubeconfig; enables cluster takeover and lateral movement",
+      "severity": "critical"
+    },
+    "PATH-MAC-007": {
+      "description": "macOS Keychain; contains stored passwords, certs, and secrets",
+      "severity": "critical"
+    },
+    "PATH-MAC-008": {
+      "description": "System password database; enables credential dumping",
+      "severity": "critical"
+    },
+    "PATH-MAC-009": {
+      "description": "Browser cookies; enables session hijacking and account takeover",
+      "severity": "high"
+    },
+    "PATH-MAC-010": {
+      "description": "Chrome login data; contains saved passwords and autofill",
+      "severity": "critical"
+    },
+    "PATH-MAC-011": {
+      "description": "Chrome cookies; enables session hijacking",
+      "severity": "high"
+    },
+    "PATH-MAC-012": {
+      "description": "Firefox profiles; contains saved passwords and cookies",
+      "severity": "critical"
+    },
+    "PATH-MAC-013": {
+      "description": "Arc browser login data; contains saved passwords",
+      "severity": "critical"
+    },
+    "PATH-MAC-014": {
+      "description": "iMessage database; private communications and attachments",
+      "severity": "high"
+    },
+    "PATH-MAC-015": {
+      "description": "Mail database; private emails and attachments",
+      "severity": "high"
+    },
+    "PATH-MAC-016": {
+      "description": "Account credentials; system account store",
+      "severity": "high"
+    },
+    "PATH-MAC-017": {
+      "description": "Calendar data; private scheduling information",
+      "severity": "medium"
+    },
+    "PATH-MAC-018": {
+      "description": "Suggestion data; may contain sensitive context",
+      "severity": "low"
+    },
+    "PATH-MAC-019": {
+      "description": "Network configuration; enables MITM and DNS hijacking",
+      "severity": "high"
+    },
+    "PATH-LIN-001": {
+      "description": "Root SSH keys; enables privilege escalation and lateral movement",
+      "severity": "critical"
+    },
+    "PATH-LIN-002": {
+      "description": "Shadow password hashes; enables offline cracking and credential dump",
+      "severity": "critical"
+    },
+    "PATH-LIN-004": {
+      "description": "Sudoers config; enables privilege escalation",
+      "severity": "critical"
+    },
+    "PATH-LIN-005": {
+      "description": "Sudoers.d drop-in dir; enables privilege escalation",
+      "severity": "critical"
+    },
+    "PATH-LIN-006": {
+      "description": "User SSH keys; enables credential theft and lateral movement",
+      "severity": "critical"
+    },
+    "PATH-LIN-007": {
+      "description": "User GPG keys; enables signing/decrypt impersonation",
+      "severity": "critical"
+    },
+    "PATH-LIN-008": {
+      "description": "User AWS credentials; enables cloud account takeover",
+      "severity": "critical"
+    },
+    "PATH-LIN-009": {
+      "description": "User Azure credentials; enables cloud account takeover",
+      "severity": "critical"
+    },
+    "PATH-LIN-010": {
+      "description": "User GCP credentials; enables cloud account takeover",
+      "severity": "critical"
+    },
+    "PATH-LIN-011": {
+      "description": "User kubeconfig; enables Kubernetes cluster takeover",
+      "severity": "critical"
+    },
+    "PATH-LIN-012": {
+      "description": "Docker socket; enables container escape and host takeover",
+      "severity": "critical"
+    },
+    "DOM-001": {
+      "description": "Monero mining pool; cryptojacking and resource theft",
+      "severity": "high"
+    },
+    "DOM-002": {
+      "description": "Monero mining pool; cryptojacking",
+      "severity": "high"
+    },
+    "DOM-003": {
+      "description": "Monero mining pool; cryptojacking",
+      "severity": "high"
+    },
+    "DOM-004": {
+      "description": "Monero mining pool; cryptojacking",
+      "severity": "high"
+    },
+    "DOM-005": {
+      "description": "Monero mining pool; cryptojacking",
+      "severity": "high"
+    },
+    "DOM-006": {
+      "description": "Crypto mining pool; cryptojacking",
+      "severity": "high"
+    },
+    "DOM-007": {
+      "description": "Multi-coin mining pool; cryptojacking",
+      "severity": "high"
+    },
+    "DOM-008": {
+      "description": "Monero mining pool; cryptojacking",
+      "severity": "high"
+    },
+    "DOM-009": {
+      "description": "Monero mining pool; cryptojacking",
+      "severity": "high"
+    },
+    "DOM-010": {
+      "description": "Monero mining pool; cryptojacking",
+      "severity": "high"
+    },
+    "DOM-011": {
+      "description": "Bitcoin/Ethereum mining pool; cryptojacking",
+      "severity": "high"
+    },
+    "DOM-012": {
+      "description": "Bitcoin mining pool; cryptojacking",
+      "severity": "high"
+    },
+    "DOM-013": {
+      "description": "Ethereum mining pool; cryptojacking",
+      "severity": "high"
+    },
+    "DOM-014": {
+      "description": "Bitcoin mining pool; cryptojacking",
+      "severity": "high"
+    },
+    "DOM-015": {
+      "description": "Multi-coin mining pool; cryptojacking",
+      "severity": "high"
+    },
+    "DOM-016": {
+      "description": "Paste site; common exfiltration and C2 dead-drop",
+      "severity": "high"
+    },
+    "DOM-017": {
+      "description": "Terminal paste; exfiltration and payload delivery",
+      "severity": "high"
+    },
+    "DOM-018": {
+      "description": "File transfer service; exfiltration endpoint",
+      "severity": "high"
+    },
+    "DOM-019": {
+      "description": "Ephemeral file host; exfiltration and payload delivery",
+      "severity": "high"
+    },
+    "DOM-020": {
+      "description": "File host; exfiltration endpoint",
+      "severity": "high"
+    },
+    "BIN-001": {
+      "description": "Netcat; reverse shells, bind shells, and data exfiltration",
+      "severity": "critical"
+    },
+    "BIN-002": {
+      "description": "Ncat; Nmap netcat variant, reverse shells and lateral movement",
+      "severity": "critical"
+    },
+    "BIN-003": {
+      "description": "Socat; bidirectional relay, reverse shells, and port forwarding",
+      "severity": "critical"
+    },
+    "BIN-004": {
+      "description": "Nmap; network reconnaissance and port scanning",
+      "severity": "medium"
+    },
+    "BIN-005": {
+      "description": "Masscan; high-speed port scanner for recon",
+      "severity": "medium"
+    },
+    "BIN-006": {
+      "description": "ARP scan; local network reconnaissance",
+      "severity": "medium"
+    },
+    "BIN-007": {
+      "description": "XMRig; Monero cryptominer",
+      "severity": "high"
+    },
+    "BIN-008": {
+      "description": "Minerd; Bitcoin CPU miner",
+      "severity": "high"
+    },
+    "BIN-009": {
+      "description": "CGMiner; GPU cryptominer",
+      "severity": "high"
+    },
+    "BIN-010": {
+      "description": "CPUMiner; CPU cryptominer",
+      "severity": "high"
+    },
+    "BIN-011": {
+      "description": "Ethminer; Ethereum GPU miner",
+      "severity": "high"
+    },
+    "BIN-012": {
+      "description": "XMR-Stak; multi-algo cryptominer",
+      "severity": "high"
+    },
+    "BIN-013": {
+      "description": "HellMiner; cryptominer",
+      "severity": "high"
+    },
+    "BIN-014": {
+      "description": "NanoMiner; cryptominer",
+      "severity": "high"
+    },
+    "BIN-015": {
+      "description": "PhoenixMiner; Ethereum miner",
+      "severity": "high"
+    },
+    "BIN-016": {
+      "description": "TeamRedMiner; AMD GPU miner",
+      "severity": "high"
+    },
+    "BIN-017": {
+      "description": "LolMiner; multi-GPU miner",
+      "severity": "high"
+    },
+    "BIN-018": {
+      "description": "T-Rex; NVIDIA miner",
+      "severity": "high"
+    },
+    "BIN-019": {
+      "description": "NBMiner; multi-algo miner",
+      "severity": "high"
+    },
+    "BIN-020": {
+      "description": "GMiner; GPU miner",
+      "severity": "high"
+    },
+    "BIN-021": {
+      "description": "SRBMiner; CPU/GPU miner",
+      "severity": "high"
+    },
+    "BIN-022": {
+      "description": "Mimikatz; Windows credential dumping (Wine/cross-platform)",
+      "severity": "critical"
+    },
+    "BIN-023": {
+      "description": "Secretsdump; Impacket tool for credential extraction",
+      "severity": "critical"
+    },
+    "BIN-024": {
+      "description": "GDB; process memory inspection and code injection",
+      "severity": "high"
+    },
+    "BIN-025": {
+      "description": "Strace; syscall tracing, can capture secrets and inject",
+      "severity": "high"
+    },
+    "BIN-026": {
+      "description": "Ltrace; library call tracing",
+      "severity": "high"
+    },
+    "BIN-027": {
+      "description": "Ptrace; process tracing and injection",
+      "severity": "high"
+    },
+    "MAC-001": {
+      "description": "Reverse-shell port 4444; common C2 callback",
+      "severity": "critical"
+    },
+    "MAC-002": {
+      "description": "Reverse-shell port 1337; common C2 callback",
+      "severity": "critical"
+    },
+    "MAC-003": {
+      "description": "Reverse-shell port 5555; Android ADB / C2",
+      "severity": "critical"
+    },
+    "MAC-004": {
+      "description": "Reverse-shell port 9001; common C2 callback",
+      "severity": "critical"
+    },
+    "MAC-005": {
+      "description": "Reverse-shell port 31337; elite / backdoor",
+      "severity": "critical"
+    },
+    "MAC-006": {
+      "description": "AppleScript; GUI automation, keystroke injection, app control",
+      "severity": "critical"
+    },
+    "MAC-007": {
+      "description": "Security CLI; Keychain dump and cert extraction",
+      "severity": "critical"
+    },
+    "MAC-008": {
+      "description": "dscl; create/modify/delete users and groups",
+      "severity": "critical"
+    },
+    "MAC-009": {
+      "description": "dseditgroup; group membership changes",
+      "severity": "high"
+    },
+    "MAC-010": {
+      "description": "networksetup; network config and proxy changes",
+      "severity": "high"
+    },
+    "MAC-011": {
+      "description": "profiles; MDM profile install/remove",
+      "severity": "high"
+    },
+    "MAC-012": {
+      "description": "systemsetup; system settings changes",
+      "severity": "high"
+    },
+    "MAC-013": {
+      "description": "spctl; Gatekeeper/SIP policy bypass",
+      "severity": "critical"
+    },
+    "MAC-014": {
+      "description": "screencapture (sbin); screen capture and exfiltration",
+      "severity": "high"
+    },
+    "MAC-015": {
+      "description": "screencapture (bin); screen capture and exfiltration",
+      "severity": "high"
+    },
+    "MAC-016": {
+      "description": "socketfilterfw; firewall control and bypass",
+      "severity": "high"
+    },
+    "MAC-017": {
+      "description": "ARD kickstart; enable remote desktop / VNC",
+      "severity": "high"
+    },
+    "MAC-018": {
+      "description": "Network bind; blocks listening sockets (except localhost)",
+      "severity": "medium"
+    },
+    "MAC-019": {
+      "description": "Allow localhost bind; OpenClaw gateway requires loopback",
+      "severity": "info"
+    },
+    "LIN-001": {
+      "description": "Reverse-shell connect to port 4444",
+      "severity": "critical"
+    },
+    "LIN-002": {
+      "description": "Reverse-shell connect to port 1337",
+      "severity": "critical"
+    },
+    "LIN-003": {
+      "description": "Crypto stratum TCP URL; miner pool connection",
+      "severity": "high"
+    },
+    "LIN-004": {
+      "description": "Crypto stratum TCP -o; miner pool connection",
+      "severity": "high"
+    },
+    "LIN-005": {
+      "description": "Crypto stratum SSL URL; miner pool connection",
+      "severity": "high"
+    },
+    "LIN-006": {
+      "description": "Crypto stratum SSL -o; miner pool connection",
+      "severity": "high"
+    },
+    "LIN-007": {
+      "description": "Miner donate-level flag; cryptominer signature",
+      "severity": "high"
+    },
+    "LIN-008": {
+      "description": "Miner CPU threads flag; cryptominer signature",
+      "severity": "high"
+    },
+    "LIN-009": {
+      "description": "RandomX algo; Monero miner signature",
+      "severity": "high"
+    },
+    "LIN-010": {
+      "description": "Miner pool -o; cryptominer signature",
+      "severity": "high"
+    },
+    "LIN-011": {
+      "description": "Cat SSH private key; credential theft",
+      "severity": "critical"
+    },
+    "LIN-012": {
+      "description": "Cat AWS credentials; credential theft",
+      "severity": "critical"
+    },
+    "LIN-013": {
+      "description": "Curl upload SSH key; exfiltration",
+      "severity": "critical"
+    },
+    "LIN-014": {
+      "description": "Tar SSH dir; credential archive for exfil",
+      "severity": "critical"
+    },
+    "LIN-015": {
+      "description": "Zip AWS dir; credential archive for exfil",
+      "severity": "critical"
+    },
+    "LIN-016": {
+      "description": "Tar kubeconfig; Kubernetes cred exfil",
+      "severity": "critical"
+    },
+    "LIN-017": {
+      "description": "Base64 decode pipe to sh; obfuscated payload execution",
+      "severity": "critical"
+    },
+    "LIN-018": {
+      "description": "Base64 decode pipe to bash; obfuscated payload execution",
+      "severity": "critical"
+    },
+    "LIN-019": {
+      "description": "Base64 --decode pipe to sh; obfuscated payload execution",
+      "severity": "critical"
+    },
+    "LIN-020": {
+      "description": "Python base64 decode; obfuscated payload execution",
+      "severity": "critical"
+    },
+    "LIN-021": {
+      "description": "Node child_process; arbitrary command execution",
+      "severity": "critical"
+    },
+    "LIN-022": {
+      "description": "Curl pipe to bash; remote code execution",
+      "severity": "critical"
+    },
+    "LIN-023": {
+      "description": "Curl pipe to sh; remote code execution",
+      "severity": "critical"
+    },
+    "LIN-024": {
+      "description": "Wget pipe to bash; remote code execution",
+      "severity": "critical"
+    },
+    "LIN-025": {
+      "description": "Wget pipe to sh; remote code execution",
+      "severity": "critical"
+    },
+    "LIN-026": {
+      "description": "Curl to Pastebin API; data exfiltration",
+      "severity": "high"
+    },
+    "LIN-027": {
+      "description": "Netcat to termbin; data exfiltration",
+      "severity": "high"
+    },
+    "LIN-028": {
+      "description": "Tar .git dir; source and secret exfiltration",
+      "severity": "high"
+    },
+    "LIN-029": {
+      "description": "Grep AWS keys in .git; credential hunting",
+      "severity": "critical"
+    },
+    "LIN-030": {
+      "description": "Kill ClawEDR; EDR evasion",
+      "severity": "critical"
+    },
+    "LIN-031": {
+      "description": "Pkill ClawEDR; EDR evasion",
+      "severity": "critical"
+    },
+    "LIN-032": {
+      "description": "Systemctl stop ClawEDR; EDR evasion",
+      "severity": "critical"
+    },
+    "LIN-033": {
+      "description": "Remove compiled policy; EDR evasion",
+      "severity": "critical"
+    },
+    "LIN-034": {
+      "description": "Echo to .bashrc; persistence",
+      "severity": "critical"
+    },
+    "LIN-035": {
+      "description": "Echo to crontab; persistence",
+      "severity": "critical"
+    },
+    "LIN-036": {
+      "description": "Append to authorized_keys; backdoor persistence",
+      "severity": "critical"
+    },
+    "LIN-037": {
+      "description": "LD_PRELOAD injection; rootkit persistence",
+      "severity": "critical"
+    },
+    "LIN-038": {
+      "description": "Add root user to passwd; privilege escalation",
+      "severity": "critical"
+    },
+    "LIN-039": {
+      "description": "Disable SELinux; security control evasion",
+      "severity": "critical"
+    },
+    "LIN-040": {
+      "description": "Unload AppArmor; security control evasion",
+      "severity": "critical"
+    },
+    "LIN-041": {
+      "description": "Remove log files; evidence destruction",
+      "severity": "high"
+    },
+    "LIN-042": {
+      "description": "Clear shell history; evidence destruction",
+      "severity": "medium"
+    },
+    "LIN-043": {
+      "description": "AWS IMDS query; cloud credential theft / SSRF",
+      "severity": "critical"
+    },
+    "LIN-044": {
+      "description": "GCP metadata query; cloud credential theft",
+      "severity": "critical"
+    },
+    "LIN-045": {
+      "description": "Docker socket access; container escape",
+      "severity": "critical"
+    },
+    "LIN-046": {
+      "description": "Cgroups release_agent; container escape to host",
+      "severity": "critical"
+    },
+    "LIN-047": {
+      "description": "Kubelet API; Kubernetes recon / escape",
+      "severity": "critical"
+    },
+    "LIN-048": {
+      "description": "Find SUID binaries; privilege escalation recon",
+      "severity": "high"
+    },
+    "LIN-049": {
+      "description": "Getcap recursive; capability recon for priv esc",
+      "severity": "high"
     }
   }
 }
