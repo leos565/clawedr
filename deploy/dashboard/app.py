@@ -85,6 +85,7 @@ def _find_openclaw() -> Optional[str]:
 
 def _parse_log_lines(max_lines: int = 1000) -> list[dict]:
     """Parse recent BLOCKED entries from the log files."""
+    import datetime
     alerts: list[dict] = []
     for log_path in BLOCK_LOG_PATHS:
         if not os.path.exists(log_path):
@@ -102,7 +103,27 @@ def _parse_log_lines(max_lines: int = 1000) -> list[dict]:
                     })
         except (PermissionError, OSError):
             continue
-    return alerts[-100:]  # Cap at 100 most recent
+
+    # Deduplicate (same event may appear in multiple log files)
+    seen: set[tuple] = set()
+    unique: list[dict] = []
+    for a in alerts:
+        key = (a["timestamp"], a["rule_id"], a["details"])
+        if key not in seen:
+            seen.add(key)
+            unique.append(a)
+    alerts = unique
+
+    # Sort by timestamp descending (newest first) before capping
+    def _parse_ts(ts_str: str) -> datetime.datetime:
+        try:
+            cleaned = re.sub(r"[,.]\d+$", "", ts_str)
+            return datetime.datetime.strptime(cleaned, "%Y-%m-%d %H:%M:%S")
+        except (ValueError, TypeError):
+            return datetime.datetime.min
+
+    alerts.sort(key=lambda a: _parse_ts(a.get("timestamp", "")), reverse=True)
+    return alerts[:100]  # Cap at 100 most recent
 
 
 @app.get("/api/alerts")
