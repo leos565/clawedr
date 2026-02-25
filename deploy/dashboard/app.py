@@ -23,6 +23,7 @@ import re
 import sys
 from pathlib import Path
 
+from typing import Optional
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -93,8 +94,10 @@ def _parse_log_lines(max_lines: int = 200) -> list[dict]:
 
 @app.get("/api/alerts")
 async def get_alerts(
-    severity: str | None = None,
-    since_hours: float | None = None,
+    limit: int = 50,
+    severity: Optional[str] = None,
+    rule_id: Optional[str] = None,
+    since_hours: Optional[float] = None,
 ):
     """Return recent blocked actions, optionally filtered by severity and time."""
     import datetime
