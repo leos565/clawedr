@@ -246,6 +246,159 @@ def _configure_logging() -> None:
         pass
 
 
+def monitor_network_connections() -> None:
+    """Poll OpenClaw's network connections via lsof and check against blocked domains/IPs.
+
+    This is a monitoring-only capability on macOS since Seatbelt cannot
+    filter by specific IP or hostname. We discover OpenClaw PIDs, list
+    their TCP connections, do reverse DNS on the destination IPs, and
+    raise alerts for any connections to blocked domains or IPs.
+    """
+    import socket
+
+    NET_POLL_INTERVAL = 10  # seconds between network checks
+    rule_index: dict = {}
+    blocked_domains: dict = {}  # DOM-xxx -> hostname
+    blocked_ips: dict = {}      # IP-xxx -> ip string
+    # Also include custom user rules of type "domain"
+    seen_alerts: set = set()    # (rule_id, ip) -> avoid repeated alerts
+    last_mtime = 0.0
+
+    logger.info("Network connection monitor starting (poll every %ds)", NET_POLL_INTERVAL)
+
+    while True:
+        try:
+            # Reload policy if changed
+            changed, last_mtime = check_for_policy_update(last_mtime)
+            if changed or not blocked_domains:
+                try:
+                    with open(POLICY_PATH) as f:
+                        policy = json.load(f)
+                    blocked_domains = policy.get("blocked_domains", {})
+                    blocked_ips = policy.get("blocked_ips", {})
+                    # Add custom user domain rules
+                    for rule in get_custom_rules():
+                        if rule.get("type") == "domain" and rule.get("value"):
+                            rid = rule.get("id", "USR-DOM-?")
+                            val = rule["value"]
+                            # If it looks like an IP, add to blocked_ips
+                            if re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", val):
+                                blocked_ips[rid] = val
+                            else:
+                                blocked_domains[rid] = val
+                    logger.info(
+                        "Network monitor loaded %d blocked domains, %d blocked IPs",
+                        len(blocked_domains), len(blocked_ips),
+                    )
+                except Exception as e:
+                    logger.warning("Could not reload policy for network monitor: %s", e)
+
+            if not blocked_domains and not blocked_ips:
+                time.sleep(NET_POLL_INTERVAL)
+                continue
+
+            # Discover OpenClaw PIDs
+            try:
+                pids_out = subprocess.run(
+                    ["pgrep", "-f", "openclaw"],
+                    capture_output=True, text=True,
+                )
+                pids = [p.strip() for p in pids_out.stdout.strip().splitlines() if p.strip()]
+            except Exception:
+                pids = []
+
+            if not pids:
+                time.sleep(NET_POLL_INTERVAL)
+                continue
+
+            # Get network connections for those PIDs
+            try:
+                lsof_cmd = ["lsof", "-i", "-P", "-n"] + [
+                    arg for pid in pids for arg in ["-p", pid]
+                ]
+                lsof_out = subprocess.run(
+                    lsof_cmd, capture_output=True, text=True, timeout=10,
+                )
+            except Exception as e:
+                logger.debug("lsof failed: %s", e)
+                time.sleep(NET_POLL_INTERVAL)
+                continue
+
+            # Parse lsof output for ESTABLISHED TCP connections
+            # Format: COMMAND PID USER FD TYPE DEVICE SIZE/OFF NODE NAME
+            # NAME looks like: 1.2.3.4:443->5.6.7.8:12345 (ESTABLISHED)
+            ip_re = re.compile(r"(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}):(\d+)")
+
+            for line in lsof_out.stdout.splitlines():
+                if "TCP" not in line:
+                    continue
+                parts = line.split()
+                if len(parts) < 9:
+                    continue
+                name = parts[-1] if parts[-1] != "(ESTABLISHED)" else parts[-2]
+                # Extract remote IP from "local->remote" format
+                if "->" in name:
+                    remote_part = name.split("->")[1]
+                else:
+                    remote_part = name
+                m = ip_re.search(remote_part)
+                if not m:
+                    continue
+                remote_ip = m.group(1)
+
+                # Skip loopback and private
+                if remote_ip.startswith("127.") or remote_ip.startswith("0."):
+                    continue
+
+                # 1. Check direct IP match
+                for rid, blocked_ip in blocked_ips.items():
+                    if remote_ip == blocked_ip:
+                        alert_key = (rid, remote_ip)
+                        if alert_key not in seen_alerts:
+                            seen_alerts.add(alert_key)
+                            block_logger.warning(
+                                "BLOCKED [%s] action=network-connect target=%s (IP match)",
+                                rid, remote_ip,
+                            )
+                            dispatch_alert_async(
+                                rule_id=rid,
+                                action="network-connect",
+                                target=f"{remote_ip} (direct IP match)",
+                            )
+
+                # 2. Reverse DNS and check against blocked domains
+                try:
+                    hostname, _, _ = socket.gethostbyaddr(remote_ip)
+                    hostname = hostname.lower()
+                except (socket.herror, socket.gaierror, OSError):
+                    hostname = ""
+
+                if hostname:
+                    for rid, blocked_domain in blocked_domains.items():
+                        if hostname == blocked_domain or hostname.endswith("." + blocked_domain):
+                            alert_key = (rid, remote_ip)
+                            if alert_key not in seen_alerts:
+                                seen_alerts.add(alert_key)
+                                block_logger.warning(
+                                    "BLOCKED [%s] action=dns-lookup target=%s (resolved from %s)",
+                                    rid, blocked_domain, remote_ip,
+                                )
+                                dispatch_alert_async(
+                                    rule_id=rid,
+                                    action="dns-lookup",
+                                    target=f"{blocked_domain} ({remote_ip})",
+                                )
+
+            # Prevent seen_alerts from growing unbounded
+            if len(seen_alerts) > 2000:
+                seen_alerts.clear()
+
+        except Exception as e:
+            logger.error("Network monitor error: %s", e)
+
+        time.sleep(NET_POLL_INTERVAL)
+
+
 def main() -> int:
     _configure_logging()
     logger.info("ClawEDR macOS Log Tailer starting")
@@ -253,6 +406,9 @@ def main() -> int:
     import threading
     policy_thread = threading.Thread(target=monitor_policy_updates, daemon=True)
     policy_thread.start()
+
+    network_thread = threading.Thread(target=monitor_network_connections, daemon=True)
+    network_thread.start()
 
     tail_sandbox_log()
     return 0

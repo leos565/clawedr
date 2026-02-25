@@ -224,7 +224,7 @@
 (deny process-exec (literal "/usr/local/bin/ptrace"))
 (deny process-exec (literal "/opt/homebrew/bin/ptrace"))
 (deny process-exec (literal "/opt/local/bin/ptrace"))
-;;; --- Blocked domains (Unsupported on macOS) ---
+;;; --- Blocked domains (monitoring-only on macOS via log_tailer.py) ---
 ;;;   [DOM-001] pool.supportxmr.com
 ;;;   [DOM-002] pool.minexmr.com
 ;;;   [DOM-003] xmr.pool.minergate.com
@@ -245,6 +245,12 @@
 ;;;   [DOM-018] transfer.sh
 ;;;   [DOM-019] file.io
 ;;;   [DOM-020] 0x0.st
+;;; --- Blocked IPs (monitoring-only on macOS via log_tailer.py) ---
+;;;   [IP-001] 51.222.161.168
+;;;   [IP-002] 178.128.242.134
+;;;   [IP-003] 94.130.12.30
+;;;   [IP-004] 104.22.10.63
+;;;   [IP-005] 144.76.217.73
 ;;; --- Custom deny rules ---
 ;;; [MAC-001]
 (deny network-outbound (remote tcp "*:4444"))

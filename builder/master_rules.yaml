@@ -80,6 +80,13 @@ rule_metadata:
   DOM-019: { description: "Ephemeral file host; exfiltration and payload delivery", severity: high }
   DOM-020: { description: "File host; exfiltration endpoint", severity: high }
 
+  # Blocked IPs
+  IP-001: { description: "Known Monero mining pool IP", severity: high }
+  IP-002: { description: "Known Monero mining pool IP", severity: high }
+  IP-003: { description: "Known cryptojacking C2 IP", severity: high }
+  IP-004: { description: "Known paste exfil proxy IP", severity: high }
+  IP-005: { description: "Known file exfil host IP", severity: high }
+
   # Blocked executables
   BIN-001: { description: "Netcat; reverse shells, bind shells, and data exfiltration", severity: critical }
   BIN-002: { description: "Ncat; Nmap netcat variant, reverse shells and lateral movement", severity: critical }
@@ -251,6 +258,16 @@ blocked_domains:
   DOM-018: "transfer.sh"
   DOM-019: "file.io"
   DOM-020: "0x0.st"
+
+# ── Blocked IPs ───────────────────────────────────────────────────────────
+# Known malicious IP addresses. Monitored on macOS, blocked via eBPF on Linux.
+
+blocked_ips:
+  IP-001: "51.222.161.168"    # supportxmr.com mining pool
+  IP-002: "178.128.242.134"   # minexmr.com mining pool
+  IP-003: "94.130.12.30"      # xmr.pool.minergate.com
+  IP-004: "104.22.10.63"      # pastebin.com (Cloudflare)
+  IP-005: "144.76.217.73"     # 0x0.st file host
 
 # ── Blocked executables ───────────────────────────────────────────────────
 # Binaries an agent has no legitimate reason to run.

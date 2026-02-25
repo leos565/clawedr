@@ -1337,10 +1337,7 @@
                             <line x1="12" y1="8" x2="12" y2="12"></line>
                             <line x1="12" y1="16" x2="12.01" y2="16"></line>
                         </svg>
-                        <div style="color: #ffab00; font-size: 13px; font-weight: 500;">
-                            Domain blocking is currently only supported on Linux (eBPF). macOS Seatbelt sandboxing
-                            limitation prevents kernel-level hostname enforcement.
-                        </div>
+                        <div id="macWarningText" style="color: #ffab00; font-size: 13px; font-weight: 500;"></div>
                     </div>
                 </div>
                 <div class="form-group">
@@ -1519,6 +1516,7 @@
             allRuleItems = [];
             for (const [id, v] of Object.entries(p.blocked_executables || {})) allRuleItems.push({ id, val: String(v), cat: 'Executable', platform: 'general' });
             for (const [id, v] of Object.entries(p.blocked_domains || {})) allRuleItems.push({ id, val: String(v), cat: 'Domain', platform: 'general' });
+            for (const [id, v] of Object.entries(p.blocked_ips || {})) allRuleItems.push({ id, val: String(v), cat: 'IP', platform: 'general' });
             for (const [id, v] of Object.entries(p.malicious_hashes || {})) allRuleItems.push({ id, val: String(v), cat: 'Hash', platform: 'general' });
             for (const [os, items] of Object.entries(p.blocked_paths || {}))
                 for (const [id, v] of Object.entries(items)) allRuleItems.push({ id, val: String(v), cat: 'Path', platform: os });
@@ -1648,11 +1646,26 @@
             const sel = document.querySelector(`.type-card[data-type="${rule.type}"]`);
             if (sel) { sel.style.opacity = '1'; }
             document.getElementById('ruleHint').textContent = TYPE_HINTS[rule.type] || '';
-            document.getElementById('macDomainWarning').style.display = (rule.type === 'domain') ? 'block' : 'none';
+            _showMacWarning(rule.type);
             document.getElementById('ruleModal').classList.add('open');
         }
 
         function closeModal() { document.getElementById('ruleModal').classList.remove('open'); }
+
+        const MAC_WARNINGS = {
+            domain: 'On macOS, domain/IP blocking is monitoring-only (connection detection via reverse DNS). Blocking is less precise than kernel-level enforcement on Linux (eBPF).',
+            hash: 'Hash-based blocking is not supported on macOS. macOS Seatbelt cannot inspect file contents. Hash rules are only enforced on Linux.',
+        };
+        function _showMacWarning(type) {
+            const el = document.getElementById('macDomainWarning');
+            const txt = document.getElementById('macWarningText');
+            if (MAC_WARNINGS[type]) {
+                txt.textContent = MAC_WARNINGS[type];
+                el.style.display = 'block';
+            } else {
+                el.style.display = 'none';
+            }
+        }
 
         function selectType(type) {
             if (modalMode === 'edit') return;
@@ -1661,7 +1674,7 @@
             document.getElementById('ruleHint').textContent = TYPE_HINTS[type] || '';
             document.getElementById('ruleError').classList.remove('visible');
             document.getElementById('ruleValue').placeholder = TYPE_HINTS[type] || 'Enter value...';
-            document.getElementById('macDomainWarning').style.display = (type === 'domain') ? 'block' : 'none';
+            _showMacWarning(type);
             document.getElementById('ruleValue').focus();
         }
 

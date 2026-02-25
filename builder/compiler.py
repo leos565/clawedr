@@ -44,6 +44,7 @@ def compile_linux_policy(rules: dict[str, Any]) -> dict[str, Any]:
         "version": rules.get("version", "2.0"),
         "blocked_executables": dict(rules.get("blocked_executables", {})),
         "blocked_domains": dict(rules.get("blocked_domains", {})),
+        "blocked_ips": dict(rules.get("blocked_ips", {})),
         "malicious_hashes": dict(rules.get("malicious_hashes", {})),
         "blocked_paths": dict(rules.get("blocked_paths", {}).get("linux", {})),
         "deny_rules": {},
@@ -66,6 +67,7 @@ def compile_universal_policy(rules: dict[str, Any]) -> dict[str, Any]:
         "version": rules.get("version", "2.0"),
         "blocked_executables": dict(rules.get("blocked_executables", {})),
         "blocked_domains": dict(rules.get("blocked_domains", {})),
+        "blocked_ips": dict(rules.get("blocked_ips", {})),
         "malicious_hashes": dict(rules.get("malicious_hashes", {})),
         "blocked_paths": {
             "linux": dict(rules.get("blocked_paths", {}).get("linux", {})),
@@ -147,11 +149,20 @@ def compile_macos_seatbelt(rules: dict[str, Any]) -> str:
 
     # Seatbelt does not support hostname-based filters; domain blocking is
     # currently unsupported on macOS (no kernel-level hostname enforcement).
+    # Domain monitoring is handled by log_tailer.py via lsof polling.
     blocked_domains = rules.get("blocked_domains", {})
     if blocked_domains:
-        lines.append(";;; --- Blocked domains (Unsupported on macOS) ---")
+        lines.append(";;; --- Blocked domains (monitoring-only on macOS via log_tailer.py) ---")
         for rule_id, domain in blocked_domains.items():
             lines.append(f';;;   [{rule_id}] {domain}')
+
+    # Seatbelt cannot filter by specific IP address (only * or localhost).
+    # IP monitoring is handled by log_tailer.py via lsof polling.
+    blocked_ips = rules.get("blocked_ips", {})
+    if blocked_ips:
+        lines.append(";;; --- Blocked IPs (monitoring-only on macOS via log_tailer.py) ---")
+        for rule_id, ip_addr in blocked_ips.items():
+            lines.append(f';;;   [{rule_id}] {ip_addr}')
 
     # ── Custom deny rules (raw Seatbelt directives) ──
     custom_rules = rules.get("custom_deny_rules", {}).get("macos", {})

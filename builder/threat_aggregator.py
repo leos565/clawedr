@@ -99,6 +99,7 @@ def merge(master: dict[str, Any], feed_data: dict[str, Any]) -> dict[str, Any]:
         "version": master.get("version", "2.0"),
         "blocked_paths": {},
         "blocked_domains": {},
+        "blocked_ips": {},
         "blocked_executables": dict(master.get("blocked_executables", {})),
         "malicious_hashes": {},
         "affected_skills": list(feed_data.get("affected_skills", [])),
@@ -117,6 +118,11 @@ def merge(master: dict[str, Any], feed_data: dict[str, Any]) -> dict[str, Any]:
     feed_domains = dict(feed_data.get("blocked_domains", {}))
     merged["blocked_domains"] = {**master_domains, **feed_domains}
 
+    # Merge blocked_ips
+    master_ips = dict(master.get("blocked_ips", {}))
+    feed_ips = dict(feed_data.get("blocked_ips", {}))
+    merged["blocked_ips"] = {**master_ips, **feed_ips}
+
     # Merge malicious_hashes
     master_hashes = dict(master.get("malicious_hashes", {}))
     feed_hashes = dict(feed_data.get("malicious_hashes", {}))
@@ -127,6 +133,7 @@ def merge(master: dict[str, Any], feed_data: dict[str, Any]) -> dict[str, Any]:
         list(merged["blocked_paths"].get("macos", {}).keys())
         + list(merged["blocked_paths"].get("linux", {}).keys())
         + list(merged["blocked_domains"].keys())
+        + list(merged["blocked_ips"].keys())
         + list(merged["malicious_hashes"].keys())
         + list(merged["blocked_executables"].keys())
         + list(merged.get("custom_deny_rules", {}).get("macos", {}).keys())

@@ -51,6 +51,13 @@
     "DOM-019": "file.io",
     "DOM-020": "0x0.st"
   },
+  "blocked_ips": {
+    "IP-001": "51.222.161.168",
+    "IP-002": "178.128.242.134",
+    "IP-003": "94.130.12.30",
+    "IP-004": "104.22.10.63",
+    "IP-005": "144.76.217.73"
+  },
   "malicious_hashes": {},
   "blocked_paths": {
     "linux": {
@@ -330,6 +337,7 @@
       "LIN-048": {
         "rule": "recon_find_suid",
         "match": "find / -perm -4000",
+        "executable": "find",
         "action": "SIGKILL"
       },
       "LIN-049": {
@@ -559,6 +567,26 @@
     },
     "DOM-020": {
       "description": "File host; exfiltration endpoint",
+      "severity": "high"
+    },
+    "IP-001": {
+      "description": "Known Monero mining pool IP",
+      "severity": "high"
+    },
+    "IP-002": {
+      "description": "Known Monero mining pool IP",
+      "severity": "high"
+    },
+    "IP-003": {
+      "description": "Known cryptojacking C2 IP",
+      "severity": "high"
+    },
+    "IP-004": {
+      "description": "Known paste exfil proxy IP",
+      "severity": "high"
+    },
+    "IP-005": {
+      "description": "Known file exfil host IP",
       "severity": "high"
     },
     "BIN-001": {
