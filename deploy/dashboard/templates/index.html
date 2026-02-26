@@ -1778,7 +1778,7 @@
         // ── Init ──
         loadStatus().then(() => loadRules().then(() => loadUserRules()));
         loadSessions(); loadAlerts(); loadCustomRules();
-        setInterval(loadAlerts, 10000);
+        setInterval(loadAlerts, 30000);
         setInterval(loadSessions, 15000);
     </script>
 </body>

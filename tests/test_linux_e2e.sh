@@ -12,7 +12,7 @@ echo "[*] Killing Mac instances to free dashboard port 8477..."
 sudo launchctl unload /Library/LaunchDaemons/com.clawedr.monitor.plist 2>/dev/null || true
 sudo pkill -9 -f uvicorn || true
 sudo pkill -9 -f log_tailer.py || true
-sleep 2
+sleep 1
 
 echo "[*] Running Linux E2E inside orb ubuntu..."
 orb -m ubuntu sudo bash << 'ORBEOF'
@@ -24,9 +24,11 @@ killall -9 openclaw 2>/dev/null || true
 killall -9 uvicorn 2>/dev/null || true
 systemctl stop clawedr.service 2>/dev/null || true
 systemctl stop clawedr-dashboard.service 2>/dev/null || true
+systemctl stop clawedr-monitor 2>/dev/null || true
 
-echo '[Linux] Freeing /tmp (kheaders can fill it)...'
-rm -rf /tmp/kheaders-* 2>/dev/null || true
+echo '[Linux] Clearing /tmp (kheaders, clawedr pid, etc.)...'
+rm -rf /tmp/kheaders-* /tmp/clawedr-* /tmp/pip-* /tmp/npm-* 2>/dev/null || true
+sync 2>/dev/null || true
 
 echo '[Linux] Cleaning old policy and logs...'
 rm -f /usr/local/share/clawedr/compiled_policy.json
@@ -42,7 +44,7 @@ export CLAWEDR_BASE_URL="file:///Users/leo/clawedr/deploy"
 ./deploy/install.sh
 
 echo '[Linux] Waiting for Services...'
-sleep 5
+sleep 3
 if ! curl -s http://localhost:8477/api/status > /dev/null; then
     echo 'Dashboard failed to start on Linux!'
     exit 1
@@ -51,43 +53,47 @@ echo 'Dashboard is up.'
 
 echo '[Linux] Adding Custom Rule (block nmap)...'
 curl -s -X POST -H 'Content-Type: application/json' -d '{"type": "executable", "value": "nmap", "platform": "linux"}' http://localhost:8477/api/custom-rules
-sleep 6 # Wait for BPF hotreload
+sleep 4 # Wait for BPF hotreload
 
-echo '[Linux] Mocking openclaw-real with bad actions...'
-REAL_NPM_OC=$(for d in /home/*/.npm-global/bin /usr/local/lib/node_modules/.bin; do if [ -x "$d/openclaw" ]; then echo "$d/openclaw"; break; fi; done)
-if [ -z "$REAL_NPM_OC" ]; then REAL_NPM_OC="/usr/bin/openclaw"; fi
-cat << 'MOCKEOF' > "$REAL_NPM_OC"
+echo '[Linux] Creating mock script (do NOT overwrite real openclaw - dashboard uses it)...'
+MOCK_SCRIPT="/tmp/clawedr_e2e_mock.sh"
+cat << 'MOCKEOF' > "$MOCK_SCRIPT"
 #!/bin/bash
 echo "[Mock] Running as openclaw"
-sleep 2
-
+sleep 1
 echo "[Mock] Triggering Executable rule (nc)..."
 /usr/bin/nc -h 2>/dev/null || true
-
 echo "[Mock] Triggering Path rule (shadow)..."
 cat /etc/shadow 2>/dev/null || true
-
 echo "[Mock] Triggering Custom rule (nmap)..."
 /usr/bin/nmap 2>/dev/null || true
-
 echo "[Mock] Triggering Network IP rule..."
 python3 -c 'import socket; s = socket.socket(); s.settimeout(2);
 try:
     getattr(s, "conn" + "ect")(("144.76.217.73", 80))
 except:
     pass' 2>/dev/null || true
-
+echo "[Mock] Triggering Domain rule (pastebin.com via argv)..."
+curl -s --connect-timeout 1 https://pastebin.com/robots.txt 2>/dev/null || true
 echo "[Mock] Done."
 MOCKEOF
-chmod +x "$REAL_NPM_OC"
+chmod +x "$MOCK_SCRIPT"
 
-echo '[Linux] Running mocked openclaw...'
-# Run through the wrapper so eBPF catches /usr/local/bin/openclaw being execve'd
-/usr/local/bin/openclaw &
+echo '[Linux] Restarting monitor with CLAWEDR_TARGET_BINARY so it tracks our mock...'
+pkill -f "monitor.py" 2>/dev/null || true
+sleep 2
+rm -f /tmp/clawedr-monitor.pid
+CLAWEDR_TARGET_BINARY="$MOCK_SCRIPT" CLAWEDR_POLICY_PATH=/usr/local/share/clawedr/compiled_policy.json \
+  CLAWEDR_BPF_SOURCE=/usr/local/share/clawedr/bpf_hooks.c CLAWEDR_LOG_FILE=/var/log/clawedr_monitor.log \
+  nohup python3 /usr/local/share/clawedr/monitor.py >/dev/null 2>&1 &
+sleep 3
+
+echo '[Linux] Running mock script (tracked via CLAWEDR_TARGET_BINARY)...'
+"$MOCK_SCRIPT" &
 MOCK_PID=$!
 
 # Give alerts time to buffer and flush to dashboard
-sleep 15
+sleep 10
 ALERTS=$(curl -s http://localhost:8477/api/alerts)
 
 echo -e '\n--- Linux Alert Report ---'
@@ -117,9 +123,26 @@ else
     echo '[FAIL] Missing path block alert!'
 fi
 
+if echo "$ALERTS" | grep -q '"rule_id": "DOM-016"' && echo "$ALERTS" | grep -q 'pastebin'; then
+    echo '[PASS] Domain block alert generated (argv filter, DOM-016)!'
+elif echo "$ALERTS" | grep -q 'pastebin' && echo "$ALERTS" | grep -q 'DOM-'; then
+    echo '[PASS] Domain block alert generated (argv filter)!'
+else
+    echo '[FAIL] Missing domain block alert (must be DOM rule, not BIN - curl is allowed)!'
+fi
+
 echo '[*] Cleanup...'
 kill -9 $MOCK_PID 2>/dev/null || true
-systemctl stop clawedr.service 2>/dev/null || true
+rm -f "$MOCK_SCRIPT" 2>/dev/null || true
+# Restart monitor normally (without CLAWEDR_TARGET_BINARY)
+pkill -f "monitor.py" 2>/dev/null || true
+sleep 2
+rm -f /tmp/clawedr-monitor.pid
+CLAWEDR_POLICY_PATH=/usr/local/share/clawedr/compiled_policy.json \
+  CLAWEDR_BPF_SOURCE=/usr/local/share/clawedr/bpf_hooks.c CLAWEDR_LOG_FILE=/var/log/clawedr_monitor.log \
+  nohup python3 /usr/local/share/clawedr/monitor.py >/dev/null 2>&1 &
+# Truncate block log so dashboard stops showing test alerts
+: > /var/log/clawedr.log 2>/dev/null || true
 ORBEOF
 
 echo -e "${GREEN}Linux Test Complete.${NC}"

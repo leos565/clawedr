@@ -30,6 +30,7 @@ Lifecycle:
 
 import ctypes
 import fnmatch
+import logging.handlers
 import glob as globmod
 import json
 import logging
@@ -502,6 +503,8 @@ def apply_policy(policy: dict) -> None:
                 policy.setdefault("malicious_hashes", {})[rid] = val.removeprefix("sha256:")
             elif rtype == "path":
                 policy.setdefault("blocked_paths", {})[rid] = val
+            elif rtype == "domain":
+                policy.setdefault("blocked_domains", {})[rid] = val
             elif rtype == "argument":
                 # Inject as a deny_rule with argv matching
                 deny_list = policy.setdefault("deny_rules", [])
@@ -634,6 +637,7 @@ def _apply_blocked_paths(policy: dict, exempted: set[str]) -> None:
 # ---------------------------------------------------------------------------
 
 def _apply_deny_rules(policy: dict, exempted: set[str]) -> None:
+    """Load deny_rules for argv matching. blocked_domains are injected as domain-in-cmdline rules."""
     global _deny_rules
     raw = policy.get("deny_rules", {})
     if isinstance(raw, dict) and "linux" in raw:
@@ -648,6 +652,15 @@ def _apply_deny_rules(policy: dict, exempted: set[str]) -> None:
             continue
         if isinstance(rule, dict) and rule.get("match"):
             _deny_rules[rule_id] = rule
+
+    # Inject blocked_domains as argv deny_rules (match cmdline containing domain)
+    for rule_id, domain in policy.get("blocked_domains", {}).items():
+        if rule_id in exempted:
+            skipped += 1
+            continue
+        if rule_id in _deny_rules:
+            continue
+        _deny_rules[rule_id] = {"match": f"*{domain}*", "rule": "blocked_domain", "scope": "argv"}
 
     logger.info("Loaded %d deny_rules for userspace matching (%d skipped)",
                 len(_deny_rules), skipped)
@@ -679,15 +692,15 @@ def _apply_blocked_ips(policy: dict, exempted: set[str]) -> None:
         return
         
     raw_ips = policy.get("blocked_ips", {})
-    raw_domains = policy.get("blocked_domains", {})
-    
+
     _ip_to_rule_id = {}
     ip_map = _bpf_instance["blocked_ips"]
     ip_map.clear()
-    
-    import socket, struct
+
+    import socket
+    import struct
     loaded = 0
-    
+
     for rule_id, ip in raw_ips.items():
         if rule_id in exempted:
             continue
@@ -698,20 +711,8 @@ def _apply_blocked_ips(policy: dict, exempted: set[str]) -> None:
             loaded += 1
         except Exception:
             pass
-            
-    for rule_id, dom in raw_domains.items():
-        if rule_id in exempted:
-            continue
-        try:
-            ip = socket.gethostbyname(dom)
-            ip_int = struct.unpack("=I", socket.inet_aton(ip))[0]
-            ip_map[ctypes.c_uint32(ip_int)] = ctypes.c_uint8(1)
-            _ip_to_rule_id[ip] = rule_id
-            loaded += 1
-        except Exception:
-            pass
-            
-    logger.info("Loaded %d network IPs/domains to BPF map", loaded)
+
+    logger.info("Loaded %d blocked IPs to BPF map", loaded)
 
 
 # ---------------------------------------------------------------------------
@@ -842,7 +843,11 @@ def setup_logging() -> None:
     block_logger.addHandler(block_stdout)
 
     try:
-        block_fh = logging.FileHandler(BLOCK_LOG_FILE)
+        block_fh = logging.handlers.RotatingFileHandler(
+            BLOCK_LOG_FILE,
+            maxBytes=512 * 1024,  # 512KB
+            backupCount=1,
+        )
         block_fh.setFormatter(fmt)
         block_logger.addHandler(block_fh)
     except PermissionError:
