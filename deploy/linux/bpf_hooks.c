@@ -32,8 +32,8 @@ struct event_t {
   char comm[TASK_COMM_LEN];
   char filename[MAX_FILENAME_LEN];
   u8 action; // 0 = observed (enter), 1 = blocked (SIGKILL), 2 = post-exec
-             // (exit, for deny_rules)
-  u32 blocked_ip; // for connect events: blocked IP in host byte order
+             // (exit, for deny_rules), 3 = connect_attempt (userspace domain check)
+  u32 blocked_ip; // for connect events: IP in host byte order
 };
 
 /* --- Maps populated by monitor.py --- */
@@ -256,20 +256,25 @@ TRACEPOINT_PROBE(syscalls, sys_enter_connect) {
                             4); /* offset of sin_addr in sockaddr_in */
 
     u8 *is_blocked = blocked_ips.lookup(&ip);
-    if (is_blocked) {
-      struct event_t evt = {};
-      evt.pid = pid;
-      evt.ns_pid = get_ns_pid();
-      evt.uid = bpf_get_current_uid_gid() & 0xFFFFFFFF;
-      bpf_get_current_comm(&evt.comm, sizeof(evt.comm));
+    struct event_t evt = {};
+    evt.pid = pid;
+    evt.ns_pid = get_ns_pid();
+    evt.uid = bpf_get_current_uid_gid() & 0xFFFFFFFF;
+    bpf_get_current_comm(&evt.comm, sizeof(evt.comm));
+    evt.blocked_ip = ip;
 
+    if (is_blocked) {
       const char msg[] = "NETWORK_CONNECT";
       __builtin_memcpy((void *)evt.filename, msg, sizeof(msg));
-      evt.blocked_ip = ip;
-
       evt.action = 1;
       events.perf_submit(args, &evt, sizeof(evt));
       bpf_send_signal(SIGKILL);
+    } else {
+      /* Not in blocked_ips: emit for userspace domain check (argv-based) */
+      const char msg[] = "CONNECT_ATTEMPT";
+      __builtin_memcpy((void *)evt.filename, msg, sizeof(msg));
+      evt.action = 3;
+      events.perf_submit(args, &evt, sizeof(evt));
     }
   }
 

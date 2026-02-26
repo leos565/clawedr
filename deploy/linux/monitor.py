@@ -62,6 +62,7 @@ MONITOR_LOG_FILE = os.environ.get("CLAWEDR_LOG_FILE", "/var/log/clawedr_monitor.
 
 _bpf_instance = None
 _deny_rules: dict[str, dict] = {}
+_blocked_domains: dict[str, str] = {}  # rule_id -> domain, for fast connect-time check
 _malicious_hashes: dict[str, str] = {}
 _hash_to_rule_id: dict[int, str] = {}
 _ip_to_rule_id: dict[str, str] = {}
@@ -219,6 +220,11 @@ def load_bpf(source_path: str):
                 pid=ns_pid,
                 comm=comm,
             )
+        elif event.action == 3 and filename == "CONNECT_ATTEMPT":
+            # Connect not in blocked_ips: check cmdline for blocked domains (argv-based)
+            ip_int = getattr(event, "blocked_ip", 0)
+            ip_str = _ip_int_to_str(ip_int) if ip_int else "0.0.0.0"
+            _check_connect_domain_rules(ns_pid, comm, ip_str)
         elif event.action == 1:
             # Blocked by BPF — find the matching rule ID
             rule_id = _find_rule_id_for_block(filename)
@@ -235,12 +241,10 @@ def load_bpf(source_path: str):
             )
         elif event.action == 2:
             # Post-exec (sys_exit_execve): /proc/cmdline now has the new argv.
-            
-            # Layer 4: Userspace file hash check
-            _check_malicious_hashes(ns_pid, comm, filename)
-            
-            # Layer 2: Userspace deny_rules check
+            # Check deny_rules (incl. domains) FIRST — fast, no file I/O
             matched_rule = _check_deny_rules(ns_pid, comm, filename)
+            if not matched_rule:
+                _check_malicious_hashes(ns_pid, comm, filename)
             if not matched_rule:
                 logger.debug(
                     "[observed] pid=%d uid=%d comm=%s file=%s",
@@ -316,6 +320,51 @@ def _check_malicious_hashes(pid: int, comm: str, filename: str) -> str | None:
     return None
 
 # ---------------------------------------------------------------------------
+# Connect-time domain check (argv-based, no DNS)
+# ---------------------------------------------------------------------------
+
+def _check_connect_domain_rules(pid: int, comm: str, ip_str: str) -> str | None:
+    """At connect(): read cmdline, check for blocked domains. Kill if match.
+    Provides a second chance to block when exec-time check raced."""
+    if not _blocked_domains:
+        return None
+    try:
+        with open(f"/proc/{pid}/cmdline", "rb") as f:
+            raw = f.read(4096)
+    except OSError:
+        return None
+
+    cmdline = raw.replace(b"\x00", b" ").decode(errors="replace").strip()
+    if not cmdline:
+        return None
+
+    # Exempt our own alert dispatch
+    if "openclaw agent" in cmdline and "ClawEDR Alert" in cmdline:
+        return None
+
+    for rule_id, domain in _blocked_domains.items():
+        if domain in cmdline:
+            block_logger.warning(
+                "BLOCKED [%s] (domain=connect) pid=%d comm=%s target=%s cmdline=%s",
+                rule_id, pid, comm, ip_str, cmdline[:150],
+            )
+            dispatch_alert_async(
+                rule_id=rule_id,
+                action="deny_rule",
+                target=cmdline[:200],
+                pid=pid,
+                comm=comm,
+            )
+            try:
+                os.kill(pid, 9)
+            except OSError:
+                pass
+            return rule_id
+
+    return None
+
+
+# ---------------------------------------------------------------------------
 # Layer 2: deny_rules — userspace argv matching
 # ---------------------------------------------------------------------------
 
@@ -347,6 +396,12 @@ def _check_deny_rules(pid: int, comm: str, filename: str) -> str | None:
             return None
     except (OSError, IndexError, ValueError):
         pass
+
+    # Exempt our own alert dispatch: openclaw agent --message "ClawEDR Alert..."
+    # The message embeds the blocked cmdline and rule descriptions (e.g. "port 4444")
+    # which can falsely match LIN-001 and cause an alert cascade.
+    if "openclaw agent" in cmdline and "ClawEDR Alert" in cmdline:
+        return None
 
     for rule_id, rule in _deny_rules.items():
         pattern = rule.get("match", "")
@@ -637,7 +692,9 @@ def _apply_blocked_paths(policy: dict, exempted: set[str]) -> None:
 # ---------------------------------------------------------------------------
 
 def _apply_deny_rules(policy: dict, exempted: set[str]) -> None:
-    """Load deny_rules for argv matching. blocked_domains are injected as domain-in-cmdline rules."""
+    """Load deny_rules for argv matching. blocked_domains are injected as domain-in-cmdline rules.
+    Domain rules are loaded FIRST so they take precedence over generic LIN-* rules (e.g. LIN-001
+    *4444* would otherwise match alert messages that mention port 4444)."""
     global _deny_rules
     raw = policy.get("deny_rules", {})
     if isinstance(raw, dict) and "linux" in raw:
@@ -645,22 +702,26 @@ def _apply_deny_rules(policy: dict, exempted: set[str]) -> None:
 
     _deny_rules = {}
     skipped = 0
+
+    # Load domain rules FIRST so they match before generic rules (curl to blocked domain -> DOM-xxx)
+    global _blocked_domains
+    _blocked_domains = {}
+    for rule_id, domain in policy.get("blocked_domains", {}).items():
+        if rule_id in exempted:
+            skipped += 1
+            continue
+        _blocked_domains[rule_id] = domain
+        _deny_rules[rule_id] = {"match": f"*{domain}*", "rule": "blocked_domain", "scope": "argv"}
+
     for rule_id, rule in raw.items():
         if rule_id in exempted:
             logger.info("Skipping exempted deny_rule %s", rule_id)
             skipped += 1
             continue
-        if isinstance(rule, dict) and rule.get("match"):
-            _deny_rules[rule_id] = rule
-
-    # Inject blocked_domains as argv deny_rules (match cmdline containing domain)
-    for rule_id, domain in policy.get("blocked_domains", {}).items():
-        if rule_id in exempted:
-            skipped += 1
-            continue
         if rule_id in _deny_rules:
             continue
-        _deny_rules[rule_id] = {"match": f"*{domain}*", "rule": "blocked_domain", "scope": "argv"}
+        if isinstance(rule, dict) and rule.get("match"):
+            _deny_rules[rule_id] = rule
 
     logger.info("Loaded %d deny_rules for userspace matching (%d skipped)",
                 len(_deny_rules), skipped)
@@ -690,7 +751,7 @@ def _apply_blocked_ips(policy: dict, exempted: set[str]) -> None:
     global _ip_to_rule_id
     if _bpf_instance is None:
         return
-        
+
     raw_ips = policy.get("blocked_ips", {})
 
     _ip_to_rule_id = {}
@@ -807,7 +868,7 @@ def watch_and_reload(path: str, interval: int = POLL_INTERVAL) -> None:
 
         if _bpf_instance is not None:
             try:
-                _bpf_instance.perf_buffer_poll(timeout=50)
+                _bpf_instance.perf_buffer_poll(timeout=5)
             except Exception:
                 logger.exception("Crash in perf_buffer_poll")
 
