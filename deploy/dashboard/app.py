@@ -33,7 +33,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from shared.user_rules import (
     load_user_rules, save_user_rules, USER_RULES_PATH,
     add_custom_rule, update_custom_rule, delete_custom_rule,
-    get_custom_rules, CUSTOM_RULE_TYPES,
+    get_custom_rules, get_custom_rule_metadata, CUSTOM_RULE_TYPES,
 )
 
 logger = logging.getLogger("clawedr.dashboard")
@@ -61,13 +61,26 @@ _BLOCK_LINE_RE = re.compile(
 
 
 def _load_rule_metadata() -> dict:
-    """Load rule_metadata from compiled policy."""
+    """Load rule_metadata from compiled policy, merged with user custom rule metadata."""
+    metadata: dict = {}
     try:
         with open(POLICY_PATH) as f:
             policy = json.load(f)
-        return policy.get("rule_metadata", {})
+        metadata = dict(policy.get("rule_metadata", {}))
     except (FileNotFoundError, json.JSONDecodeError):
-        return {}
+        pass
+    # Merge in metadata for user-generated custom rules (USR-*)
+    for rule in get_custom_rules():
+        rid = rule.get("id")
+        if rid and rid.startswith("USR-"):
+            desc = rule.get("description")
+            sev = rule.get("severity")
+            if desc or sev:
+                metadata[rid] = {
+                    "description": desc or "",
+                    "severity": sev or "unknown",
+                }
+    return metadata
 
 
 def _find_openclaw() -> Optional[str]:
@@ -265,9 +278,11 @@ def _get_enforcement_message():
 @app.get("/api/custom-rules")
 async def list_custom_rules():
     """Return all user-defined custom blocking rules."""
+    from shared.user_rules import VALID_SEVERITIES
     return JSONResponse({
         "custom_rules": get_custom_rules(),
         "supported_types": list(CUSTOM_RULE_TYPES.keys()),
+        "supported_severities": sorted(VALID_SEVERITIES),
     })
 
 
@@ -279,7 +294,13 @@ async def create_custom_rule(request: Request):
         rule_type = body.get("type", "")
         value = body.get("value", "")
         platform = body.get("platform", "both")
-        rule, err = add_custom_rule(rule_type, value, platform)
+        description = body.get("description")
+        severity = body.get("severity")
+        rule, err = add_custom_rule(
+            rule_type, value, platform,
+            description=description,
+            severity=severity,
+        )
         if err:
             return JSONResponse({"error": err}, status_code=400)
         
@@ -302,6 +323,8 @@ async def modify_custom_rule(rule_id: str, request: Request):
             rule_id,
             value=body.get("value"),
             platform=body.get("platform"),
+            description=body.get("description"),
+            severity=body.get("severity"),
         )
         if err:
             return JSONResponse({"error": err}, status_code=400)

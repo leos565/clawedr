@@ -15,19 +15,17 @@ Schema:
       - id: USR-BIN-001
         type: executable
         value: terraform
+        description: "Optional human-readable reason for blocking"
+        severity: high
       - id: USR-DOM-001
         type: domain
         value: evil.com
-      - id: USR-HASH-001
-        type: hash
-        value: "sha256:a1b2c3..."
       - id: USR-PATH-001
         type: path
         value: /var/secrets
         platform: linux
-      - id: USR-ARG-001
-        type: argument
-        value: "--password"
+
+  severity: critical | high | medium | low | info
 """
 
 from __future__ import annotations
@@ -48,6 +46,9 @@ USER_RULES_PATH = USER_RULES_DIR / "user_rules.yaml"
 if not os.access("/", os.W_OK) and not USER_RULES_DIR.exists():
      USER_RULES_DIR = Path(os.path.expanduser("~/.clawedr"))
      USER_RULES_PATH = USER_RULES_DIR / "user_rules.yaml"
+
+# Valid severity values (matches master_rules.yaml rule_metadata)
+VALID_SEVERITIES = frozenset({"critical", "high", "medium", "low", "info"})
 
 # Valid custom rule types and their ID prefixes
 CUSTOM_RULE_TYPES = {
@@ -150,6 +151,21 @@ def get_custom_rules() -> list[dict[str, Any]]:
     return list(rules.get("custom_rules", []))
 
 
+def get_custom_rule_metadata(rule_id: str) -> tuple[str | None, str | None]:
+    """Return (description, severity) for a custom rule by ID, or (None, None) if not found."""
+    if not rule_id.startswith("USR-"):
+        return None, None
+    for r in get_custom_rules():
+        if r.get("id") == rule_id:
+            desc = r.get("description")
+            sev = r.get("severity")
+            return (
+                str(desc).strip() if desc else None,
+                sev if sev in VALID_SEVERITIES else None,
+            )
+    return None, None
+
+
 def save_user_rules(rules: dict[str, Any]) -> None:
     """Write user rules to ~/.clawedr/user_rules.yaml."""
     USER_RULES_DIR.mkdir(parents=True, exist_ok=True)
@@ -226,11 +242,28 @@ def validate_custom_rule(
     return True, ""
 
 
+def _validate_severity(severity: str | None) -> tuple[bool, str]:
+    """Validate severity. Returns (ok, error_message)."""
+    if severity is None or severity == "":
+        return True, ""
+    s = str(severity).strip().lower()
+    if s in VALID_SEVERITIES:
+        return True, ""
+    return False, f"Invalid severity: {severity}. Must be one of: {', '.join(sorted(VALID_SEVERITIES))}"
+
+
 def add_custom_rule(
-    rule_type: str, value: str, platform: str = "both"
+    rule_type: str,
+    value: str,
+    platform: str = "both",
+    description: str | None = None,
+    severity: str | None = None,
 ) -> tuple[dict[str, Any] | None, str]:
     """Add a custom blocking rule. Returns (rule_dict, error_message)."""
     ok, err = validate_custom_rule(rule_type, value, platform)
+    if not ok:
+        return None, err
+    ok, err = _validate_severity(severity)
     if not ok:
         return None, err
 
@@ -250,6 +283,10 @@ def add_custom_rule(
     }
     if platform != "both":
         new_rule["platform"] = platform
+    if description is not None and str(description).strip():
+        new_rule["description"] = str(description).strip()
+    if severity is not None and str(severity).strip().lower() in VALID_SEVERITIES:
+        new_rule["severity"] = str(severity).strip().lower()
 
     custom.append(new_rule)
     rules["custom_rules"] = custom
@@ -259,7 +296,11 @@ def add_custom_rule(
 
 
 def update_custom_rule(
-    rule_id: str, value: str | None = None, platform: str | None = None
+    rule_id: str,
+    value: str | None = None,
+    platform: str | None = None,
+    description: str | None = None,
+    severity: str | None = None,
 ) -> tuple[dict[str, Any] | None, str]:
     """Update an existing custom rule by ID."""
     rules = load_user_rules()
@@ -285,6 +326,21 @@ def update_custom_rule(
             target.pop("platform", None)
         else:
             target["platform"] = platform
+
+    if description is not None:
+        if str(description).strip():
+            target["description"] = str(description).strip()
+        else:
+            target.pop("description", None)
+
+    if severity is not None:
+        ok, err = _validate_severity(severity)
+        if not ok:
+            return None, err
+        if str(severity).strip().lower() in VALID_SEVERITIES:
+            target["severity"] = str(severity).strip().lower()
+        else:
+            target.pop("severity", None)
 
     rules["custom_rules"] = custom
     save_user_rules(rules)

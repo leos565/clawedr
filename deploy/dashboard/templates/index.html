@@ -1341,6 +1341,21 @@
                     </div>
                 </div>
                 <div class="form-group">
+                    <label class="form-label" for="ruleDescription">Description (optional)</label>
+                    <input type="text" class="form-input" id="ruleDescription" placeholder="e.g. Blocks access to internal secrets">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="ruleSeverity">Severity (optional)</label>
+                    <select class="form-select" id="ruleSeverity">
+                        <option value="">—</option>
+                        <option value="critical">Critical</option>
+                        <option value="high">High</option>
+                        <option value="medium">Medium</option>
+                        <option value="low">Low</option>
+                        <option value="info">Info</option>
+                    </select>
+                </div>
+                <div class="form-group">
                     <label class="form-label" for="rulePlatform">Platform</label>
                     <select class="form-select" id="rulePlatform">
                         <option value="both">Both (macOS & Linux)</option>
@@ -1541,12 +1556,16 @@
             for (const r of customRules) {
                 const plat = r.platform || 'both';
                 const platLabel = plat === 'both' ? '' : '(' + plat + ')';
+                const sev = r.severity ? `<span class="rule-tag severity-${r.severity.toLowerCase()}">${esc(r.severity)}</span>` : '';
+                const desc = r.description ? `<div style="font-size:12px;color:var(--text-muted);margin-top:4px;width:100%;">${esc(r.description)}</div>` : '';
                 html += `<div class="rule-item">
-          <div class="rule-info">
+          <div class="rule-info" style="flex-wrap:wrap;">
             <span class="rule-tag custom">${r.id}</span>
             <span style="font-size:16px;flex-shrink:0;">${typeIcons[r.type] || '📌'}</span>
             <span class="rule-value" title="${esc(r.value)}">${esc(r.value)}</span>
+            ${sev}
             <span style="font-size:11px;color:var(--text-muted);flex-shrink:0;">${r.type} ${platLabel}</span>
+            ${desc}
           </div>
           <div class="rule-actions">
             <button class="btn btn-ghost btn-sm" onclick="editCustomRule('${r.id}')">Edit</button>
@@ -1620,6 +1639,8 @@
             document.getElementById('modalTitle').textContent = 'Add Custom Rule';
             document.getElementById('modalSubmit').textContent = 'Add Rule';
             document.getElementById('ruleValue').value = '';
+            document.getElementById('ruleDescription').value = '';
+            document.getElementById('ruleSeverity').value = '';
             document.getElementById('rulePlatform').value = 'both';
             document.getElementById('ruleError').classList.remove('visible');
             document.querySelectorAll('.type-card').forEach(c => c.classList.remove('selected'));
@@ -1636,6 +1657,8 @@
             document.getElementById('modalTitle').textContent = 'Edit Custom Rule';
             document.getElementById('modalSubmit').textContent = 'Save Changes';
             document.getElementById('ruleValue').value = rule.value;
+            document.getElementById('ruleDescription').value = rule.description || '';
+            document.getElementById('ruleSeverity').value = rule.severity || '';
             document.getElementById('rulePlatform').value = rule.platform || 'both';
             document.getElementById('ruleError').classList.remove('visible');
             // Highlight selected type and disable switching
@@ -1686,13 +1709,18 @@
             const value = document.getElementById('ruleValue').value.trim();
             if (!value) { errEl.textContent = 'Value cannot be empty'; errEl.classList.add('visible'); return; }
             const platform = document.getElementById('rulePlatform').value;
+            const description = document.getElementById('ruleDescription').value.trim();
+            const severity = document.getElementById('ruleSeverity').value;
 
             try {
                 let res;
                 if (modalMode === 'add') {
-                    res = await fetch('/api/custom-rules', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: selectedType, value, platform }) });
+                    const body = { type: selectedType, value, platform };
+                    if (description) body.description = description;
+                    if (severity) body.severity = severity;
+                    res = await fetch('/api/custom-rules', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
                 } else {
-                    res = await fetch(`/api/custom-rules/${editingRuleId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ value, platform }) });
+                    res = await fetch(`/api/custom-rules/${editingRuleId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ value, platform, description, severity }) });
                 }
                 const data = await res.json();
                 if (data.error) { errEl.textContent = data.error; errEl.classList.add('visible'); return; }

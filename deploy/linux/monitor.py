@@ -80,6 +80,16 @@ def _djb2_hash(s: str) -> int:
     return h
 
 
+def _ip_int_to_str(ip_int: int) -> str:
+    """Convert u32 IP (host byte order) to dotted-decimal string."""
+    import socket
+    import struct
+    try:
+        return socket.inet_ntoa(struct.pack("=I", ip_int & 0xFFFFFFFF))
+    except Exception:
+        return "0.0.0.0"
+
+
 # ---------------------------------------------------------------------------
 # Target binary discovery
 # ---------------------------------------------------------------------------
@@ -101,14 +111,17 @@ def _resolve_openclaw_paths() -> list[str]:
 
     real_bin = shutil.which("openclaw")
     if real_bin and os.path.realpath(real_bin) == os.path.realpath(WRAPPER_PATH):
-        npm_bin = _find_npm_openclaw()
-        if npm_bin:
-            real_bin = npm_bin
+        for npm_bin in _find_npm_openclaws():
+            paths.add(npm_bin)
 
+    all_bins = list(paths)
     if real_bin:
-        paths.add(real_bin)
+        all_bins.append(real_bin)
+        
+    for rb in all_bins:
+        paths.add(rb)
         try:
-            resolved = os.path.realpath(real_bin)
+            resolved = os.path.realpath(rb)
             paths.add(resolved)
             # OpenClaw is a Node script: kernel execs node, not openclaw.
             # Add node so we track the process tree. (All node processes
@@ -128,7 +141,19 @@ def _resolve_openclaw_paths() -> list[str]:
     return sorted(paths)
 
 
-def _find_npm_openclaw() -> str | None:
+def _find_npm_openclaws() -> list[str]:
+    cands = []
+    
+    import glob
+    for pattern in [
+        "/home/*/.npm-global/bin/openclaw",
+        "/usr/local/lib/node_modules/.bin/openclaw",
+        "/usr/local/bin/openclaw",
+    ]:
+        for m in glob.glob(pattern):
+            if os.path.realpath(m) != os.path.realpath(WRAPPER_PATH):
+                cands.append(m)
+                
     try:
         result = subprocess.run(
             ["npm", "config", "get", "prefix"],
@@ -137,20 +162,12 @@ def _find_npm_openclaw() -> str | None:
         prefix = result.stdout.strip()
         if prefix:
             candidate = os.path.join(prefix, "bin", "openclaw")
-            if os.path.exists(candidate):
-                return candidate
+            if os.path.exists(candidate) and os.path.realpath(candidate) != os.path.realpath(WRAPPER_PATH):
+                cands.append(candidate)
     except Exception:
         pass
 
-    for pattern in [
-        "/home/*/.npm-global/bin/openclaw",
-        "/usr/local/bin/openclaw",
-    ]:
-        matches = globmod.glob(pattern)
-        for m in matches:
-            if os.path.realpath(m) != os.path.realpath(WRAPPER_PATH):
-                return m
-    return None
+    return cands
 
 
 # ---------------------------------------------------------------------------
@@ -185,7 +202,23 @@ def load_bpf(source_path: str):
         comm = event.comm.decode(errors="replace")
         filename = event.filename.decode(errors="replace")
         ns_pid = event.ns_pid if event.ns_pid else event.pid
-        if event.action == 1:
+        if event.action == 1 and filename == "NETWORK_CONNECT":
+            # This is blocked_ips via sys_enter_connect
+            ip_int = getattr(event, "blocked_ip", 0)
+            ip_str = _ip_int_to_str(ip_int) if ip_int else "0.0.0.0"
+            rule_id = _ip_to_rule_id.get(ip_str, "IP-005")
+            block_logger.warning(
+                "BLOCKED [%s] action=network-connect pid=%d comm=%s target=%s",
+                rule_id, ns_pid, comm, ip_str,
+            )
+            dispatch_alert_async(
+                rule_id=rule_id,
+                action="network-connect",
+                target=ip_str,
+                pid=ns_pid,
+                comm=comm,
+            )
+        elif event.action == 1:
             # Blocked by BPF — find the matching rule ID
             rule_id = _find_rule_id_for_block(filename)
             block_logger.warning(
@@ -196,22 +229,6 @@ def load_bpf(source_path: str):
                 rule_id=rule_id,
                 action="execve",
                 target=filename,
-                pid=ns_pid,
-                comm=comm,
-            )
-        elif event.action == 1 and comm == "NETWORK_CONNECT":
-            # This is blocked_ips via sys_enter_connect
-            # We can extract IP from evt.filename or just use generic IP matched
-            # Since the IP enforcement is done, we know it hit `blocked_ips` map.
-            block_logger.warning(
-                "BLOCKED [IP/domain match] action=network-connect pid=%d comm=%s",
-                ns_pid, comm,
-            )
-            # Find rule ID if possible; otherwise generic
-            dispatch_alert_async(
-                rule_id="NET-BLOCK",
-                action="network-connect",
-                target="Network IP matched watch list",
                 pid=ns_pid,
                 comm=comm,
             )
@@ -675,7 +692,7 @@ def _apply_blocked_ips(policy: dict, exempted: set[str]) -> None:
         if rule_id in exempted:
             continue
         try:
-            ip_int = struct.unpack("!I", socket.inet_aton(ip))[0]
+            ip_int = struct.unpack("=I", socket.inet_aton(ip))[0]
             ip_map[ctypes.c_uint32(ip_int)] = ctypes.c_uint8(1)
             _ip_to_rule_id[ip] = rule_id
             loaded += 1
@@ -687,7 +704,7 @@ def _apply_blocked_ips(policy: dict, exempted: set[str]) -> None:
             continue
         try:
             ip = socket.gethostbyname(dom)
-            ip_int = struct.unpack("!I", socket.inet_aton(ip))[0]
+            ip_int = struct.unpack("=I", socket.inet_aton(ip))[0]
             ip_map[ctypes.c_uint32(ip_int)] = ctypes.c_uint8(1)
             _ip_to_rule_id[ip] = rule_id
             loaded += 1
@@ -791,7 +808,7 @@ def watch_and_reload(path: str, interval: int = POLL_INTERVAL) -> None:
             try:
                 _bpf_instance.perf_buffer_poll(timeout=50)
             except Exception:
-                pass
+                logger.exception("Crash in perf_buffer_poll")
 
     logger.info("Monitor stopped.")
 

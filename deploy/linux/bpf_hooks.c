@@ -33,6 +33,7 @@ struct event_t {
   char filename[MAX_FILENAME_LEN];
   u8 action; // 0 = observed (enter), 1 = blocked (SIGKILL), 2 = post-exec
              // (exit, for deny_rules)
+  u32 blocked_ip; // for connect events: blocked IP in host byte order
 };
 
 /* --- Maps populated by monitor.py --- */
@@ -261,19 +262,10 @@ TRACEPOINT_PROBE(syscalls, sys_enter_connect) {
       evt.ns_pid = get_ns_pid();
       evt.uid = bpf_get_current_uid_gid() & 0xFFFFFFFF;
       bpf_get_current_comm(&evt.comm, sizeof(evt.comm));
-      /* Store the blocked IP in the filename field for reporting */
-      char ip_str[16];
-      u8 a = ip & 0xFF;
-      u8 b = (ip >> 8) & 0xFF;
-      u8 c = (ip >> 16) & 0xFF;
-      u8 d = (ip >> 24) & 0xFF;
-      /* Simple formatting into filename buffer. eBPF doesn't have snprintf
-       * easily */
-      /* We will format it as "IP_BLOCKED" and parse it in userspace, or we can
-       * just send the raw IP */
-      /* Actually, passing string literal works. */
+
       const char msg[] = "NETWORK_CONNECT";
-      bpf_probe_read_kernel_str(&evt.filename, sizeof(evt.filename), msg);
+      __builtin_memcpy((void *)evt.filename, msg, sizeof(msg));
+      evt.blocked_ip = ip;
 
       evt.action = 1;
       events.perf_submit(args, &evt, sizeof(evt));

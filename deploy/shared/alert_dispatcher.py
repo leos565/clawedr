@@ -58,7 +58,20 @@ def _get_openclaw_cmd(base_cmd: list[str]) -> tuple[list[str], dict | None]:
 
 
 def _get_rule_metadata(rule_id: str) -> tuple[str | None, str | None]:
-    """Load policy and return (description, severity) for rule_id."""
+    """Load policy and return (description, severity) for rule_id.
+
+    For user-generated custom rules (USR-*), metadata is read from user_rules.yaml.
+    For built-in rules, metadata comes from compiled_policy.json.
+    """
+    # User-generated custom rules: metadata from user_rules.yaml
+    if rule_id.startswith("USR-"):
+        try:
+            from shared.user_rules import get_custom_rule_metadata
+            return get_custom_rule_metadata(rule_id)
+        except ImportError:
+            pass
+
+    # Built-in rules: metadata from compiled policy
     try:
         with open(POLICY_PATH) as f:
             policy = json.load(f)

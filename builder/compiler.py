@@ -127,11 +127,11 @@ def compile_macos_seatbelt(rules: dict[str, Any]) -> str:
         lines.append(f";;; [{rule_id}]")
         if "*" in sb_path:
             regex_path = sb_path.replace("*", "[^/]+")
-            lines.append(f'(deny file-read* (regex #"^{regex_path}"))')
-            lines.append(f'(deny file-write* (regex #"^{regex_path}"))')
+            lines.append(f'(deny file-read* (with report) (regex #"^{regex_path}"))')
+            lines.append(f'(deny file-write* (with report) (regex #"^{regex_path}"))')
         else:
-            lines.append(f'(deny file-read* (subpath "{sb_path}"))')
-            lines.append(f'(deny file-write* (subpath "{sb_path}"))')
+            lines.append(f'(deny file-read* (with report) (subpath "{sb_path}"))')
+            lines.append(f'(deny file-write* (with report) (subpath "{sb_path}"))')
 
     # ── Blocked executables ──
     execs = rules.get("blocked_executables", {})
@@ -140,11 +140,11 @@ def compile_macos_seatbelt(rules: dict[str, Any]) -> str:
         for rule_id, name in execs.items():
             lines.append(f";;; [{rule_id}]")
             if "/" in name:
-                lines.append(f'(deny process-exec (literal "{name}"))')
+                lines.append(f'(deny process-exec (with report) (literal "{name}"))')
             else:
                 for prefix in _MACOS_BIN_PREFIXES:
                     lines.append(
-                        f'(deny process-exec (literal "{prefix}{name}"))'
+                        f'(deny process-exec (with report) (literal "{prefix}{name}"))'
                     )
 
     # Seatbelt does not support hostname-based filters; domain blocking is

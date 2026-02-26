@@ -30,6 +30,13 @@ detect_os() {
 
 fetch() {
     url="$1"; dest="$2"
+    if [ "${url#file://}" != "$url" ]; then
+        cp "${url#file://}" "$dest" || die "Failed to copy local $url"
+        return
+    elif [ "${url#http}" = "$url" ]; then
+        cp "$url" "$dest" || die "Failed to copy local $url"
+        return
+    fi
     if command -v curl >/dev/null 2>&1; then
         curl -fsSL -o "$dest" "$url" || die "Failed to download $url"
     elif command -v wget >/dev/null 2>&1; then

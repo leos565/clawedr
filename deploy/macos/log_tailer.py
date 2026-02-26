@@ -125,7 +125,8 @@ def tail_sandbox_log():
                     
                     # 1. Check paths (target must be inside the directory)
                     for rid, path in rule_index.get("blocked_paths", {}).get("macos", {}).items():
-                        if target.startswith(path):
+                        expanded_path = __import__('os').path.expanduser(path)
+                        if target.startswith(expanded_path):
                             rule_id = rid
                             break
                     
