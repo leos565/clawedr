@@ -35,11 +35,16 @@ from shared.user_rules import (
     load_user_rules, save_user_rules, USER_RULES_PATH,
     add_custom_rule, update_custom_rule, delete_custom_rule,
     get_custom_rules, get_custom_rule_metadata, CUSTOM_RULE_TYPES,
+    load_settings, save_settings,
 )
+from shared.rule_updater import check_for_updates, download_and_apply
 
 logger = logging.getLogger("clawedr.dashboard")
 
 app = FastAPI(title="ClawEDR Dashboard", version="1.0.0")
+
+# Cached result from background update check (macOS banner)
+_pending_updates: dict | None = None
 
 POLICY_PATH = os.environ.get(
     "CLAWEDR_POLICY_PATH", "/usr/local/share/clawedr/compiled_policy.json"
@@ -517,6 +522,64 @@ async def get_status():
     return JSONResponse(status)
 
 
+# ---------------------------------------------------------------------------
+# Settings & Rule Updates
+# ---------------------------------------------------------------------------
+
+@app.get("/api/settings")
+async def get_settings():
+    """Return dashboard settings (auto-update toggle, etc.)."""
+    return JSONResponse(load_settings())
+
+
+@app.post("/api/settings")
+async def post_settings(request: Request):
+    """Update dashboard settings."""
+    try:
+        body = await request.json()
+        settings = load_settings()
+        if "auto_update_rules" in body:
+            settings["auto_update_rules"] = bool(body["auto_update_rules"])
+        save_settings(settings)
+        return JSONResponse({"status": "ok", "settings": settings})
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+
+
+@app.get("/api/updates")
+async def get_updates():
+    """Check for rule updates from the registry. Returns has_updates, change_count, etc."""
+    global _pending_updates
+    result = check_for_updates()
+    if result.get("has_updates"):
+        _pending_updates = result
+    else:
+        _pending_updates = None
+    return JSONResponse(result)
+
+
+@app.get("/api/updates/cached")
+async def get_updates_cached():
+    """Return cached update result from background check (for lightweight polling)."""
+    return JSONResponse(_pending_updates or {"has_updates": False})
+
+
+@app.post("/api/updates/apply")
+async def apply_updates():
+    """Download and apply rule updates. Linux: hot-reload. macOS: replace files, user must restart."""
+    ok, msg = download_and_apply()
+    if ok:
+        global _pending_updates
+        _pending_updates = None
+        # Update last_check timestamp
+        settings = load_settings()
+        from datetime import datetime
+        settings["last_update_check"] = datetime.utcnow().isoformat() + "Z"
+        save_settings(settings)
+        return JSONResponse({"status": "ok", "message": msg})
+    return JSONResponse({"error": msg}, status_code=500)
+
+
 @app.get("/api/sessions")
 async def get_sessions():
     """Return active OpenClaw sessions."""
@@ -574,8 +637,47 @@ async def dashboard():
     return HTMLResponse("<h1>ClawEDR Dashboard</h1><p>Template not found.</p>")
 
 
+def _run_update_check():
+    """Background task: hourly check for rule updates."""
+    import platform
+    import time
+    global _pending_updates
+    CHECK_INTERVAL = 3600  # 1 hour
+    time.sleep(60)  # Defer first check to avoid startup load
+    while True:
+        try:
+            settings = load_settings()
+            if not settings.get("auto_update_rules", True):
+                continue
+            result = check_for_updates()
+            if result.get("error"):
+                continue
+            if not result.get("has_updates"):
+                _pending_updates = None
+                continue
+            if platform.system() == "Linux":
+                ok, msg = download_and_apply()
+                if ok:
+                    logger.info("Auto-applied rule update: %s", msg)
+                    _pending_updates = None
+                    settings = load_settings()
+                    from datetime import datetime
+                    settings["last_update_check"] = datetime.utcnow().isoformat() + "Z"
+                    save_settings(settings)
+            else:
+                # macOS: cache for banner, user must restart
+                _pending_updates = result
+                logger.info("Rule updates available (%d changes). Restart OpenClaw to enforce.", result.get("change_count", 0))
+        except Exception as e:
+            logger.exception("Update check failed: %s", e)
+        time.sleep(CHECK_INTERVAL)
+
+
 def main():
+    import threading
     import uvicorn
+    t = threading.Thread(target=_run_update_check, daemon=True)
+    t.start()
     port = int(os.environ.get("CLAWEDR_DASHBOARD_PORT", "8477"))
     logger.info("Starting ClawEDR Dashboard on http://localhost:%d", port)
     uvicorn.run(app, host="127.0.0.1", port=port, log_level="info")

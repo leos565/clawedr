@@ -47,6 +47,8 @@ if not os.access("/", os.W_OK) and not USER_RULES_DIR.exists():
      USER_RULES_DIR = Path(os.path.expanduser("~/.clawedr"))
      USER_RULES_PATH = USER_RULES_DIR / "user_rules.yaml"
 
+SETTINGS_PATH = USER_RULES_DIR / "settings.yaml"
+
 # Valid severity values (matches master_rules.yaml rule_metadata)
 VALID_SEVERITIES = frozenset({"critical", "high", "medium", "low", "info"})
 
@@ -179,6 +181,35 @@ def save_user_rules(rules: dict[str, Any]) -> None:
         with open(USER_RULES_PATH, "w") as f:
             json.dump(rules, f, indent=2)
     logger.info("User rules saved to %s", USER_RULES_PATH)
+
+
+def load_settings() -> dict[str, Any]:
+    """Load dashboard settings from settings.yaml."""
+    if not SETTINGS_PATH.exists():
+        return {"auto_update_rules": True, "last_update_check": None}
+    try:
+        data = _load_yaml(SETTINGS_PATH)
+        return {
+            "auto_update_rules": data.get("auto_update_rules", True),
+            "last_update_check": data.get("last_update_check"),
+        }
+    except Exception as exc:
+        logger.warning("Failed to load settings from %s: %s", SETTINGS_PATH, exc)
+        return {"auto_update_rules": True, "last_update_check": None}
+
+
+def save_settings(settings: dict[str, Any]) -> None:
+    """Write dashboard settings to settings.yaml."""
+    USER_RULES_DIR.mkdir(parents=True, exist_ok=True)
+    try:
+        import yaml
+        with open(SETTINGS_PATH, "w") as f:
+            yaml.dump(settings, f, default_flow_style=False, sort_keys=False)
+    except ImportError:
+        import json
+        with open(SETTINGS_PATH, "w") as f:
+            json.dump(settings, f, indent=2)
+    logger.info("Settings saved to %s", SETTINGS_PATH)
 
 
 def _next_id(custom_rules: list[dict], rule_type: str) -> str:

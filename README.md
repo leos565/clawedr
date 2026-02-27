@@ -270,6 +270,8 @@ Open [http://localhost:8477](http://localhost:8477) in your browser.
 - **Platform filtering** — Auto-detects OS and shows only relevant rules. Pill bar to switch between This Mac / All Platforms / macOS / Linux.
 - **Search** — Filter rules by Rule ID, value, or category.
 - **Sessions dropdown** — Shows active OpenClaw instances being monitored.
+- **Settings tab** — Toggle auto-check for rule updates (hourly). Manual "Check for updates now" button.
+- **Rule updates** — Agents query the GitHub registry hourly for updated threat signatures. On **Linux**, new rules are downloaded and enforced automatically (monitor hot-reloads). On **macOS**, a banner shows the number of changes and prompts to restart OpenClaw to enforce.
 
 ### API Endpoints
 
@@ -285,6 +287,10 @@ Open [http://localhost:8477](http://localhost:8477) in your browser.
 | `PUT` | `/api/custom-rules/{id}` | Update a custom rule's value or platform |
 | `DELETE` | `/api/custom-rules/{id}` | Delete a custom rule |
 | `GET` | `/api/sessions` | Active OpenClaw sessions |
+| `GET` | `/api/settings` | Dashboard settings (auto-update toggle) |
+| `POST` | `/api/settings` | Update settings |
+| `GET` | `/api/updates` | Check for rule updates from registry |
+| `POST` | `/api/updates/apply` | Download and apply updates |
 
 ## User Rules
 

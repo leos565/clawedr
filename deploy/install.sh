@@ -198,6 +198,7 @@ install_macos() {
     # Shared modules
     fetch "$CLAWEDR_BASE_URL/shared/user_rules.py"           "$tmpdir/user_rules.py"
     fetch "$CLAWEDR_BASE_URL/shared/alert_dispatcher.py"     "$tmpdir/alert_dispatcher.py"
+    fetch "$CLAWEDR_BASE_URL/shared/rule_updater.py"         "$tmpdir/rule_updater.py"
     # Dashboard
     fetch "$CLAWEDR_BASE_URL/dashboard/app.py"               "$tmpdir/dashboard_app.py"
     fetch "$CLAWEDR_BASE_URL/dashboard/templates/index.html" "$tmpdir/dashboard_index.html"
@@ -217,6 +218,7 @@ install_macos() {
     cp "$tmpdir/compiled_policy.json"    "$CLAWEDR_DIR/"
     cp "$tmpdir/user_rules.py"           "$CLAWEDR_DIR/shared/"
     cp "$tmpdir/alert_dispatcher.py"     "$CLAWEDR_DIR/shared/"
+    cp "$tmpdir/rule_updater.py"         "$CLAWEDR_DIR/shared/"
     cp "$tmpdir/dashboard_app.py"        "$CLAWEDR_DIR/dashboard/app.py"
     cp "$tmpdir/dashboard_index.html"    "$CLAWEDR_DIR/dashboard/templates/index.html"
     touch "$CLAWEDR_DIR/shared/__init__.py"
@@ -261,6 +263,7 @@ install_linux() {
     # Shared modules
     fetch "$CLAWEDR_BASE_URL/shared/user_rules.py"           "$tmpdir/user_rules.py"
     fetch "$CLAWEDR_BASE_URL/shared/alert_dispatcher.py"     "$tmpdir/alert_dispatcher.py"
+    fetch "$CLAWEDR_BASE_URL/shared/rule_updater.py"         "$tmpdir/rule_updater.py"
     # Dashboard
     fetch "$CLAWEDR_BASE_URL/dashboard/app.py"               "$tmpdir/dashboard_app.py"
     fetch "$CLAWEDR_BASE_URL/dashboard/templates/index.html" "$tmpdir/dashboard_index.html"
@@ -279,6 +282,7 @@ install_linux() {
     cp "$tmpdir/monitor.py"          "$CLAWEDR_DIR/"
     cp "$tmpdir/user_rules.py"       "$CLAWEDR_DIR/shared/"
     cp "$tmpdir/alert_dispatcher.py" "$CLAWEDR_DIR/shared/"
+    cp "$tmpdir/rule_updater.py"     "$CLAWEDR_DIR/shared/"
     cp "$tmpdir/dashboard_app.py"    "$CLAWEDR_DIR/dashboard/app.py"
     cp "$tmpdir/dashboard_index.html" "$CLAWEDR_DIR/dashboard/templates/index.html"
     touch "$CLAWEDR_DIR/shared/__init__.py"
