@@ -6,6 +6,9 @@ set -eu
 log() { printf '[clawedr-shield-linux] %s\n' "$*"; }
 
 CLAWEDR_DIR="/usr/local/share/clawedr"
+CLAWEDR_POLICY="$CLAWEDR_DIR/compiled_policy.json"
+CLAWEDR_BPF="$CLAWEDR_DIR/bpf_hooks.c"
+SERVICE_PATH="/etc/systemd/system/clawedr-monitor.service"
 
 log "Verifying compiled policy at $CLAWEDR_DIR/compiled_policy.json"
 if [ ! -f "$CLAWEDR_DIR/compiled_policy.json" ]; then
@@ -22,18 +25,37 @@ fi
 log "Ensuring /var/log/clawedr_monitor.log is writable"
 touch /var/log/clawedr_monitor.log 2>/dev/null || true
 
-log "Starting ClawEDR monitor daemon"
-if command -v systemd-run >/dev/null 2>&1 && pidof systemd >/dev/null 2>&1; then
-    # Stop existing unit so systemd-run can start fresh (avoids conflict if already running)
-    systemctl stop clawedr-monitor 2>/dev/null || true
-    systemd-run --unit=clawedr-monitor \
-        --description="ClawEDR Shield Monitor" \
-        --collect \
-        python3 "$CLAWEDR_DIR/monitor.py"
-    log "Monitor started as systemd transient unit (journalctl -u clawedr-monitor)"
-else
-    nohup python3 "$CLAWEDR_DIR/monitor.py" >/dev/null 2>&1 &
-    log "Monitor PID: $! (no systemd — logs in /var/log/clawedr_monitor.log only)"
-fi
+log "Installing ClawEDR monitor systemd service"
+PYTHON3="$(command -v python3 || echo /usr/bin/python3)"
+cat > "$SERVICE_PATH" <<SERVICE
+[Unit]
+Description=ClawEDR Shield Monitor
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=$PYTHON3 $CLAWEDR_DIR/monitor.py
+Environment=CLAWEDR_POLICY_PATH=$CLAWEDR_POLICY
+Environment=CLAWEDR_BPF_SOURCE=$CLAWEDR_BPF
+Environment=CLAWEDR_LOG_FILE=/var/log/clawedr_monitor.log
+Environment=PYTHONPATH=$CLAWEDR_DIR
+Restart=on-failure
+RestartSec=5
+StartLimitIntervalSec=60
+StartLimitBurst=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=clawedr-monitor
+
+[Install]
+WantedBy=multi-user.target
+SERVICE
+
+systemctl stop clawedr-monitor 2>/dev/null || true
+systemctl reset-failed clawedr-monitor 2>/dev/null || true
+systemctl daemon-reload 2>/dev/null || true
+systemctl enable clawedr-monitor 2>/dev/null || true
+systemctl start clawedr-monitor 2>/dev/null || true
+log "Monitor started as systemd service (systemctl kill clawedr-monitor -s SIGHUP to reload rules)"
 
 log "Linux Shield setup complete"

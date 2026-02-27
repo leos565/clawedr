@@ -18,6 +18,10 @@ operations by returning "Operation not permitted" — it does NOT kill the
 process. So blocked commands return non-zero exit codes (typically 1) with
 an error message, not exit code 137.
 
+**ClawEDR scope:** Enforcement applies only to processes spawned by OpenClaw.
+Use `/exec host=gateway` (or ensure exec runs on the gateway host) so commands
+run as gateway children and are subject to blocking.
+
 **Important:**
 - Do NOT wrap the commands in any error-handling that would mask the exit code.
 - Run them raw so the sandbox can intercept them.

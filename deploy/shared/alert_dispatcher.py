@@ -36,24 +36,26 @@ def _find_openclaw() -> str | None:
     return shutil.which("openclaw")
 
 
-def _get_openclaw_cmd(base_cmd: list[str]) -> tuple[list[str], dict | None]:
+def _get_openclaw_cmd(base_cmd: list[str], as_root: bool = False) -> tuple[list[str], dict | None]:
+    """Return (cmd, env) to run openclaw. as_root=True skips sudo (for root-run gateways)."""
     import os, pwd, platform as _platform
     cmd = base_cmd.copy()
     env = None
-    if os.getuid() == 0:
-        run_user = os.environ.get("SUDO_USER")
-        if not run_user:
-            for pw in pwd.getpwall():
-                if pw.pw_uid >= 500 and pw.pw_uid < 65534 and pw.pw_shell not in ("/usr/sbin/nologin", "/bin/false", "/sbin/nologin"):
-                    run_user = pw.pw_name
-                    break
-        if run_user:
-            pw = pwd.getpwnam(run_user)
-            env = os.environ.copy()
-            env["HOME"] = pw.pw_dir
-            env["USER"] = run_user
-            if _platform.system() == "Linux":
-                cmd = ["sudo", "-u", run_user, "--"] + cmd
+    if as_root or os.getuid() != 0:
+        return cmd, env
+    run_user = os.environ.get("SUDO_USER")
+    if not run_user:
+        for pw in pwd.getpwall():
+            if pw.pw_uid >= 500 and pw.pw_uid < 65534 and pw.pw_shell not in ("/usr/sbin/nologin", "/bin/false", "/sbin/nologin"):
+                run_user = pw.pw_name
+                break
+    if run_user:
+        pw = pwd.getpwnam(run_user)
+        env = os.environ.copy()
+        env["HOME"] = pw.pw_dir
+        env["USER"] = run_user
+        if _platform.system() == "Linux":
+            cmd = ["sudo", "-u", run_user, "--"] + cmd
     return cmd, env
 
 
@@ -83,35 +85,48 @@ def _get_rule_metadata(rule_id: str) -> tuple[str | None, str | None]:
     return None, None
 
 
-def _get_active_session() -> dict | None:
+def _get_active_session() -> tuple[dict | None, bool]:
     """Query OpenClaw for the most recently active session.
 
-    Returns a dict with at least 'id' and optionally 'channel', or None.
+    Returns (session_dict, use_root) or (None, False).
+    When running as root, tries root's sessions first (gateway often runs as root
+    in server/VM setups). use_root indicates which context to use for dispatch.
     """
     openclaw = _find_openclaw()
     if not openclaw:
-        return None
+        return None, False
 
-    try:
-        cmd, env = _get_openclaw_cmd([openclaw, "sessions", "--active", "1440", "--json"])
-        result = subprocess.run(
-            cmd,
-            env=env,
-            capture_output=True, text=True, timeout=5,
-        )
-        if result.returncode != 0:
-            return None
+    # When root: try root first (common when gateway runs as root), then try run_user
+    attempts = []
+    if os.getuid() == 0:
+        attempts.append((True,))   # as_root=True
+    attempts.append((False,))      # as_root=False
 
-        data = json.loads(result.stdout)
-        sessions = data.get("sessions", [])
-        if not sessions:
-            return None
+    for (as_root,) in attempts:
+        try:
+            cmd, env = _get_openclaw_cmd(
+                [openclaw, "sessions", "--active", "1440", "--json"],
+                as_root=as_root,
+            )
+            result = subprocess.run(
+                cmd,
+                env=env,
+                capture_output=True, text=True, timeout=5,
+            )
+            if result.returncode != 0:
+                continue
 
-        # Return the most recently updated session
-        return sessions[0]
-    except Exception as exc:
-        logger.debug("Failed to query OpenClaw sessions: %s", exc)
-        return None
+            data = json.loads(result.stdout)
+            sessions = data.get("sessions", [])
+            if not sessions:
+                continue
+
+            return sessions[0], as_root
+        except Exception as exc:
+            logger.debug("Failed to query OpenClaw sessions (as_root=%s): %s", as_root, exc)
+            continue
+
+    return None, False
 
 
 def dispatch_alert(
@@ -146,7 +161,7 @@ def dispatch_alert(
         logger.debug("openclaw CLI not found — alert dispatch skipped")
         return False
 
-    session = _get_active_session()
+    session, use_root = _get_active_session()
     if not session:
         logger.debug("No active OpenClaw session — alert dispatch skipped")
         return False
@@ -164,22 +179,23 @@ def dispatch_alert(
         parts.append(f"comm={comm}")
     message = "\n".join(parts)
 
-    # Build CLI command
-    cmd = [
+    # Build CLI command (use same user context as session lookup)
+    base_cmd = [
         openclaw, "agent",
         "--message", message,
         "--deliver",
         "--session-id", str(session.get("sessionId", session.get("id", ""))),
     ]
-
-    # Add channel routing if available
     channel = session.get("channel")
     if channel:
-        cmd.extend(["--reply-channel", channel])
+        base_cmd.extend(["--reply-channel", channel])
+
+    cmd, env = _get_openclaw_cmd(base_cmd, as_root=use_root)
 
     try:
         subprocess.Popen(
             cmd,
+            env=env,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )

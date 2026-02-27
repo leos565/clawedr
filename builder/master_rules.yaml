@@ -11,7 +11,8 @@
 #
 # Every rule has a unique ID in the format:
 #   PATH-xxx  — blocked paths
-#   DOM-xxx   — blocked domains
+#   DOM-xxx   — blocked domains (hostnames)
+#   IP-xxx    — blocked IPs (IPv4 addresses)
 #   BIN-xxx   — blocked executables
 #   HASH-xxx  — malicious hashes
 #   LIN-xxx   — Linux deny rules
@@ -268,6 +269,7 @@ blocked_ips:
   IP-003: "94.130.12.30"      # xmr.pool.minergate.com
   IP-004: "104.22.10.63"      # pastebin.com (Cloudflare)
   IP-005: "144.76.217.73"     # 0x0.st file host
+  IP-006: "8.8.8.8"           # Google DNS — test IP for E2E
 
 # ── Blocked executables ───────────────────────────────────────────────────
 # Binaries an agent has no legitimate reason to run.

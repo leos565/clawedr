@@ -54,6 +54,7 @@ VALID_SEVERITIES = frozenset({"critical", "high", "medium", "low", "info"})
 CUSTOM_RULE_TYPES = {
     "executable": "USR-BIN",
     "domain": "USR-DOM",
+    "ip": "USR-IP",
     "hash": "USR-HASH",
     "path": "USR-PATH",
     "argument": "USR-ARG",
@@ -212,10 +213,16 @@ def validate_custom_rule(
             return False, "Hash must be 64 hex characters (sha256), optionally prefixed with 'sha256:'"
 
     elif rule_type == "domain":
-        if not (_DOMAIN_RE.match(value) or _IP_RE.match(value)):
+        if not _DOMAIN_RE.match(value):
             if "://" in value:
                 return False, "Enter a domain name, not a URL (e.g. 'evil.com' not 'https://evil.com')"
-            return False, "Invalid domain or IP address format"
+            if _IP_RE.match(value):
+                return False, "Use the IP rule type for IP addresses, not Domain"
+            return False, "Invalid domain format (e.g. evil.com)"
+
+    elif rule_type == "ip":
+        if not _IP_RE.match(value):
+            return False, "Invalid IPv4 address format (e.g. 192.168.1.1)"
 
     elif rule_type == "executable":
         if "/" in value:

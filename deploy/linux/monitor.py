@@ -42,8 +42,12 @@ import subprocess
 import sys
 import time
 
-# Add parent directory to path so we can import shared modules
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+# Add parent and script dir to path so we can import shared (works for both
+# deploy/linux/ layout and install at /usr/local/share/clawedr/)
+_script_dir = os.path.dirname(os.path.abspath(__file__))
+_parent = os.path.dirname(_script_dir)
+sys.path.insert(0, _parent)
+sys.path.insert(0, _script_dir)
 from shared.user_rules import get_exempted_rule_ids, get_custom_rules, USER_RULES_PATH
 from shared.alert_dispatcher import dispatch_alert_async
 
@@ -56,7 +60,7 @@ POLICY_PATH = os.environ.get(
 BPF_SOURCE_PATH = os.environ.get(
     "CLAWEDR_BPF_SOURCE", "/usr/local/share/clawedr/bpf_hooks.c"
 )
-POLL_INTERVAL = int(os.environ.get("CLAWEDR_POLL_INTERVAL", "5"))
+POLL_INTERVAL = int(os.environ.get("CLAWEDR_POLL_INTERVAL", "2"))
 BLOCK_LOG_FILE = "/var/log/clawedr.log"
 MONITOR_LOG_FILE = os.environ.get("CLAWEDR_LOG_FILE", "/var/log/clawedr_monitor.log")
 
@@ -104,11 +108,26 @@ def _resolve_openclaw_paths() -> list[str]:
 
     target_env = os.environ.get("CLAWEDR_TARGET_BINARY")
     if target_env:
+        logger.warning(
+            "CLAWEDR_TARGET_BINARY=%s — test mode; production tracks real openclaw only",
+            target_env,
+        )
         paths.add(target_env)
         try:
             paths.add(os.path.realpath(target_env))
         except OSError:
             pass
+        # When target is a script, kernel execve fires for the interpreter (bash/sh).
+        # Add interpreters so we track the process tree (nc, nslookup, etc.).
+        if target_env.endswith((".sh", ".bash")):
+            for interp in ("/bin/bash", "/bin/sh", "/usr/bin/bash", "/usr/bin/sh"):
+                if os.path.exists(interp):
+                    paths.add(interp)
+                    try:
+                        paths.add(os.path.realpath(interp))
+                    except OSError:
+                        pass
+            logger.info("target_bins: adding shell interpreter for script target")
         return sorted(paths)
 
     real_bin = shutil.which("openclaw")
@@ -120,6 +139,18 @@ def _resolve_openclaw_paths() -> list[str]:
     if real_bin:
         all_bins.append(real_bin)
         
+    # Also add openclaw.mjs from common install locations (gateway runs as node)
+    for mjs in [
+        "/usr/lib/node_modules/openclaw/openclaw.mjs",
+        "/usr/local/lib/node_modules/openclaw/openclaw.mjs",
+    ]:
+        if os.path.exists(mjs):
+            paths.add(mjs)
+            try:
+                paths.add(os.path.realpath(mjs))
+            except OSError:
+                pass
+
     for rb in all_bins:
         paths.add(rb)
         try:
@@ -151,6 +182,8 @@ def _find_npm_openclaws() -> list[str]:
         "/home/*/.npm-global/bin/openclaw",
         "/usr/local/lib/node_modules/.bin/openclaw",
         "/usr/local/bin/openclaw",
+        "/usr/lib/node_modules/.bin/openclaw",
+        "/usr/bin/openclaw",
     ]:
         for m in glob.glob(pattern):
             if os.path.realpath(m) != os.path.realpath(WRAPPER_PATH):
@@ -196,8 +229,24 @@ def load_bpf(source_path: str):
     with open(source_path) as f:
         src = f.read()
     src = _pidns_defines() + src
-    _bpf_instance = BPF(text=src)
-    logger.info("BPF program loaded — tracepoints attached")
+
+    # Try BPF LSM first (kernel-level block); fallback to tracepoint+SIGKILL
+    for use_lsm, cflags in [(True, ["-DCLAWEDR_USE_LSM"]), (False, [])]:
+        try:
+            _bpf_instance = BPF(text=src, cflags=cflags)
+            logger.info(
+                "BPF program loaded — %s",
+                "LSM socket_connect (kernel-level block)" if use_lsm else "tracepoint fallback (SIGKILL)",
+            )
+            break
+        except Exception as e:
+            if use_lsm:
+                logger.warning(
+                    "BPF LSM unavailable (%s), falling back to tracepoint+SIGKILL",
+                    e,
+                )
+            else:
+                raise
 
     def _print_event(cpu, data, size):
         event = _bpf_instance["events"].event(data)
@@ -450,6 +499,24 @@ def populate_target_bins(paths: list[str]) -> None:
         logger.info("target_bins += %s (hash %016x)", p, h)
 
 
+def populate_parent_tracked_bins() -> None:
+    """Populate parent_tracked_bins: shells we only track when parent is tracked.
+    Agent runs commands via sh -c 'curl ...'; this ensures those curls get tracked."""
+    if _bpf_instance is None:
+        return
+    parent_map = _bpf_instance["parent_tracked_bins"]
+    for interp in ("/bin/bash", "/bin/sh", "/usr/bin/bash", "/usr/bin/sh"):
+        if os.path.exists(interp):
+            try:
+                resolved = os.path.realpath(interp)
+                for p in (interp, resolved):
+                    h = _djb2_hash(p)
+                    parent_map[ctypes.c_uint64(h)] = ctypes.c_uint8(1)
+                logger.info("parent_tracked_bins += %s (agent-spawned shells)", interp)
+            except OSError:
+                pass
+
+
 # ---------------------------------------------------------------------------
 # Bootstrap: seed tracked_pids for already-running OpenClaw processes
 # ---------------------------------------------------------------------------
@@ -480,7 +547,17 @@ def _get_descendants(pid: int) -> list[int]:
     return result
 
 
-def bootstrap_tracked_pids(target_paths: list[str]) -> None:
+def _read_cmdline(pid: int) -> str:
+    """Read /proc/pid/cmdline as a string (nulls replaced with spaces)."""
+    try:
+        with open(f"/proc/{pid}/cmdline") as f:
+            return f.read().replace("\x00", " ")
+    except OSError:
+        return ""
+
+
+def bootstrap_tracked_pids(target_paths: list[str], quiet: bool = False) -> None:
+    """Seed tracked_pids from running OpenClaw processes. quiet=True for periodic re-scan."""
     if _bpf_instance is None:
         return
 
@@ -507,16 +584,38 @@ def bootstrap_tracked_pids(target_paths: list[str]) -> None:
         except OSError:
             exe_real = exe
 
+        # Match by exe path (node, openclaw.mjs, etc.)
         if exe_real in real_paths or exe in real_paths:
             tracked_map[ctypes.c_uint32(pid)] = ctypes.c_uint8(1)
             seeded += 1
-            logger.info("Bootstrap: tracking PID %d (%s)", pid, exe)
+            if not quiet:
+                logger.info("Bootstrap: tracking PID %d (%s)", pid, exe)
             for child in _get_descendants(pid):
                 tracked_map[ctypes.c_uint32(child)] = ctypes.c_uint8(1)
                 seeded += 1
-                logger.info("Bootstrap: tracking descendant PID %d", child)
+                if not quiet:
+                    logger.info("Bootstrap: tracking descendant PID %d", child)
+            continue
 
-    logger.info("Bootstrap complete — %d PIDs seeded into tracked_pids", seeded)
+        # Fallback: match by cmdline (gateway runs as node with openclaw.mjs in argv)
+        cmdline = _read_cmdline(pid)
+        is_openclaw_cmdline = (
+            "openclaw" in cmdline or "openclaw.mjs" in cmdline or "openclaw-gateway" in cmdline
+        )
+        is_node_or_openclaw_exe = "node" in exe or "openclaw" in exe
+        if is_openclaw_cmdline and is_node_or_openclaw_exe:
+            tracked_map[ctypes.c_uint32(pid)] = ctypes.c_uint8(1)
+            seeded += 1
+            if not quiet:
+                logger.info("Bootstrap: tracking PID %d (cmdline match: %s)", pid, exe)
+            for child in _get_descendants(pid):
+                tracked_map[ctypes.c_uint32(child)] = ctypes.c_uint8(1)
+                seeded += 1
+                if not quiet:
+                    logger.info("Bootstrap: tracking descendant PID %d", child)
+
+    if not quiet:
+        logger.info("Bootstrap complete — %d PIDs seeded into tracked_pids", seeded)
 
 
 # ---------------------------------------------------------------------------
@@ -557,18 +656,17 @@ def apply_policy(policy: dict) -> None:
             elif rtype == "hash":
                 policy.setdefault("malicious_hashes", {})[rid] = val.removeprefix("sha256:")
             elif rtype == "path":
-                policy.setdefault("blocked_paths", {})[rid] = val
+                policy.setdefault("blocked_paths", {}).setdefault("linux", {})[rid] = val
             elif rtype == "domain":
                 policy.setdefault("blocked_domains", {})[rid] = val
+            elif rtype == "ip":
+                policy.setdefault("blocked_ips", {})[rid] = val
             elif rtype == "argument":
-                # Inject as a deny_rule with argv matching
-                deny_list = policy.setdefault("deny_rules", [])
-                deny_list.append({
-                    "id": rid,
+                policy.setdefault("deny_rules", {}).setdefault("linux", {})[rid] = {
                     "match": val,
                     "action": "deny",
                     "scope": "argv",
-                })
+                }
 
     _apply_blocked_executables(policy, exempted)
     _apply_blocked_paths(policy, exempted)
@@ -838,15 +936,42 @@ def watch_and_reload(path: str, interval: int = POLL_INTERVAL) -> None:
         logger.info("Received signal %d, shutting down", signum)
         running = False
 
+    def _reload(signum, frame):
+        nonlocal last_mtime
+        logger.info("Received SIGHUP, reloading policy immediately")
+        try:
+            policy = load_policy(path)
+            apply_policy(policy)
+            mtimes = []
+            for check_path in (path, USER_RULES_PATH):
+                try:
+                    mtimes.append(os.path.getmtime(check_path))
+                except FileNotFoundError:
+                    pass
+            last_mtime = max(mtimes) if mtimes else last_mtime
+        except Exception:
+            logger.exception("Reload failed")
+
     signal.signal(signal.SIGTERM, _stop)
     signal.signal(signal.SIGINT, _stop)
+    signal.signal(signal.SIGHUP, _reload)
 
-    logger.info("Monitoring %s (poll every %ds)", path, interval)
+    logger.info("Monitoring %s (poll every %ds, SIGHUP to reload)", path, interval)
 
     next_policy_check = 0.0
+    next_bootstrap = 0.0
+    BOOTSTRAP_INTERVAL = 15  # Re-scan for openclaw processes (e.g. gateway started after monitor)
 
     while running:
         now = time.monotonic()
+        if now >= next_bootstrap:
+            try:
+                target_paths = _resolve_openclaw_paths()
+                bootstrap_tracked_pids(target_paths, quiet=True)
+            except Exception:
+                logger.exception("Periodic bootstrap failed")
+            next_bootstrap = now + BOOTSTRAP_INTERVAL
+
         if now >= next_policy_check:
             mtimes = []
             for check_path in (path, USER_RULES_PATH):
@@ -941,6 +1066,7 @@ def main() -> int:
     target_paths = _resolve_openclaw_paths()
     logger.info("OpenClaw binary paths: %s", target_paths)
     populate_target_bins(target_paths)
+    populate_parent_tracked_bins()
     bootstrap_tracked_pids(target_paths)
 
     policy = load_policy(POLICY_PATH)

@@ -496,6 +496,173 @@
             border-left: 3px solid #22c55e;
         }
 
+        .alert-card-selected {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+        }
+
+        .badge-blocked {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--success);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        .badge-monitored {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            background: rgba(245, 158, 11, 0.15);
+            color: var(--warning);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+
+        .badge-openclaw {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            background: rgba(99, 102, 241, 0.15);
+            color: var(--accent);
+            border: 1px solid rgba(99, 102, 241, 0.3);
+        }
+
+        .rule-type-badge {
+            display: inline-flex;
+            padding: 2px 6px;
+            border-radius: 6px;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-right: 6px;
+        }
+
+        .rule-type-domain {
+            background: rgba(59, 130, 246, 0.15);
+            color: #3b82f6;
+        }
+
+        .rule-type-ip {
+            background: rgba(168, 85, 247, 0.15);
+            color: #a855f7;
+        }
+
+        .detail-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 10px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-family: 'SF Mono', monospace;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            margin: 2px 4px 2px 0;
+        }
+
+        .detail-pill-label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+            margin-right: 4px;
+        }
+
+        .detail-pill-value {
+            color: var(--text-primary);
+            word-break: break-all;
+        }
+
+        .refresh-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            background: var(--bg-card);
+            color: var(--text-secondary);
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .refresh-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .refresh-btn.spinning svg {
+            animation: spin 0.6s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .alerts-layout {
+            display: flex;
+            gap: 24px;
+            width: 100%;
+            min-height: 400px;
+        }
+
+        .alerts-main {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .alert-detail-sidecard {
+            width: 380px;
+            flex-shrink: 0;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+            display: none;
+            flex-direction: column;
+            box-shadow: var(--shadow);
+        }
+
+        .alert-detail-sidecard.open {
+            display: flex;
+        }
+
+        .alert-detail-sidecard .sidecard-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .alert-detail-sidecard .sidecard-body {
+            padding: 20px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .alert-detail-sidecard .sidecard-footer {
+            padding: 12px 20px;
+            border-top: 1px solid var(--border);
+        }
+
         .alert-card-header {
             display: flex;
             align-items: flex-start;
@@ -1126,7 +1293,17 @@
                 <div class="card">
                     <div class="card-header">
                         <span class="card-title">Threat Alerts</span>
-                        <span class="card-count" id="alertCount">0 alerts</span>
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <button class="refresh-btn" id="refreshAlertsBtn" onclick="manualRefreshAlerts()" title="Refresh alerts">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="23 4 23 10 17 10"></polyline>
+                                    <polyline points="1 20 1 14 7 14"></polyline>
+                                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                                </svg>
+                                Refresh
+                            </button>
+                            <span class="card-count" id="alertCount">0 alerts</span>
+                        </div>
                     </div>
                     <div class="filters-bar">
                         <div class="filter-group">
@@ -1151,18 +1328,32 @@
                             </select>
                         </div>
                     </div>
-                    <div id="alertsContainer">
-                        <div class="empty-state">
-                            <div class="icon">
-                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                    stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                                    <line x1="3" y1="9" x2="21" y2="9"></line>
-                                    <line x1="9" y1="21" x2="9" y2="9"></line>
-                                </svg>
+                    <div class="alerts-layout">
+                        <div class="alerts-main">
+                            <div id="alertsContainer">
+                                <div class="empty-state">
+                                    <div class="icon">
+                                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                            stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                            <line x1="3" y1="9" x2="21" y2="9"></line>
+                                            <line x1="9" y1="21" x2="9" y2="9"></line>
+                                        </svg>
+                                    </div>
+                                    <p>No recent alerts</p>
+                                </div>
                             </div>
-                            <p>No recent alerts</p>
                         </div>
+                        <aside class="alert-detail-sidecard" id="alertDetailSidecard">
+                            <div class="sidecard-header">
+                                <h3 style="font-size: 15px; font-weight: 600;">Alert Details</h3>
+                                <button class="btn btn-ghost btn-sm" onclick="closeAlertDetails()">✕</button>
+                            </div>
+                            <div class="sidecard-body" id="alertDetailsBody"></div>
+                            <div class="sidecard-footer">
+                                <button class="btn btn-danger btn-sm" id="alertDetailsExemptBtn" style="width:100%;">Exempt Rule</button>
+                            </div>
+                        </aside>
                     </div>
                 </div>
             </div>
@@ -1239,23 +1430,6 @@
         <button class="btn btn-ghost" onclick="cancelExemptions()">Cancel</button>
     </div>
 
-    <!-- Alert Details Modal -->
-    <div class="modal-overlay" id="alertDetailsModal">
-        <div class="modal">
-            <div class="modal-header">
-                <h2>Alert Details</h2>
-                <button class="modal-close" onclick="closeAlertDetails()">✕</button>
-            </div>
-            <div class="modal-body" id="alertDetailsBody"
-                style="font-size: 13px; color: var(--text-secondary); line-height: 1.6; word-break: break-all;">
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-ghost" onclick="closeAlertDetails()">Close</button>
-                <button class="btn btn-danger" id="alertDetailsExemptBtn">Exempt Rule</button>
-            </div>
-        </div>
-    </div>
-
     <!-- Add/Edit Rule Modal -->
     <div class="modal-overlay" id="ruleModal">
         <div class="modal">
@@ -1286,10 +1460,26 @@
                                         d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z">
                                     </path>
                                 </svg></div>
-                            <div class="type-name">Domain/IP <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                            <div class="type-name">Domain <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
                                     stroke="currentColor" stroke-width="2"
                                     style="display:inline; margin-left:4px; opacity:0.6;"
-                                    title="Supported on Linux (eBPF). Not supported on macOS kernel.">
+                                    title="Supported on Linux (eBPF). macOS: monitoring-only via log_tailer.">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <line x1="12" y1="16" x2="12" y2="12"></line>
+                                    <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                                </svg></div>
+                        </div>
+                        <div class="type-card" data-type="ip" onclick="selectType('ip')">
+                            <div class="type-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"
+                                    stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <line x1="2" y1="12" x2="22" y2="12"></line>
+                                    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                                </svg></div>
+                            <div class="type-name">IP <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                                    stroke="currentColor" stroke-width="2"
+                                    style="display:inline; margin-left:4px; opacity:0.6;"
+                                    title="Supported on Linux (eBPF). macOS: monitoring-only via log_tailer.">
                                     <circle cx="12" cy="12" r="10"></circle>
                                     <line x1="12" y1="16" x2="12" y2="12"></line>
                                     <line x1="12" y1="8" x2="12.01" y2="8"></line>
@@ -1379,7 +1569,8 @@
 
         const TYPE_HINTS = {
             executable: 'Binary name to block, e.g. "terraform", "curl"',
-            domain: 'Domain name or IP, e.g. "evil.com", "1.2.3.4"',
+            domain: 'Domain name, e.g. "evil.com", "pastebin.com"',
+            ip: 'IPv4 address, e.g. "192.168.1.1", "144.76.217.73"',
             hash: 'SHA-256 hash (64 hex chars), optionally prefixed with "sha256:"',
             path: 'Absolute path or ~/relative, e.g. "/var/secrets", "~/.aws"',
             argument: 'Regex pattern for command arguments, e.g. "--password", "curl.*\\|sh"',
@@ -1480,9 +1671,47 @@
             } catch { document.getElementById('alertsContainer').innerHTML = '<div class="empty-state"><p>Could not load alerts.</p></div>'; }
         }
 
+        async function manualRefreshAlerts() {
+            const btn = document.getElementById('refreshAlertsBtn');
+            if (btn.classList.contains('spinning')) return;
+            btn.classList.add('spinning');
+            try {
+                await loadAlerts();
+                closeAlertDetails();
+            } finally {
+                setTimeout(() => btn.classList.remove('spinning'), 400);
+            }
+        }
+
         function applyFilters() { loadAlerts(); }
 
         let activeDisplayedAlerts = [];
+        let selectedAlertIdx = null;
+
+        function parseDetails(details) {
+            if (!details || typeof details !== 'string') return {};
+            const out = {};
+            let rest = details;
+            const paren = rest.match(/^\(([^)]+)\)\s*(.*)$/);
+            if (paren) {
+                const inner = paren[1];
+                const im = inner.match(/^(\w+)=(.*)$/);
+                if (im) out[im[1]] = im[2];
+                rest = paren[2];
+            }
+            const chunks = rest.split(/\s+(?=\w+=)/);
+            for (const c of chunks) {
+                const m = c.match(/^(\w+)=(.*)$/);
+                if (m) out[m[1]] = m[2].trim();
+            }
+            return out;
+        }
+
+        function isMonitoredAlert(a) {
+            const d = (a.details || '').toLowerCase();
+            return d.includes('monitored') || d.includes('observed') || d.includes('action=allow');
+        }
+
         function renderAlerts(alerts) {
             const c = document.getElementById('alertsContainer');
             if (!alerts.length) { c.innerHTML = '<div class="empty-state"><div class="icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg></div><p>No recent alerts</p></div>'; return; }
@@ -1492,10 +1721,16 @@
                 const sev = (a.severity || 'unknown').toLowerCase();
                 const sevClass = 'severity-' + sev;
                 const rid = JSON.stringify(a.rule_id);
-                return `<div class="alert-card ${sev}" style="cursor:pointer;" onclick='openAlertDetails(${idx})'>
+                const isMon = isMonitoredAlert(a);
+                const statusBadge = isMon
+                    ? '<span class="badge-monitored"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg> Monitored</span>'
+                    : '<span class="badge-blocked"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg> Blocked</span>';
+                const sel = selectedAlertIdx === idx ? ' alert-card-selected' : '';
+                return `<div class="alert-card ${sev}${sel}" style="cursor:pointer;" onclick='openAlertDetails(${idx})'>
           <div class="alert-card-header">
             <div class="alert-card-meta">
               <span class="timestamp">${esc(a.timestamp)}</span>
+              ${statusBadge}
               <span class="rule-tag danger">${esc(a.rule_id)}</span>
               <span class="rule-tag ${sevClass}">${esc(sev)}</span>
             </div>
@@ -1548,6 +1783,7 @@
             const typeIcons = {
                 executable: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>',
                 domain: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>',
+                ip: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>',
                 hash: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path></svg>',
                 path: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>',
                 argument: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="17" y1="3" x2="21" y2="7"></line><path d="M21 7L7 21H3v-4L17 3z"></path></svg>'
@@ -1595,7 +1831,8 @@
                 html += `<div class="rule-group"><div class="rule-group-title">${ec ? `${cat} (${items.length}) · ${ec} exempted` : `${cat} (${items.length})`}</div>`;
                 for (const r of items) {
                     const ex = cur.has(r.id);
-                    html += `<div class="rule-item" style="${ex ? 'opacity:0.5;' : ''}"><div class="rule-info"><span class="rule-tag ${ex ? 'exempted' : ''}">${r.id}</span><span class="rule-value" title="${esc(r.val)}">${esc(r.val)}</span></div><label class="toggle"><input type="checkbox" ${ex ? '' : 'checked'} onchange="toggleExemption('${r.id}',this.checked)"><span class="toggle-slider"></span></label></div>`;
+                    const typeBadge = ruleTypeBadge(r.id);
+                    html += `<div class="rule-item" style="${ex ? 'opacity:0.5;' : ''}"><div class="rule-info">${typeBadge}<span class="rule-tag ${ex ? 'exempted' : ''}">${r.id}</span><span class="rule-value" title="${esc(r.val)}">${esc(r.val)}</span></div><label class="toggle"><input type="checkbox" ${ex ? '' : 'checked'} onchange="toggleExemption('${r.id}',this.checked)"><span class="toggle-slider"></span></label></div>`;
                 }
                 html += '</div>';
             }
@@ -1676,7 +1913,8 @@
         function closeModal() { document.getElementById('ruleModal').classList.remove('open'); }
 
         const MAC_WARNINGS = {
-            domain: 'On macOS, domain/IP blocking is monitoring-only (connection detection via reverse DNS). Blocking is less precise than kernel-level enforcement on Linux (eBPF).',
+            domain: 'On macOS, domain blocking is monitoring-only (connection detection via reverse DNS). Blocking is less precise than kernel-level enforcement on Linux (eBPF).',
+            ip: 'On macOS, IP blocking is monitoring-only (connection detection via lsof). Blocking is less precise than kernel-level enforcement on Linux (eBPF).',
             hash: 'Hash-based blocking is not supported on macOS. macOS Seatbelt cannot inspect file contents. Hash rules are only enforced on Linux.',
         };
         function _showMacWarning(type) {
@@ -1748,32 +1986,90 @@
 
         function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
-        function openAlertDetails(idx) {
+        const PILL_LABELS = { pid: 'PID', uid: 'UID', comm: 'Command', file: 'File', action: 'Action', target: 'Target', cmdline: 'Command Line', deny_rule: 'Deny Rule' };
+
+        function ruleTypeBadge(ruleId) {
+            if (ruleId.startsWith('DOM-')) return '<span class="rule-type-badge rule-type-domain">Domain</span>';
+            if (ruleId.startsWith('IP-')) return '<span class="rule-type-badge rule-type-ip">IP</span>';
+            return '';
+        }
+
+        async function openAlertDetails(idx) {
             const a = activeDisplayedAlerts[idx];
             if (!a) return;
+            selectedAlertIdx = idx;
+            const sidecard = document.getElementById('alertDetailSidecard');
             const body = document.getElementById('alertDetailsBody');
+            const parsed = parseDetails(a.details);
+            const pillOrder = ['pid', 'uid', 'comm', 'cmdline', 'file', 'action', 'target', 'deny_rule'];
+            const pills = pillOrder.filter(k => parsed[k]).map(k => {
+                const label = PILL_LABELS[k] || k;
+                const val = parsed[k];
+                return `<span class="detail-pill"><span class="detail-pill-label">${esc(label)}</span><span class="detail-pill-value">${esc(val)}</span></span>`;
+            }).join('');
+            const otherKeys = Object.keys(parsed).filter(k => !pillOrder.includes(k));
+            const extraPills = otherKeys.map(k => `<span class="detail-pill"><span class="detail-pill-label">${esc(k)}</span><span class="detail-pill-value">${esc(parsed[k])}</span></span>`).join('');
+            const isMon = isMonitoredAlert(a);
+            const statusBadge = isMon
+                ? '<span class="badge-monitored"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg> Monitored</span>'
+                : '<span class="badge-blocked"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg> Blocked</span>';
+            const ruleType = ruleTypeBadge(a.rule_id);
             body.innerHTML = `
-                <div style="margin-bottom: 12px; padding: 12px; background: var(--bg-secondary); border-radius: 8px;">
-                    <div style="margin-bottom: 12px;"><strong>Timestamp:</strong><br><span style="color: var(--text-primary);">${esc(a.timestamp)}</span></div>
-                    <div style="margin-bottom: 12px;"><strong>Rule ID:</strong><br><span class="rule-tag danger">${esc(a.rule_id)}</span></div>
-                    <div style="margin-bottom: 12px;"><strong>Severity:</strong><br><span class="rule-tag severity-${(a.severity || 'unknown').toLowerCase()}">${esc(a.severity)}</span></div>
-                    <div style="margin-bottom: 12px;"><strong>Details:</strong><br><span style="color: var(--text-primary);">${esc(a.details)}</span></div>
-                    ${a.description ? `<div style="margin-bottom: 12px;"><strong>Description:</strong><br><span style="color: var(--text-primary);">${esc(a.description)}</span></div>` : ''}
+                <div style="margin-bottom: 16px;">
+                    <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 4px;">Timestamp</div>
+                    <div style="font-size: 14px; color: var(--text-primary);">${esc(a.timestamp)}</div>
+                </div>
+                <div style="margin-bottom: 16px;">
+                    <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 6px;">Status</div>
+                    ${statusBadge}
+                </div>
+                <div style="margin-bottom: 16px;">
+                    <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 6px;">Rule & Severity</div>
+                    ${ruleType}
+                    <span class="rule-tag danger">${esc(a.rule_id)}</span>
+                    <span class="rule-tag severity-${(a.severity || 'unknown').toLowerCase()}">${esc(a.severity)}</span>
+                </div>
+                <div id="processEnrichment" style="margin-bottom: 16px; display: none;"></div>
+                ${a.description ? `<div style="margin-bottom: 16px;"><div style="font-size: 11px; color: var(--text-muted); margin-bottom: 4px;">Description</div><div style="font-size: 13px; color: var(--text-secondary); line-height: 1.5;">${esc(a.description)}</div></div>` : ''}
+                <div style="margin-bottom: 8px;">
+                    <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 8px;">Details</div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 4px;">${pills}${extraPills}</div>
                 </div>
             `;
             document.getElementById('alertDetailsExemptBtn').onclick = () => {
                 closeAlertDetails();
                 exemptRule(a.rule_id);
             };
-            document.getElementById('alertDetailsModal').classList.add('open');
+            sidecard.classList.add('open');
+            renderAlerts(activeDisplayedAlerts);
+
+            const pid = parsed.pid ? parseInt(parsed.pid, 10) : null;
+            if (pid && !isNaN(pid)) {
+                try {
+                    const procRes = await fetch(`/api/process/${pid}`);
+                    if (procRes.ok) {
+                        const proc = await procRes.json();
+                        const enrichEl = document.getElementById('processEnrichment');
+                        if (enrichEl) {
+                            let procHtml = '<div style="font-size: 11px; color: var(--text-muted); margin-bottom: 6px;">Process (PID ' + pid + ')</div>';
+                            procHtml += '<div style="font-size: 13px; color: var(--text-secondary);">';
+                            if (proc.comm) procHtml += '<span class="detail-pill"><span class="detail-pill-label">Comm</span><span class="detail-pill-value">' + esc(proc.comm) + '</span></span> ';
+                            if (proc.from_openclaw) procHtml += '<span class="badge-openclaw">From OpenClaw</span>';
+                            procHtml += '</div>';
+                            if (proc.cmdline) procHtml += '<div style="font-size: 12px; font-family: monospace; color: var(--text-muted); margin-top: 6px; word-break: break-all;">' + esc(proc.cmdline) + '</div>';
+                            enrichEl.innerHTML = procHtml;
+                            enrichEl.style.display = 'block';
+                        }
+                    }
+                } catch (_) { /* ignore */ }
+            }
         }
 
         function closeAlertDetails() {
-            document.getElementById('alertDetailsModal').classList.remove('open');
+            selectedAlertIdx = null;
+            document.getElementById('alertDetailSidecard').classList.remove('open');
+            renderAlerts(activeDisplayedAlerts);
         }
-
-        // Close alert details on overlay click
-        document.getElementById('alertDetailsModal').addEventListener('click', e => { if (e.target === e.currentTarget) closeAlertDetails(); });
 
         // ── Init ──
         loadStatus().then(() => loadRules().then(() => loadUserRules()));

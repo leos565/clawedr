@@ -15,7 +15,7 @@ sudo pkill -9 -f log_tailer.py || true
 sleep 1
 
 echo "[*] Running Linux E2E inside orb ubuntu..."
-orb -m ubuntu sudo bash << 'ORBEOF'
+orb -m ubuntu -u root bash << 'ORBEOF'
 set -e
 export DEBIAN_FRONTEND=noninteractive
 
@@ -51,11 +51,13 @@ if ! curl -s http://localhost:8477/api/status > /dev/null; then
 fi
 echo 'Dashboard is up.'
 
-echo '[Linux] Adding Custom Rule (block nmap)...'
+echo '[Linux] Adding Custom Rules (block nmap, block 1.1.1.1 for DNS test)...'
 curl -s -X POST -H 'Content-Type: application/json' -d '{"type": "executable", "value": "nmap", "platform": "linux"}' http://localhost:8477/api/custom-rules
+curl -s -X POST -H 'Content-Type: application/json' -d '{"type": "ip", "value": "1.1.1.1", "platform": "linux"}' http://localhost:8477/api/custom-rules
 sleep 4 # Wait for BPF hotreload
 
-echo '[Linux] Creating mock script (do NOT overwrite real openclaw - dashboard uses it)...'
+echo '[Linux] Phase 1: Mock script (CLAWEDR_TARGET_BINARY) — validates BPF rules without OpenClaw deps'
+echo '         Production uses real openclaw only; mock is test-harness only.'
 MOCK_SCRIPT="/tmp/clawedr_e2e_mock.sh"
 cat << 'MOCKEOF' > "$MOCK_SCRIPT"
 #!/bin/bash
@@ -73,6 +75,14 @@ try:
     getattr(s, "conn" + "ect")(("144.76.217.73", 80))
 except:
     pass' 2>/dev/null || true
+echo "[Mock] Triggering DNS/UDP rule (sendto to 1.1.1.1:53)..."
+# Run BEFORE curl - python is pipe-sink, curl is pipe-source; order matters for heuristic
+python3 -c '
+import socket
+s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+dns = bytes([0x00,0x00,0x01,0x00,0x00,0x01,0x00,0x00,0x00,0x00,0x00,0x00,0x06,0x67,0x6f,0x6f,0x67,0x6c,0x65,0x03,0x63,0x6f,0x6d,0x00,0x00,0x01,0x00,0x01])
+s.sendto(dns, ("1.1.1.1", 53))
+' 2>/dev/null || true
 echo "[Mock] Triggering Domain rule (pastebin.com via argv)..."
 curl -s --connect-timeout 1 https://pastebin.com/robots.txt 2>/dev/null || true
 echo "[Mock] Done."
@@ -85,6 +95,7 @@ sleep 2
 rm -f /tmp/clawedr-monitor.pid
 CLAWEDR_TARGET_BINARY="$MOCK_SCRIPT" CLAWEDR_POLICY_PATH=/usr/local/share/clawedr/compiled_policy.json \
   CLAWEDR_BPF_SOURCE=/usr/local/share/clawedr/bpf_hooks.c CLAWEDR_LOG_FILE=/var/log/clawedr_monitor.log \
+  PYTHONPATH=/usr/local/share/clawedr \
   nohup python3 /usr/local/share/clawedr/monitor.py >/dev/null 2>&1 &
 sleep 3
 
@@ -131,18 +142,31 @@ else
     echo '[FAIL] Missing domain block alert (must be DOM rule, not BIN - curl is allowed)!'
 fi
 
+if echo "$ALERTS" | grep -q 'USR-IP' && echo "$ALERTS" | grep -q '1.1.1.1'; then
+    echo '[PASS] DNS/UDP block alert generated (sendto to 1.1.1.1)!'
+else
+    echo '[FAIL] Missing DNS/UDP block alert (nslookup via 1.1.1.1 should be blocked)!'
+fi
+
 echo '[*] Cleanup...'
 kill -9 $MOCK_PID 2>/dev/null || true
 rm -f "$MOCK_SCRIPT" 2>/dev/null || true
-# Restart monitor normally (without CLAWEDR_TARGET_BINARY)
+# Restart monitor via systemd (real openclaw only, no CLAWEDR_TARGET_BINARY)
 pkill -f "monitor.py" 2>/dev/null || true
 sleep 2
 rm -f /tmp/clawedr-monitor.pid
-CLAWEDR_POLICY_PATH=/usr/local/share/clawedr/compiled_policy.json \
-  CLAWEDR_BPF_SOURCE=/usr/local/share/clawedr/bpf_hooks.c CLAWEDR_LOG_FILE=/var/log/clawedr_monitor.log \
-  nohup python3 /usr/local/share/clawedr/monitor.py >/dev/null 2>&1 &
+systemctl start clawedr-monitor 2>/dev/null || true
+sleep 2
 # Truncate block log so dashboard stops showing test alerts
 : > /var/log/clawedr.log 2>/dev/null || true
+
+echo '[Linux] Phase 2: Real OpenClaw — verify blocking of gateway/agent exec'
+OPENCLAW_TEST="${OPENCLAW_TEST:-$(cd /Users/leo/clawedr 2>/dev/null && pwd)/tests/test_openclaw_curl_block.sh}"
+if command -v openclaw >/dev/null 2>&1 && [ -f "${OPENCLAW_TEST}" ]; then
+  bash "${OPENCLAW_TEST}" 2>&1 || true
+else
+  echo '[SKIP] openclaw not installed or test script not found — Phase 2 skipped'
+fi
 ORBEOF
 
 echo -e "${GREEN}Linux Test Complete.${NC}"

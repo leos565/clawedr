@@ -16,6 +16,10 @@ Run each test below **one at a time** in a **separate** shell command. After
 each, record the exit code (`$?`). A blocked command returns exit code 137
 (SIGKILL). Collect all results into a summary table at the end.
 
+**ClawEDR scope:** Enforcement applies only to processes spawned by OpenClaw.
+Use `/exec host=gateway` (or ensure exec runs on the gateway host) so commands
+run as gateway children and are subject to blocking.
+
 **Important:**
 - Do NOT wrap the commands in any error-handling that would mask the exit code.
 - Do NOT pipe a blocked command into another command — pipes mask the exit code

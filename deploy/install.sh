@@ -284,15 +284,75 @@ install_linux() {
     touch "$CLAWEDR_DIR/shared/__init__.py"
     touch "$CLAWEDR_DIR/dashboard/__init__.py"
     chmod +x "$tmpdir/shield_linux.sh"
+
+    # Exempt sudoers paths so sudo can read /etc/sudoers (tracked processes include orb agent)
+    python3 -c "
+import yaml, os
+path = '/etc/clawedr/user_rules.yaml'
+r = {}
+if os.path.exists(path):
+    try:
+        with open(path) as f: r = yaml.safe_load(f) or {}
+    except: pass
+ex = set(r.get('exempted_rule_ids', []))
+ex.add('PATH-LIN-004')
+ex.add('PATH-LIN-005')
+r['exempted_rule_ids'] = sorted(ex)
+r.setdefault('custom_rules', [])
+with open(path, 'w') as f:
+    yaml.dump(r, f, default_flow_style=False, sort_keys=False)
+" 2>/dev/null && log "Ensured sudoers path exemptions in user_rules.yaml" || true
+
     sh "$tmpdir/shield_linux.sh"
 
     install_openclaw_wrapper_linux
+
+    # Configure OpenClaw so exec runs on gateway host (required for network blocking)
+    # When user chats in gateway browser control, exec must run as gateway child
+    configure_openclaw_exec_host
 
     # Dashboard
     install_dashboard_deps
     install_dashboard_systemd
 
     log "Linux Shield installed successfully"
+}
+
+# ---------------------------------------------------------------------------
+# OpenClaw exec host — ensure network blocking applies to gateway chat
+# ---------------------------------------------------------------------------
+
+configure_openclaw_exec_host() {
+    for cfg in /root/.openclaw/openclaw.json; do
+        [ -f "$cfg" ] || continue
+        if python3 -c "
+import json
+p='$cfg'
+try:
+    with open(p) as f: c=json.load(f)
+except: exit(1)
+c.setdefault('tools',{}).setdefault('exec',{})['host']='gateway'
+c.setdefault('agents',{}).setdefault('defaults',{})['sandbox']={'mode':'off'}
+with open(p,'w') as f: json.dump(c,f,indent=2)
+" 2>/dev/null; then
+            log "Configured OpenClaw exec host=gateway for network blocking ($cfg)"
+        fi
+    done
+    if [ -n "${SUDO_USER:-}" ] && [ -f "/home/${SUDO_USER}/.openclaw/openclaw.json" ]; then
+        cfg="/home/${SUDO_USER}/.openclaw/openclaw.json"
+        if python3 -c "
+import json
+p='$cfg'
+try:
+    with open(p) as f: c=json.load(f)
+except: exit(1)
+c.setdefault('tools',{}).setdefault('exec',{})['host']='gateway'
+c.setdefault('agents',{}).setdefault('defaults',{})['sandbox']={'mode':'off'}
+with open(p,'w') as f: json.dump(c,f,indent=2)
+" 2>/dev/null; then
+            log "Configured OpenClaw exec host=gateway for network blocking ($cfg)"
+        fi
+    fi
 }
 
 # ---------------------------------------------------------------------------
@@ -456,13 +516,21 @@ if [ ! -f "$CLAWEDR_POLICY" ]; then
     exec "$CLAWEDR_REAL" "$@"
 fi
 
-if [ -f "$CLAWEDR_PID" ] && kill -0 "$(cat "$CLAWEDR_PID")" 2>/dev/null; then
+# Prefer systemd service if available
+if command -v systemctl >/dev/null 2>&1 && systemctl is-active clawedr-monitor >/dev/null 2>&1; then
+    :
+elif command -v systemctl >/dev/null 2>&1; then
+    echo "[clawedr] Starting ClawEDR eBPF monitor (systemd)..."
+    sudo systemctl start clawedr-monitor 2>/dev/null || true
+    sleep 2
+elif [ -f "$CLAWEDR_PID" ] && kill -0 "$(cat "$CLAWEDR_PID")" 2>/dev/null; then
     :
 else
     echo "[clawedr] Starting ClawEDR eBPF monitor..."
     sudo CLAWEDR_POLICY_PATH="$CLAWEDR_POLICY" \
          CLAWEDR_BPF_SOURCE="$CLAWEDR_BPF" \
          CLAWEDR_LOG_FILE=/var/log/clawedr_monitor.log \
+         PYTHONPATH="$CLAWEDR_DIR" \
         nohup python3 "$CLAWEDR_MONITOR" >/dev/null 2>&1 &
     MONITOR_PID=$!
     echo "$MONITOR_PID" > "$CLAWEDR_PID" 2>/dev/null || true
@@ -527,6 +595,9 @@ uninstall_linux() {
     pkill -f "monitor.py" 2>/dev/null || true
     pkill -f "clawedr.*dashboard" 2>/dev/null || true
     systemctl stop clawedr-monitor 2>/dev/null || true
+    systemctl disable clawedr-monitor 2>/dev/null || true
+    rm -f /etc/systemd/system/clawedr-monitor.service
+    systemctl daemon-reload 2>/dev/null || true
     rm -f /tmp/clawedr-monitor.pid /var/log/clawedr_monitor.log
     rm -rf "$CLAWEDR_DIR"
     rm -f /usr/local/bin/openclaw

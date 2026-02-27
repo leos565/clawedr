@@ -20,6 +20,7 @@ import json
 import logging
 import os
 import re
+import signal
 import sys
 from pathlib import Path
 
@@ -272,10 +273,29 @@ def _trigger_enforcement():
                 except subprocess.CalledProcessError as e:
                     logger.error("Failed to apply macOS policy: %s", e.stderr.decode() if e.stderr else str(e))
         else:
-            # On Linux, monitor.py automatically reloads on mtime changes.
-            # Touching the user_rules file ensures the trigger fires immediately if needed.
+            # On Linux, monitor.py reloads on mtime changes (poll every 2s) and on SIGHUP.
+            # Touch file and send SIGHUP for immediate reload of custom IP/domain rules.
             if USER_RULES_PATH.exists():
                 os.utime(USER_RULES_PATH, None)
+            try:
+                r = subprocess.run(
+                    ["systemctl", "kill", "clawedr-monitor", "-s", "SIGHUP"],
+                    capture_output=True, timeout=2,
+                )
+                if r.returncode != 0:
+                    # Fallback: send SIGHUP to monitor.py process
+                    pid_out = subprocess.run(
+                        ["pgrep", "-f", "monitor.py"],
+                        capture_output=True, text=True, timeout=2,
+                    )
+                    if pid_out.returncode == 0 and pid_out.stdout.strip():
+                        for pid in pid_out.stdout.strip().split():
+                            try:
+                                os.kill(int(pid), signal.SIGHUP)
+                            except (ValueError, ProcessLookupError, OSError):
+                                pass
+            except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+                pass
             logger.info("Triggered Linux monitor reload")
 
     threading.Thread(target=_run, daemon=True).start()
@@ -366,6 +386,120 @@ async def remove_custom_rule(rule_id: str):
         "deleted": rule_id,
         "message": _get_enforcement_message()
     })
+
+
+def _get_process_info(pid: int) -> dict | None:
+    """Get process info for a PID. Returns dict with comm, cmdline, ppid, from_openclaw; or None if not found."""
+    import platform
+    import subprocess
+
+    pid = int(pid)
+    if pid <= 0:
+        return None
+
+    info: dict = {"pid": pid, "comm": "", "cmdline": "", "ppid": None, "from_openclaw": False}
+
+    if platform.system() == "Linux":
+        proc = Path(f"/proc/{pid}")
+        if not proc.exists():
+            return None
+        try:
+            info["comm"] = (proc / "comm").read_text().strip()
+            raw = (proc / "cmdline").read_bytes()
+            info["cmdline"] = raw.replace(b"\x00", b" ").decode("utf-8", errors="replace").strip()
+            for line in (proc / "status").read_text().splitlines():
+                if line.startswith("PPid:"):
+                    info["ppid"] = int(line.split()[1])
+                    break
+        except (OSError, ValueError):
+            return info
+    else:
+        # macOS: use ps
+        try:
+            comm_out = subprocess.run(
+                ["ps", "-o", "comm=", "-p", str(pid)],
+                capture_output=True, text=True, timeout=2,
+            )
+            if comm_out.returncode == 0 and comm_out.stdout.strip():
+                info["comm"] = comm_out.stdout.strip().split("/")[-1]
+            args_out = subprocess.run(
+                ["ps", "-o", "args=", "-p", str(pid)],
+                capture_output=True, text=True, timeout=2,
+            )
+            if args_out.returncode == 0:
+                info["cmdline"] = args_out.stdout.strip()
+            ppid_out = subprocess.run(
+                ["ps", "-o", "ppid=", "-p", str(pid)],
+                capture_output=True, text=True, timeout=2,
+            )
+            if ppid_out.returncode == 0:
+                info["ppid"] = int(ppid_out.stdout.strip() or 0)
+        except (subprocess.TimeoutExpired, ValueError, OSError):
+            pass
+
+    # Walk parent chain to detect openclaw ancestry
+    def _get_ppid(p: int) -> int | None:
+        if platform.system() == "Linux":
+            try:
+                for line in (Path(f"/proc/{p}") / "status").read_text().splitlines():
+                    if line.startswith("PPid:"):
+                        return int(line.split()[1])
+            except (OSError, ValueError):
+                return None
+        else:
+            try:
+                out = subprocess.run(
+                    ["ps", "-o", "ppid=", "-p", str(p)],
+                    capture_output=True, text=True, timeout=2,
+                )
+                return int(out.stdout.strip() or 0) if out.returncode == 0 else None
+            except (ValueError, OSError):
+                return None
+
+    def _is_openclaw(p: int) -> bool:
+        if platform.system() == "Linux":
+            try:
+                pcomm = (Path(f"/proc/{p}") / "comm").read_text().strip().lower()
+                if "openclaw" in pcomm:
+                    return True
+                raw = (Path(f"/proc/{p}") / "cmdline").read_bytes()
+                return b"openclaw" in raw.lower()
+            except (OSError, ValueError):
+                return False
+        else:
+            try:
+                out = subprocess.run(
+                    ["ps", "-o", "args=", "-p", str(p)],
+                    capture_output=True, text=True, timeout=2,
+                )
+                return "openclaw" in (out.stdout or "").lower() if out.returncode == 0 else False
+            except (OSError, ValueError):
+                return False
+
+    seen: set[int] = set()
+    cur = pid
+    for _ in range(64):  # Max depth
+        if cur in seen or cur <= 0:
+            break
+        seen.add(cur)
+        if _is_openclaw(cur):
+            info["from_openclaw"] = True
+            break
+        ppid = _get_ppid(cur)
+        if ppid is None or ppid <= 0:
+            break
+        cur = ppid
+
+    return info
+
+
+@app.get("/api/process/{pid}")
+async def get_process(pid: int):
+    """Return process info for a PID, including whether it originated from openclaw."""
+    info = _get_process_info(pid)
+    if info is None:
+        return JSONResponse({"error": "Process not found"}, status_code=404)
+    return JSONResponse(info)
 
 
 @app.get("/api/status")

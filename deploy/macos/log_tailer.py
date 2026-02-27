@@ -277,16 +277,17 @@ def monitor_network_connections() -> None:
                         policy = json.load(f)
                     blocked_domains = policy.get("blocked_domains", {})
                     blocked_ips = policy.get("blocked_ips", {})
-                    # Add custom user domain rules
+                    # Add custom user domain and IP rules
                     for rule in get_custom_rules():
-                        if rule.get("type") == "domain" and rule.get("value"):
-                            rid = rule.get("id", "USR-DOM-?")
-                            val = rule["value"]
-                            # If it looks like an IP, add to blocked_ips
-                            if re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", val):
-                                blocked_ips[rid] = val
-                            else:
-                                blocked_domains[rid] = val
+                        rtype = rule.get("type")
+                        val = rule.get("value")
+                        if not val:
+                            continue
+                        rid = rule.get("id", "USR-?")
+                        if rtype == "domain":
+                            blocked_domains[rid] = val
+                        elif rtype == "ip":
+                            blocked_ips[rid] = val
                     logger.info(
                         "Network monitor loaded %d blocked domains, %d blocked IPs",
                         len(blocked_domains), len(blocked_ips),

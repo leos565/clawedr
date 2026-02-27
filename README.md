@@ -182,6 +182,14 @@ The Shield runs as a background daemon (`monitor.py`) that:
 
 Logs are written to both `/var/log/clawedr_monitor.log` and `journalctl -u clawedr-monitor` (on systemd hosts).
 
+**Network blocking:** ClawEDR uses BPF LSM `socket_connect` to block connections at the kernel level (returns `-EPERM`). Requires `CONFIG_BPF_LSM=y` and `lsm=...,bpf` in the kernel cmdline. If unavailable, it falls back to tracepoint + SIGKILL.
+
+**OpenClaw exec host and network enforcement:** ClawEDR only monitors activity spawned by OpenClaw (gateway, agent, node) and their descendants. For IP/domain rules to apply, commands must run as children of the gateway. The Linux install sets `tools.exec.host=gateway` and `agents.defaults.sandbox.mode=off` in `~/.openclaw/openclaw.json` so that gateway chat (browser control, canvas) and agent exec run on the gateway host and are subject to blocking. **Restart the gateway after install** for the config to take effect. If you already had OpenClaw installed, re-run the install or manually set `tools.exec.host` to `gateway` in your config. If you override to `host=node`, the node host must be spawned by the gateway so its children are tracked.
+
+**Scope — only OpenClaw is monitored:** Policy enforcement (blocked execs, paths, network, deny_rules) applies **only** to processes in the OpenClaw tree. The install script, systemctl, and other non-OpenClaw processes are never tracked, so `systemctl stop clawedr-monitor` during install is not blocked. Production never sets `CLAWEDR_TARGET_BINARY`; the systemd service tracks real openclaw only.
+
+**Anti-tamper (LIN-030, LIN-031, systemctl stop clawedr):** Deny rules block `kill`/`pkill`/`systemctl stop clawedr` when run by an OpenClaw descendant (e.g. a compromised agent). They do not affect the install or admin operations run from a normal shell.
+
 ### macOS
 
 The Shield uses Apple's Seatbelt sandbox:
