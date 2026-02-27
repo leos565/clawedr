@@ -70,7 +70,8 @@
       "PATH-LIN-009": "/home/*/.azure",
       "PATH-LIN-010": "/home/*/.config/gcloud",
       "PATH-LIN-011": "/home/*/.kube/config",
-      "PATH-LIN-012": "/var/run/docker.sock"
+      "PATH-LIN-012": "/var/run/docker.sock",
+      "PATH-LIN-013": "/etc/clawedr"
     },
     "macos": {
       "PATH-MAC-001": "~/.ssh",
@@ -91,7 +92,8 @@
       "PATH-MAC-016": "~/Library/Accounts",
       "PATH-MAC-017": "~/Library/Calendars",
       "PATH-MAC-018": "~/Library/Suggestions",
-      "PATH-MAC-019": "/Library/Preferences/SystemConfiguration"
+      "PATH-MAC-019": "/Library/Preferences/SystemConfiguration",
+      "PATH-MAC-020": "/etc/clawedr"
     }
   },
   "deny_rules": {
@@ -486,6 +488,14 @@
     },
     "PATH-LIN-012": {
       "description": "Blocks access to the Docker socket, which provides full control over the Docker daemon. Docker socket access is equivalent to root on the host: attackers can mount the host filesystem, escape containers, run privileged containers, or compromise the entire system.",
+      "severity": "critical"
+    },
+    "PATH-LIN-013": {
+      "description": "Blocks access to ClawEDR config directory. Contains user exemptions and custom rules; a compromised agent could read or tamper with policy to evade enforcement.",
+      "severity": "critical"
+    },
+    "PATH-MAC-020": {
+      "description": "Blocks access to ClawEDR config directory. Contains user exemptions and custom rules; a compromised agent could read or tamper with policy to evade enforcement.",
       "severity": "critical"
     },
     "DOM-001": {

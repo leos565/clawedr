@@ -713,6 +713,7 @@ _SENSITIVE_SUBFILES = [
     "id_rsa", "id_ed25519", "id_ecdsa", "id_dsa",
     "authorized_keys", "known_hosts", "config",
     "credentials", "accessTokens.json",
+    "user_rules.yaml",  # ClawEDR config
 ]
 
 

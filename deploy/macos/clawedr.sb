@@ -61,6 +61,9 @@
 ;;; [PATH-MAC-019]
 (deny file-read* (with report) (subpath "/Library/Preferences/SystemConfiguration"))
 (deny file-write* (with report) (subpath "/Library/Preferences/SystemConfiguration"))
+;;; [PATH-MAC-020]
+(deny file-read* (with report) (subpath "/etc/clawedr"))
+(deny file-write* (with report) (subpath "/etc/clawedr"))
 ;;; --- Blocked executables ---
 ;;; [BIN-001]
 (deny process-exec (with report) (literal "/usr/bin/nc"))
