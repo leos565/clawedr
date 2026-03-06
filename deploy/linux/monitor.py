@@ -48,7 +48,7 @@ _script_dir = os.path.dirname(os.path.abspath(__file__))
 _parent = os.path.dirname(_script_dir)
 sys.path.insert(0, _parent)
 sys.path.insert(0, _script_dir)
-from shared.user_rules import get_exempted_rule_ids, get_custom_rules, USER_RULES_PATH
+from shared.user_rules import get_exempted_rule_ids, get_custom_rules, get_heuristic_overrides, USER_RULES_PATH
 from shared.alert_dispatcher import dispatch_alert_async
 
 logger = logging.getLogger("clawedr.monitor")
@@ -70,8 +70,64 @@ _blocked_domains: dict[str, str] = {}  # rule_id -> domain, for fast connect-tim
 _malicious_hashes: dict[str, str] = {}
 _hash_to_rule_id: dict[int, str] = {}
 _ip_to_rule_id: dict[str, str] = {}
+_heu_slot_to_rule_id: dict[int, str] = {}
 
 PATH_PREFIXES = ("/usr/bin/", "/usr/sbin/", "/bin/", "/sbin/", "/usr/local/bin/")
+
+# Heuristic definitions: rule_id -> {binaries, argv_patterns, syscall_type}
+# syscall_type: None=execve, "fork"=sched_process_fork, "unlinkat", "chmod", "symlinkat"
+HEURISTIC_DEFINITIONS: dict[str, dict] = {
+    "HEU-GOG-001": {"binaries": ["gog"], "argv_patterns": ["gmail", "send"], "syscall_type": None},
+    "HEU-GOG-002": {"binaries": ["gog"], "argv_patterns": ["gmail", "trash"], "syscall_type": None},
+    "HEU-GOG-003": {"binaries": ["gog"], "argv_patterns": ["drive", "download"], "syscall_type": None},
+    "HEU-GOG-004": {"binaries": ["gog"], "argv_patterns": ["auth", "add"], "syscall_type": None},
+    "HEU-GOG-005": {"binaries": ["gog"], "argv_patterns": ["sheets"], "syscall_type": None},
+    "HEU-GOG-006": {"binaries": ["gog"], "argv_patterns": ["calendar", "delete"], "syscall_type": None},
+    "HEU-GOG-007": {"binaries": ["gog"], "argv_patterns": ["contacts", "export"], "syscall_type": None},
+    "HEU-GIT-001": {"binaries": ["gh"], "argv_patterns": ["create"], "syscall_type": None},
+    "HEU-GIT-002": {"binaries": ["gh"], "argv_patterns": ["pr", "merge"], "syscall_type": None},
+    "HEU-GIT-003": {"binaries": ["gh"], "argv_patterns": ["workflow", "run"], "syscall_type": None},
+    "HEU-GIT-004": {"binaries": ["gh"], "argv_patterns": ["api", "DELETE"], "syscall_type": None},
+    "HEU-GIT-005": {"binaries": ["gh"], "argv_patterns": ["api", "branch"], "syscall_type": None},
+    "HEU-GIT-006": {"binaries": ["gh", "git"], "argv_patterns": ["clone"], "syscall_type": None},
+    "HEU-BRW-001": {"binaries": ["agent-browser", "npx"], "argv_patterns": ["agent-browser"], "syscall_type": None},
+    "HEU-BRW-002": {"binaries": ["agent-browser", "npx"], "argv_patterns": ["127.0.0.1", "localhost"], "syscall_type": None},
+    "HEU-BRW-003": {"binaries": ["agent-browser", "npx"], "argv_patterns": ["agent-browser", "form"], "syscall_type": None},
+    "HEU-BRW-004": {"binaries": ["agent-browser", "npx"], "argv_patterns": ["agent-browser", "cookie"], "syscall_type": None},
+    "HEU-BRW-005": {"binaries": ["agent-browser", "npx"], "argv_patterns": ["agent-browser", "evaluate"], "syscall_type": None},
+    "HEU-SRH-001": {"binaries": ["tavily", "node", "python", "npx"], "argv_patterns": ["search"], "syscall_type": None},
+    "HEU-SRH-002": {"binaries": ["tavily", "node", "python", "npx"], "argv_patterns": ["search"], "syscall_type": None},
+    "HEU-SRH-003": {"binaries": ["tavily", "node", "python", "npx"], "argv_patterns": ["search"], "syscall_type": None},
+    "HEU-PKM-001": {"binaries": ["notion", "obsidian"], "argv_patterns": ["delete"], "syscall_type": None},
+    "HEU-PKM-002": {"binaries": ["notion", "obsidian"], "argv_patterns": ["export"], "syscall_type": None},
+    "HEU-PKM-003": {"binaries": ["notion"], "argv_patterns": ["database", "delete"], "syscall_type": None},
+    "HEU-EML-001": {"binaries": ["himalaya"], "argv_patterns": ["send"], "syscall_type": None},
+    "HEU-EML-002": {"binaries": ["himalaya"], "argv_patterns": ["attachment", "download"], "syscall_type": None},
+    "HEU-EML-003": {"binaries": ["himalaya", "cat"], "argv_patterns": ["credentials"], "syscall_type": None},
+    "HEU-SIA-002": {"binaries": ["node", "python", "bash"], "argv_patterns": ["CLAUDE.md"], "syscall_type": None},
+    "HEU-PAG-001": {"binaries": ["crontab", "bash"], "argv_patterns": ["cron"], "syscall_type": None},
+    "HEU-PAG-003": {"binaries": ["node", "python"], "argv_patterns": ["agent"], "syscall_type": None},
+    "HEU-API-001": {"binaries": ["node", "python"], "argv_patterns": ["api", "gateway"], "syscall_type": None},
+    "HEU-API-002": {"binaries": ["node", "python"], "argv_patterns": ["mcp", "add"], "syscall_type": None},
+    "HEU-NOD-001": {"binaries": ["npm"], "argv_patterns": ["install", "-g"], "syscall_type": None},
+    "HEU-NOD-002": {"binaries": ["node"], "argv_patterns": [], "syscall_type": None},
+    "HEU-FS-001": {"binaries": [], "argv_patterns": [], "syscall_type": "unlinkat"},
+    "HEU-FS-002": {"binaries": [], "argv_patterns": [], "syscall_type": "chmod"},
+    "HEU-FS-004": {"binaries": [], "argv_patterns": [], "syscall_type": "symlinkat"},
+    "HEU-SYS-001": {"binaries": [], "argv_patterns": [], "syscall_type": "fork"},
+    "HEU-SYS-003": {"binaries": ["rm", "bash", "sh"], "argv_patterns": ["-rf", "/"], "syscall_type": None},
+    "HEU-SYS-004": {"binaries": ["crontab", "bash"], "argv_patterns": ["cron"], "syscall_type": None},
+    "HEU-SYS-005": {"binaries": ["export", "bash"], "argv_patterns": ["PATH=", "LD_PRELOAD", "LD_LIBRARY_PATH"], "syscall_type": None},
+    "HEU-NET-002": {"binaries": [], "argv_patterns": [], "syscall_type": None},  # connect - deferred
+    "HEU-NET-003": {"binaries": [], "argv_patterns": [], "syscall_type": None},  # connect - deferred
+    "HEU-NET-004": {"binaries": ["socat", "ngrok", "localtunnel", "lt"], "argv_patterns": [], "syscall_type": None},
+    "HEU-CRD-001": {"binaries": ["cat", "grep"], "argv_patterns": ["passwd", "shadow", "credentials"], "syscall_type": None},
+    "HEU-CRD-003": {"binaries": ["ssh-add"], "argv_patterns": ["ssh-add"], "syscall_type": None},
+    "HEU-SIA-001": {"binaries": [], "argv_patterns": [], "syscall_type": None},  # write - deferred
+    "HEU-SIA-003": {"binaries": ["node", "python"], "argv_patterns": [".learnings"], "syscall_type": None},
+    "HEU-SIA-004": {"binaries": ["node", "python"], "argv_patterns": [".learnings"], "syscall_type": None},
+    "HEU-PAG-002": {"binaries": [], "argv_patterns": [], "syscall_type": None},  # write - deferred
+}
 
 
 # ---------------------------------------------------------------------------
@@ -300,6 +356,27 @@ def load_bpf(source_path: str):
                     "[observed] pid=%d uid=%d comm=%s file=%s",
                     ns_pid, event.uid, comm, filename,
                 )
+        elif event.action in (4, 5):
+            # Heuristic alert (4) or block (5)
+            heu_slot = getattr(event, "heu_slot", 0) or 0
+            rule_id = _heu_slot_to_rule_id.get(heu_slot, f"HEU-{heu_slot:03d}")
+            action_str = "heuristic_block" if event.action == 5 else "heuristic_alert"
+            block_logger.warning(
+                "HEURISTIC [%s] %s pid=%d comm=%s",
+                rule_id, action_str, ns_pid, comm,
+            )
+            dispatch_alert_async(
+                rule_id=rule_id,
+                action=action_str,
+                target=comm,
+                pid=ns_pid,
+                comm=comm,
+            )
+            if event.action == 5:
+                try:
+                    os.kill(ns_pid, 9)
+                except OSError:
+                    pass
         # else action=0: sys_enter_execve — cmdline still shows old process.
         # Skip deny_rules and logging; the exit event (action=2) carries the real argv.
 
@@ -727,6 +804,7 @@ def apply_policy(policy: dict) -> None:
     _apply_malicious_hashes(policy, exempted)
     _apply_blocked_ips(policy, exempted)
     _apply_pipe_heuristic()
+    _apply_heuristics(policy, exempted)
 
 
 def _apply_blocked_executables(policy: dict, exempted: set[str]) -> None:
@@ -982,6 +1060,111 @@ def _apply_pipe_heuristic() -> None:
         "Pipe heuristic: %d dangerous sources, %d dangerous sinks loaded",
         loaded_src, loaded_sink,
     )
+
+
+# ---------------------------------------------------------------------------
+# Layer 5: heuristic rules — execve/syscall rate limits + argv matching
+# ---------------------------------------------------------------------------
+
+_SYSCALL_TYPE_IDS = {"fork": 1, "unlinkat": 2, "chmod": 3, "symlinkat": 4, "write": 5, "connect": 6}
+
+
+class _HeuConfig(ctypes.Structure):
+    _fields_ = [
+        ("enabled", ctypes.c_uint8),
+        ("num_patterns", ctypes.c_uint8),
+        ("threshold", ctypes.c_uint16),
+        ("window_sec", ctypes.c_uint16),
+        ("binary_hash", ctypes.c_uint32),
+    ]
+
+
+def _apply_heuristics(policy: dict, exempted: set[str]) -> None:
+    """Populate heu_configs, heu_argv_patterns, heu_binary_to_slots, heu_syscall_slots."""
+    global _heu_slot_to_rule_id
+
+    if _bpf_instance is None:
+        return
+
+    heuristics = policy.get("heuristics", {})
+    overrides = get_heuristic_overrides()
+
+    # Build slot assignment: sorted rule IDs get slots 0, 1, 2, ...
+    all_rule_ids = sorted(heuristics.keys())
+    rule_id_to_slot = {rid: i for i, rid in enumerate(all_rule_ids)}
+    _heu_slot_to_rule_id = {i: rid for i, rid in enumerate(all_rule_ids)}
+
+    heu_binary = _bpf_instance["heu_binary_to_slots"]
+    heu_binary.clear()
+    heu_syscall = _bpf_instance["heu_syscall_slots"]
+    heu_syscall.clear()
+
+    loaded = 0
+    for rule_id, hconfig in heuristics.items():
+        if rule_id in exempted:
+            continue
+        mode = overrides.get(rule_id, hconfig.get("action", "disabled"))
+        if mode == "disabled":
+            continue
+
+        slot = rule_id_to_slot.get(rule_id)
+        if slot is None or slot >= 64:
+            continue
+
+        defn = HEURISTIC_DEFINITIONS.get(rule_id, {})
+        threshold = hconfig.get("threshold", 1)
+        window_sec = hconfig.get("window_seconds", 0)
+        enabled = 2 if mode == "enforce" else 1
+
+        # Config struct: enabled, num_patterns, threshold, window_sec, binary_hash
+        binary_hash_val = 0
+        if defn.get("binaries"):
+            binary_hash_val = _djb2_hash(defn["binaries"][0]) & 0xFFFFFFFF
+
+        patterns = defn.get("argv_patterns", [])
+        num_patterns = min(len(patterns), 4)
+
+        cfg = _HeuConfig(
+            enabled=enabled,
+            num_patterns=num_patterns,
+            threshold=threshold,
+            window_sec=window_sec,
+            binary_hash=binary_hash_val,
+        )
+        _bpf_instance["heu_configs"][ctypes.c_uint32(slot)] = cfg
+
+        # Argv patterns
+        for i, pat in enumerate(patterns[:4]):
+            ph = _djb2_hash(pat) & 0xFFFFFFFFFFFFFFFF
+            idx = slot * 4 + i
+            _bpf_instance["heu_argv_patterns"][ctypes.c_uint32(idx)] = ctypes.c_uint64(ph)
+
+        # Binary -> slots bitmap (execve heuristics)
+        syscall_type = defn.get("syscall_type")
+        if syscall_type is None and defn.get("binaries"):
+            for bin_name in defn["binaries"]:
+                hashes_to_add = [_djb2_hash(bin_name)]
+                for prefix in PATH_PREFIXES:
+                    hashes_to_add.append(_djb2_hash(prefix + bin_name))
+                for h in hashes_to_add:
+                    key = ctypes.c_uint64(h)
+                    try:
+                        existing = heu_binary[key]
+                        bm = existing.value if hasattr(existing, "value") else int(existing)
+                    except (KeyError, TypeError):
+                        bm = 0
+                    bm |= 1 << slot
+                    heu_binary[key] = ctypes.c_uint64(bm)
+
+        # Syscall type -> slot (last one wins for shared types like connect)
+        if syscall_type:
+            type_id = _SYSCALL_TYPE_IDS.get(syscall_type)
+            if type_id is not None:
+                heu_syscall[ctypes.c_uint32(type_id)] = ctypes.c_uint8(slot)
+
+        loaded += 1
+
+    logger.info("Loaded %d heuristic rules into BPF maps", loaded)
 
 
 # ---------------------------------------------------------------------------

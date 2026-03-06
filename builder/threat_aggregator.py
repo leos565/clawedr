@@ -39,11 +39,15 @@ def _thrt_id(prefix: str, value: str) -> str:
 def fetch_feed(url: str = CLAWSEC_FEED_URL, timeout: int = 30) -> dict[str, Any]:
     """Download and return the ClawSec advisory feed as a dict."""
     logger.info("Fetching ClawSec feed from %s", url)
-    resp = requests.get(url, timeout=timeout)
-    resp.raise_for_status()
-    feed = resp.json()
-    logger.info("Feed fetched — %d advisories", len(feed.get("advisories", [])))
-    return feed
+    try:
+        resp = requests.get(url, timeout=timeout)
+        resp.raise_for_status()
+        feed = resp.json()
+        logger.info("Feed fetched — %d advisories", len(feed.get("advisories", [])))
+        return feed
+    except Exception as e:
+        logger.warning("Failed to fetch ClawSec feed: %s. Proceeding with local rules only.", e)
+        return {"advisories": []}
 
 
 def parse_feed(feed: dict[str, Any]) -> dict[str, Any]:
@@ -105,6 +109,7 @@ def merge(master: dict[str, Any], feed_data: dict[str, Any]) -> dict[str, Any]:
         "affected_skills": list(feed_data.get("affected_skills", [])),
         "custom_deny_rules": master.get("custom_deny_rules", {}),
         "rule_metadata": dict(master.get("rule_metadata", {})),
+        "heuristics": dict(master.get("heuristics", {})),
     }
 
     # Merge blocked_paths per OS
