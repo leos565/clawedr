@@ -715,16 +715,20 @@ _SENSITIVE_SUBFILES = [
     "credentials", "accessTokens.json",
     "user_rules.yaml",  # ClawEDR config
 ]
+# Extra files for /usr/local/share/clawedr (compiled policy, etc.)
+_CLAWEDR_INSTALL_SUBFILES = ["compiled_policy.json", "bpf_hooks.c", "monitor.py"]
 
 
 def _add_subpaths(directory: str, out: set[str]) -> None:
     """Add well-known sensitive subfiles beneath a directory."""
     for sub in _SENSITIVE_SUBFILES:
         out.add(os.path.join(directory, sub))
-    # Block relative access: cd /etc/clawedr && cat user_rules.yaml passes
-    # pathname="user_rules.yaml" to openat; we must hash that too.
-    if "clawedr" in directory and "user_rules.yaml" in _SENSITIVE_SUBFILES:
-        out.add("user_rules.yaml")
+    # ClawEDR install dir: block policy, monitor, BPF source
+    if "clawedr" in directory:
+        for sub in _CLAWEDR_INSTALL_SUBFILES:
+            out.add(os.path.join(directory, sub))
+            out.add(sub)  # relative: cd /usr/local/share/clawedr && cat compiled_policy.json
+        out.add("user_rules.yaml")  # relative: cd /etc/clawedr && cat user_rules.yaml
 
 
 def _expand_blocked_paths(raw_paths: dict[str, str]) -> dict[str, set[str]]:

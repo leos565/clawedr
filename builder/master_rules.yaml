@@ -59,8 +59,10 @@ rule_metadata:
   PATH-LIN-011: { description: "User kubeconfig; enables Kubernetes cluster takeover", severity: critical }
   PATH-LIN-012: { description: "Docker socket; enables container escape and host takeover", severity: critical }
   PATH-LIN-013: { description: "ClawEDR config; contains exemptions and custom rules — prevents policy tampering", severity: critical }
+  PATH-LIN-017: { description: "ClawEDR install dir; compiled policy, monitor, rules — prevents policy tampering", severity: critical }
 
   PATH-MAC-020: { description: "ClawEDR config; contains exemptions and custom rules — prevents policy tampering", severity: critical }
+  PATH-MAC-023: { description: "ClawEDR install dir; compiled policy and rules — prevents policy tampering", severity: critical }
 
   # Blocked domains
   DOM-001: { description: "Monero mining pool; cryptojacking and resource theft", severity: high }
@@ -221,6 +223,7 @@ blocked_paths:
     # System
     PATH-MAC-019: "/Library/Preferences/SystemConfiguration"
     PATH-MAC-020: "/etc/clawedr"
+    PATH-MAC-023: "/usr/local/share/clawedr"
   linux:
     PATH-LIN-001: "/root/.ssh"
     PATH-LIN-002: "/etc/shadow"
@@ -237,6 +240,7 @@ blocked_paths:
     PATH-LIN-011: "/home/*/.kube/config"
     PATH-LIN-012: "/var/run/docker.sock"
     PATH-LIN-013: "/etc/clawedr"
+    PATH-LIN-017: "/usr/local/share/clawedr"
 
 # ── Blocked domains ───────────────────────────────────────────────────────
 # Known mining pools and C2 infrastructure. The threat feed adds more.
