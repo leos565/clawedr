@@ -717,6 +717,16 @@ _SENSITIVE_SUBFILES = [
 ]
 
 
+def _add_subpaths(directory: str, out: set[str]) -> None:
+    """Add well-known sensitive subfiles beneath a directory."""
+    for sub in _SENSITIVE_SUBFILES:
+        out.add(os.path.join(directory, sub))
+    # Block relative access: cd /etc/clawedr && cat user_rules.yaml passes
+    # pathname="user_rules.yaml" to openat; we must hash that too.
+    if "clawedr" in directory and "user_rules.yaml" in _SENSITIVE_SUBFILES:
+        out.add("user_rules.yaml")
+
+
 def _expand_blocked_paths(raw_paths: dict[str, str]) -> dict[str, set[str]]:
     """Expand wildcard paths into concrete filesystem paths.
 
@@ -752,12 +762,6 @@ def _expand_missing_wildcard(pattern: str, out: set[str]) -> None:
         synth = d + suffix
         out.add(synth)
         _add_subpaths(synth, out)
-
-
-def _add_subpaths(directory: str, out: set[str]) -> None:
-    """Add well-known sensitive subfiles beneath a directory."""
-    for sub in _SENSITIVE_SUBFILES:
-        out.add(os.path.join(directory, sub))
 
 
 def _apply_blocked_paths(policy: dict, exempted: set[str]) -> None:
