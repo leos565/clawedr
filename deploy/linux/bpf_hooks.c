@@ -11,6 +11,7 @@
  *   1. blocked_hashes    — execve filename hash (SIGKILL on match)
  *   2. blocked_path_hashes — openat + statx filename hash (SIGKILL on match)
  *   3. pipe heuristic    — dangerous source + sink sibling detection
+ *   4. heuristic rules   — execve/syscall rate limits + argv matching
  *
  * Network blocking: when CLAWEDR_USE_LSM is defined, uses BPF LSM
  * socket_connect to block at kernel level (-EPERM). Otherwise falls back
@@ -28,6 +29,9 @@
 
 #define MAX_FILENAME_LEN 256
 #define PIPE_WINDOW_NS 2000000000ULL /* 2 seconds */
+#define MAX_HEU_SLOTS 64
+#define MAX_ARGV_PATTERNS 4
+#define ARGV_READ_LEN 32
 
 struct event_t {
   u32 pid;
@@ -37,8 +41,9 @@ struct event_t {
   char filename[MAX_FILENAME_LEN];
   u8 action; // 0 = observed (enter), 1 = blocked (SIGKILL), 2 = post-exec
              // (exit, for deny_rules), 3 = connect_attempt (userspace domain
-             // check)
+             // check), 4 = heuristic_alert, 5 = heuristic_block
   u32 blocked_ip; // for connect events: IP in host byte order
+  u16 heu_slot;  // for heuristic events: slot index for rule_id lookup
 };
 
 /* --- Maps populated by monitor.py --- */
@@ -56,6 +61,30 @@ BPF_HASH(blocked_ips, u32, u8, 1024);
 BPF_HASH(parent_tracked_bins, u64, u8, 16);
 /* OpenClaw gateway PIDs: never SIGKILL these (openat/statx log-only) */
 BPF_HASH(protected_pids, u32, u8, 16);
+
+/* --- Heuristic maps --- */
+struct heu_config_t {
+  u8 enabled;   // 0=disabled, 1=alert, 2=enforce
+  u8 num_patterns;
+  u16 threshold;
+  u16 window_sec;
+  u32 binary_hash;
+};
+struct heu_state_val_t {
+  u32 count;
+  u64 window_start_ns;
+};
+BPF_ARRAY(heu_configs, struct heu_config_t, MAX_HEU_SLOTS);
+BPF_ARRAY(heu_argv_patterns, u64, MAX_HEU_SLOTS * MAX_ARGV_PATTERNS);
+BPF_HASH(heu_binary_to_slots, u64, u64, 128);  // binary_hash -> bitmap of slots
+BPF_HASH(heu_state, u64, struct heu_state_val_t, 8192);
+/* Path-based heuristics (openat): path_contains_hash -> bitmap of slots */
+BPF_HASH(heu_path_slots, u64, u64, 256);
+/* Syscall-based: unlinkat, chmod, symlinkat, fork, write */
+BPF_HASH(heu_fork_state, u32, struct heu_state_val_t, 256);
+BPF_HASH(heu_connect_state, u64, struct heu_state_val_t, 1024);  // (tgid<<32|ip)
+/* Syscall type -> heu_slot: 1=fork, 2=unlinkat, 3=chmod, 4=symlinkat, 5=write */
+BPF_HASH(heu_syscall_slots, u32, u8, 16);
 
 BPF_PERF_OUTPUT(events);
 
@@ -107,6 +136,69 @@ static __always_inline u32 get_ns_pid(void) {
     return ni.tgid;
 #endif
   return bpf_get_current_pid_tgid() >> 32;
+}
+
+/* Hash a string from userspace (argv slot). */
+static __always_inline u64 hash_argv_slot(const char *ptr) {
+  u64 h = 5381;
+  for (int i = 0; i < ARGV_READ_LEN; i++) {
+    char c = 0;
+    if (bpf_probe_read_user(&c, 1, ptr + i) != 0 || c == 0)
+      break;
+    h = ((h << 5) + h) + (u64)(unsigned char)c;
+  }
+  return h;
+}
+
+/* Check if argv matches heuristic slot patterns. Returns 1 if all patterns match. */
+static __always_inline int heu_argv_matches(u8 slot, u64 h0, u64 h1, u64 h2) {
+  u32 slot32 = slot;
+  struct heu_config_t *cfg = heu_configs.lookup(&slot32);
+  if (!cfg || cfg->num_patterns == 0)
+    return 1; /* no patterns = match (e.g. binary-only heuristic) */
+  #pragma unroll
+  for (int i = 0; i < MAX_ARGV_PATTERNS; i++) {
+    if (i >= cfg->num_patterns)
+      break;
+    u32 idx = slot * MAX_ARGV_PATTERNS + i;
+    u64 *p = heu_argv_patterns.lookup(&idx);
+    if (!p)
+      continue;
+    u64 ph = *p;
+    if (h0 != ph && h1 != ph && h2 != ph)
+      return 0;
+  }
+  return 1;
+}
+
+/* Update sliding window and check threshold. Returns 1 if should trigger. */
+static __always_inline int heu_sliding_window(u32 pid, u8 slot, u16 threshold,
+                                              u16 window_sec, int *out_do_kill) {
+  if (threshold == 0)
+    return 0;
+  u64 key = ((u64)pid << 16) | slot;
+  u64 now = bpf_ktime_get_ns();
+  u64 window_ns = (u64)window_sec * 1000000000ULL;
+  struct heu_state_val_t *st = heu_state.lookup(&key);
+  struct heu_state_val_t newst = {};
+  if (st) {
+    if (now - st->window_start_ns > window_ns) {
+      newst.count = 1;
+      newst.window_start_ns = now;
+    } else {
+      newst.count = st->count + 1;
+      newst.window_start_ns = st->window_start_ns;
+    }
+  } else {
+    newst.count = 1;
+    newst.window_start_ns = now;
+  }
+  heu_state.update(&key, &newst);
+  if (newst.count >= threshold) {
+    *out_do_kill = 0; /* caller sets from config.enabled */
+    return 1;
+  }
+  return 0;
 }
 
 /* ── execve: auto-detect OpenClaw, enforce blocked execs + pipe heuristic ── */
@@ -180,6 +272,57 @@ TRACEPOINT_PROBE(syscalls, sys_enter_execve) {
         evt.action = 1;
         events.perf_submit(args, &evt, sizeof(evt));
         bpf_send_signal(SIGKILL);
+        return 0;
+      }
+    }
+  }
+
+  /* Layer 4: heuristic rules — execve argv + sliding window */
+  u64 *slots_bm = heu_binary_to_slots.lookup(&h);
+  if (slots_bm && *slots_bm) {
+    /* Read argv[0], argv[1], argv[2] for pattern matching */
+    u64 h0 = 0, h1 = 0, h2 = 0;
+    const char *const *argv_ptr = (const char *const *)args->argv;
+    if (argv_ptr) {
+      const char *p0 = NULL, *p1 = NULL, *p2 = NULL;
+      bpf_probe_read_user(&p0, sizeof(p0), &argv_ptr[0]);
+      if (p0)
+        h0 = hash_argv_slot(p0);
+      bpf_probe_read_user(&p1, sizeof(p1), &argv_ptr[1]);
+      if (p1)
+        h1 = hash_argv_slot(p1);
+      bpf_probe_read_user(&p2, sizeof(p2), &argv_ptr[2]);
+      if (p2)
+        h2 = hash_argv_slot(p2);
+    }
+    u64 bm = *slots_bm;
+    #pragma unroll
+    for (u8 s = 0; s < MAX_HEU_SLOTS; s++) {
+      if ((bm & (1ULL << s)) == 0)
+        continue;
+      u32 s32 = s;
+      struct heu_config_t *cfg = heu_configs.lookup(&s32);
+      if (!cfg || cfg->enabled == 0)
+        continue;
+      if (!heu_argv_matches(s, h0, h1, h2))
+        continue;
+      int do_kill = 0;
+      int trigger = 0;
+      if (cfg->threshold == 1 && cfg->window_sec == 0) {
+        trigger = 1;
+        do_kill = (cfg->enabled == 2);
+      } else {
+        trigger = heu_sliding_window(pid, s, cfg->threshold, cfg->window_sec,
+                                     &do_kill);
+        do_kill = trigger && (cfg->enabled == 2);
+      }
+      if (trigger) {
+        evt.action = do_kill ? 5 : 4;
+        evt.heu_slot = s;
+        __builtin_memcpy(evt.filename, "HEURISTIC", 10);
+        events.perf_submit(args, &evt, sizeof(evt));
+        if (do_kill)
+          bpf_send_signal(SIGKILL);
         return 0;
       }
     }
@@ -447,7 +590,7 @@ TRACEPOINT_PROBE(syscalls, sys_enter_sendto) {
   return 0;
 }
 
-/* ── fork: propagate tracking from parent to child ── */
+/* ── fork: propagate tracking + HEU-SYS-001 (fork bomb) ── */
 TRACEPOINT_PROBE(sched, sched_process_fork) {
   u32 parent_pid = args->parent_pid;
   u32 child_pid = args->child_pid;
@@ -456,17 +599,219 @@ TRACEPOINT_PROBE(sched, sched_process_fork) {
   if (tracked) {
     u8 one = 1;
     tracked_pids.update(&child_pid, &one);
+
+    /* HEU-SYS-001: fork bomb */
+    u32 fork_type = 1;
+    u8 *slot_p = heu_syscall_slots.lookup(&fork_type);
+    if (slot_p) {
+      u8 slot = *slot_p;
+    u32 slot32 = slot;
+    struct heu_config_t *cfg = heu_configs.lookup(&slot32);
+    if (cfg && cfg->enabled >= 1) {
+      u64 key = (u64)parent_pid;
+      u64 now = bpf_ktime_get_ns();
+      u64 window_ns = (u64)cfg->window_sec * 1000000000ULL;
+      struct heu_state_val_t *st = heu_fork_state.lookup(&key);
+      struct heu_state_val_t newst = {};
+      if (st) {
+        if (now - st->window_start_ns > window_ns) {
+          newst.count = 1;
+          newst.window_start_ns = now;
+        } else {
+          newst.count = st->count + 1;
+          newst.window_start_ns = st->window_start_ns;
+        }
+      } else {
+        newst.count = 1;
+        newst.window_start_ns = now;
+      }
+      heu_fork_state.update(&key, &newst);
+      if (newst.count >= cfg->threshold) {
+        struct event_t evt = {};
+        evt.pid = parent_pid;
+        evt.ns_pid = parent_pid;
+        evt.action = (cfg->enabled == 2) ? 5 : 4;
+        evt.heu_slot = slot;
+        __builtin_memcpy(evt.filename, "HEURISTIC", 10);
+        events.perf_submit(args, &evt, sizeof(evt));
+        if (cfg->enabled == 2)
+          bpf_send_signal(SIGKILL);
+      }
+    }
+    }
   }
 
   return 0;
 }
 
-/* ── exit: clean up tracked set ── */
+/* ── unlinkat: HEU-FS-001 (mass deletion) ── */
+TRACEPOINT_PROBE(syscalls, sys_enter_unlinkat) {
+  u64 pid_tgid = bpf_get_current_pid_tgid();
+  u32 pid = pid_tgid >> 32;
+
+  u8 *is_tracked = tracked_pids.lookup(&pid);
+  if (!is_tracked)
+    return 0;
+
+  u32 type = 2;
+  u8 *slot_p = heu_syscall_slots.lookup(&type);
+  if (!slot_p)
+    return 0;
+  u8 slot = *slot_p;
+  u32 slot32 = slot;
+  struct heu_config_t *cfg = heu_configs.lookup(&slot32);
+  if (!cfg || cfg->enabled == 0)
+    return 0;
+
+  u64 key = ((u64)pid << 16) | slot;
+  u64 now = bpf_ktime_get_ns();
+  u64 window_ns = (u64)cfg->window_sec * 1000000000ULL;
+  struct heu_state_val_t *st = heu_state.lookup(&key);
+  struct heu_state_val_t newst = {};
+  if (st) {
+    if (now - st->window_start_ns > window_ns) {
+      newst.count = 1;
+      newst.window_start_ns = now;
+    } else {
+      newst.count = st->count + 1;
+      newst.window_start_ns = st->window_start_ns;
+    }
+  } else {
+    newst.count = 1;
+    newst.window_start_ns = now;
+  }
+  heu_state.update(&key, &newst);
+  if (newst.count >= cfg->threshold) {
+    struct event_t evt = {};
+    evt.pid = pid;
+    evt.ns_pid = get_ns_pid();
+    evt.uid = bpf_get_current_uid_gid() & 0xFFFFFFFF;
+    bpf_get_current_comm(&evt.comm, sizeof(evt.comm));
+    __builtin_memcpy(evt.filename, "HEURISTIC", 10);
+    evt.action = (cfg->enabled == 2) ? 5 : 4;
+    evt.heu_slot = slot;
+    events.perf_submit(args, &evt, sizeof(evt));
+    if (cfg->enabled == 2)
+      bpf_send_signal(SIGKILL);
+  }
+  return 0;
+}
+
+/* ── chmod/fchmodat: HEU-FS-002 ── */
+TRACEPOINT_PROBE(syscalls, sys_enter_fchmodat) {
+  u64 pid_tgid = bpf_get_current_pid_tgid();
+  u32 pid = pid_tgid >> 32;
+
+  u8 *is_tracked = tracked_pids.lookup(&pid);
+  if (!is_tracked)
+    return 0;
+
+  u32 type = 3;
+  u8 *slot_p = heu_syscall_slots.lookup(&type);
+  if (!slot_p)
+    return 0;
+  u8 slot = *slot_p;
+  u32 slot32 = slot;
+  struct heu_config_t *cfg = heu_configs.lookup(&slot32);
+  if (!cfg || cfg->enabled == 0)
+    return 0;
+
+  u64 key = ((u64)pid << 16) | slot;
+  u64 now = bpf_ktime_get_ns();
+  u64 window_ns = (u64)cfg->window_sec * 1000000000ULL;
+  struct heu_state_val_t *st = heu_state.lookup(&key);
+  struct heu_state_val_t newst = {};
+  if (st) {
+    if (now - st->window_start_ns > window_ns) {
+      newst.count = 1;
+      newst.window_start_ns = now;
+    } else {
+      newst.count = st->count + 1;
+      newst.window_start_ns = st->window_start_ns;
+    }
+  } else {
+    newst.count = 1;
+    newst.window_start_ns = now;
+  }
+  heu_state.update(&key, &newst);
+  if (newst.count >= cfg->threshold) {
+    struct event_t evt = {};
+    evt.pid = pid;
+    evt.ns_pid = get_ns_pid();
+    evt.uid = bpf_get_current_uid_gid() & 0xFFFFFFFF;
+    bpf_get_current_comm(&evt.comm, sizeof(evt.comm));
+    __builtin_memcpy(evt.filename, "HEURISTIC", 10);
+    evt.action = (cfg->enabled == 2) ? 5 : 4;
+    evt.heu_slot = slot;
+    events.perf_submit(args, &evt, sizeof(evt));
+    if (cfg->enabled == 2)
+      bpf_send_signal(SIGKILL);
+  }
+  return 0;
+}
+
+/* ── symlinkat: HEU-FS-004 ── */
+TRACEPOINT_PROBE(syscalls, sys_enter_symlinkat) {
+  u64 pid_tgid = bpf_get_current_pid_tgid();
+  u32 pid = pid_tgid >> 32;
+
+  u8 *is_tracked = tracked_pids.lookup(&pid);
+  if (!is_tracked)
+    return 0;
+
+  u32 type = 4;
+  u8 *slot_p = heu_syscall_slots.lookup(&type);
+  if (!slot_p)
+    return 0;
+  u8 slot = *slot_p;
+  u32 slot32 = slot;
+  struct heu_config_t *cfg = heu_configs.lookup(&slot32);
+  if (!cfg || cfg->enabled == 0)
+    return 0;
+
+  u64 key = ((u64)pid << 16) | slot;
+  u64 now = bpf_ktime_get_ns();
+  u64 window_ns = (u64)cfg->window_sec * 1000000000ULL;
+  struct heu_state_val_t *st = heu_state.lookup(&key);
+  struct heu_state_val_t newst = {};
+  if (st) {
+    if (now - st->window_start_ns > window_ns) {
+      newst.count = 1;
+      newst.window_start_ns = now;
+    } else {
+      newst.count = st->count + 1;
+      newst.window_start_ns = st->window_start_ns;
+    }
+  } else {
+    newst.count = 1;
+    newst.window_start_ns = now;
+  }
+  heu_state.update(&key, &newst);
+  if (newst.count >= cfg->threshold) {
+    struct event_t evt = {};
+    evt.pid = pid;
+    evt.ns_pid = get_ns_pid();
+    evt.uid = bpf_get_current_uid_gid() & 0xFFFFFFFF;
+    bpf_get_current_comm(&evt.comm, sizeof(evt.comm));
+    __builtin_memcpy(evt.filename, "HEURISTIC", 10);
+    evt.action = (cfg->enabled == 2) ? 5 : 4;
+    evt.heu_slot = slot;
+    events.perf_submit(args, &evt, sizeof(evt));
+    if (cfg->enabled == 2)
+      bpf_send_signal(SIGKILL);
+  }
+  return 0;
+}
+
+/* ── exit: clean up tracked set + heuristic state ── */
 TRACEPOINT_PROBE(sched, sched_process_exit) {
   u64 pid_tgid = bpf_get_current_pid_tgid();
   u32 pid = pid_tgid >> 32;
 
   tracked_pids.delete(&pid);
+  heu_fork_state.delete(&pid);
+  /* heu_state and heu_connect_state keys include pid; they'll age out or we
+   * could delete by prefix — skip for now to avoid iteration */
 
   return 0;
 }

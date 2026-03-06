@@ -376,619 +376,1459 @@
   "rule_metadata": {
     "PATH-MAC-001": {
       "description": "SSH private keys and authorized_keys; enables credential theft and lateral movement",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "PATH-MAC-002": {
       "description": "GPG keys and passphrase store; enables signing/decrypt impersonation",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "PATH-MAC-003": {
       "description": "AWS credentials; enables cloud account takeover and resource abuse",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "PATH-MAC-004": {
       "description": "Azure credentials; enables cloud account takeover",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "PATH-MAC-005": {
       "description": "GCP credentials; enables cloud account takeover",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "PATH-MAC-006": {
       "description": "Kubernetes kubeconfig; enables cluster takeover and lateral movement",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "PATH-MAC-007": {
       "description": "macOS Keychain; contains stored passwords, certs, and secrets",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "PATH-MAC-008": {
       "description": "System password database; enables credential dumping",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "PATH-MAC-009": {
       "description": "Browser cookies; enables session hijacking and account takeover",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "PATH-MAC-010": {
       "description": "Chrome login data; contains saved passwords and autofill",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "PATH-MAC-011": {
       "description": "Chrome cookies; enables session hijacking",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "PATH-MAC-012": {
       "description": "Firefox profiles; contains saved passwords and cookies",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "PATH-MAC-013": {
       "description": "Arc browser login data; contains saved passwords",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "PATH-MAC-014": {
       "description": "iMessage database; private communications and attachments",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "PATH-MAC-015": {
       "description": "Mail database; private emails and attachments",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "PATH-MAC-016": {
       "description": "Account credentials; system account store",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "PATH-MAC-017": {
       "description": "Calendar data; private scheduling information",
-      "severity": "medium"
+      "severity": "medium",
+      "category": "security"
     },
     "PATH-MAC-018": {
       "description": "Suggestion data; may contain sensitive context",
-      "severity": "low"
+      "severity": "low",
+      "category": "security"
     },
     "PATH-MAC-019": {
       "description": "Network configuration; enables MITM and DNS hijacking",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "PATH-LIN-001": {
       "description": "Root SSH keys; enables privilege escalation and lateral movement",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "PATH-LIN-002": {
       "description": "Shadow password hashes; enables offline cracking and credential dump",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "PATH-LIN-004": {
       "description": "Sudoers config; enables privilege escalation",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "PATH-LIN-005": {
       "description": "Sudoers.d drop-in dir; enables privilege escalation",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "PATH-LIN-006": {
       "description": "User SSH keys; enables credential theft and lateral movement",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "PATH-LIN-007": {
       "description": "User GPG keys; enables signing/decrypt impersonation",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "PATH-LIN-008": {
       "description": "User AWS credentials; enables cloud account takeover",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "PATH-LIN-009": {
       "description": "User Azure credentials; enables cloud account takeover",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "PATH-LIN-010": {
       "description": "User GCP credentials; enables cloud account takeover",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "PATH-LIN-011": {
       "description": "User kubeconfig; enables Kubernetes cluster takeover",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "PATH-LIN-012": {
       "description": "Docker socket; enables container escape and host takeover",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "PATH-LIN-013": {
       "description": "ClawEDR config; contains exemptions and custom rules \u2014 prevents policy tampering",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "PATH-LIN-017": {
       "description": "ClawEDR install dir; compiled policy, monitor, rules \u2014 prevents policy tampering",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "PATH-MAC-020": {
       "description": "ClawEDR config; contains exemptions and custom rules \u2014 prevents policy tampering",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "PATH-MAC-023": {
       "description": "ClawEDR install dir; compiled policy and rules \u2014 prevents policy tampering",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "DOM-001": {
       "description": "Monero mining pool; cryptojacking and resource theft",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "DOM-002": {
       "description": "Monero mining pool; cryptojacking",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "DOM-003": {
       "description": "Monero mining pool; cryptojacking",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "DOM-004": {
       "description": "Monero mining pool; cryptojacking",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "DOM-005": {
       "description": "Monero mining pool; cryptojacking",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "DOM-006": {
       "description": "Crypto mining pool; cryptojacking",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "DOM-007": {
       "description": "Multi-coin mining pool; cryptojacking",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "DOM-008": {
       "description": "Monero mining pool; cryptojacking",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "DOM-009": {
       "description": "Monero mining pool; cryptojacking",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "DOM-010": {
       "description": "Monero mining pool; cryptojacking",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "DOM-011": {
       "description": "Bitcoin/Ethereum mining pool; cryptojacking",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "DOM-012": {
       "description": "Bitcoin mining pool; cryptojacking",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "DOM-013": {
       "description": "Ethereum mining pool; cryptojacking",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "DOM-014": {
       "description": "Bitcoin mining pool; cryptojacking",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "DOM-015": {
       "description": "Multi-coin mining pool; cryptojacking",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "DOM-016": {
       "description": "Paste site; common exfiltration and C2 dead-drop",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "DOM-017": {
       "description": "Terminal paste; exfiltration and payload delivery",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "DOM-018": {
       "description": "File transfer service; exfiltration endpoint",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "DOM-019": {
       "description": "Ephemeral file host; exfiltration and payload delivery",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "DOM-020": {
       "description": "File host; exfiltration endpoint",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "IP-001": {
       "description": "Known Monero mining pool IP",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "IP-002": {
       "description": "Known Monero mining pool IP",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "IP-003": {
       "description": "Known cryptojacking C2 IP",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "IP-004": {
       "description": "Known paste exfil proxy IP",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "IP-005": {
       "description": "Known file exfil host IP",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "BIN-001": {
       "description": "Netcat; reverse shells, bind shells, and data exfiltration",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "BIN-002": {
       "description": "Ncat; Nmap netcat variant, reverse shells and lateral movement",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "BIN-003": {
       "description": "Socat; bidirectional relay, reverse shells, and port forwarding",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "BIN-004": {
       "description": "Nmap; network reconnaissance and port scanning",
-      "severity": "medium"
+      "severity": "medium",
+      "category": "security"
     },
     "BIN-005": {
       "description": "Masscan; high-speed port scanner for recon",
-      "severity": "medium"
+      "severity": "medium",
+      "category": "security"
     },
     "BIN-006": {
       "description": "ARP scan; local network reconnaissance",
-      "severity": "medium"
+      "severity": "medium",
+      "category": "security"
     },
     "BIN-007": {
       "description": "XMRig; Monero cryptominer",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "BIN-008": {
       "description": "Minerd; Bitcoin CPU miner",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "BIN-009": {
       "description": "CGMiner; GPU cryptominer",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "BIN-010": {
       "description": "CPUMiner; CPU cryptominer",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "BIN-011": {
       "description": "Ethminer; Ethereum GPU miner",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "BIN-012": {
       "description": "XMR-Stak; multi-algo cryptominer",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "BIN-013": {
       "description": "HellMiner; cryptominer",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "BIN-014": {
       "description": "NanoMiner; cryptominer",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "BIN-015": {
       "description": "PhoenixMiner; Ethereum miner",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "BIN-016": {
       "description": "TeamRedMiner; AMD GPU miner",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "BIN-017": {
       "description": "LolMiner; multi-GPU miner",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "BIN-018": {
       "description": "T-Rex; NVIDIA miner",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "BIN-019": {
       "description": "NBMiner; multi-algo miner",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "BIN-020": {
       "description": "GMiner; GPU miner",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "BIN-021": {
       "description": "SRBMiner; CPU/GPU miner",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "BIN-022": {
       "description": "Mimikatz; Windows credential dumping (Wine/cross-platform)",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "BIN-023": {
       "description": "Secretsdump; Impacket tool for credential extraction",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "BIN-024": {
       "description": "GDB; process memory inspection and code injection",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "BIN-025": {
       "description": "Strace; syscall tracing, can capture secrets and inject",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "BIN-026": {
       "description": "Ltrace; library call tracing",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "BIN-027": {
       "description": "Ptrace; process tracing and injection",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "MAC-001": {
       "description": "Reverse-shell port 4444; common C2 callback",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "MAC-002": {
       "description": "Reverse-shell port 1337; common C2 callback",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "MAC-003": {
       "description": "Reverse-shell port 5555; Android ADB / C2",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "MAC-004": {
       "description": "Reverse-shell port 9001; common C2 callback",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "MAC-005": {
       "description": "Reverse-shell port 31337; elite / backdoor",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "MAC-006": {
       "description": "AppleScript; GUI automation, keystroke injection, app control",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "MAC-007": {
       "description": "Security CLI; Keychain dump and cert extraction",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "MAC-008": {
       "description": "dscl; create/modify/delete users and groups",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "MAC-009": {
       "description": "dseditgroup; group membership changes",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "MAC-010": {
       "description": "networksetup; network config and proxy changes",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "MAC-011": {
       "description": "profiles; MDM profile install/remove",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "MAC-012": {
       "description": "systemsetup; system settings changes",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "MAC-013": {
       "description": "spctl; Gatekeeper/SIP policy bypass",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "MAC-014": {
       "description": "screencapture (sbin); screen capture and exfiltration",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "MAC-015": {
       "description": "screencapture (bin); screen capture and exfiltration",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "MAC-016": {
       "description": "socketfilterfw; firewall control and bypass",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "MAC-017": {
       "description": "ARD kickstart; enable remote desktop / VNC",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "MAC-018": {
       "description": "Network bind; blocks listening sockets (except localhost)",
-      "severity": "medium"
+      "severity": "medium",
+      "category": "security"
     },
     "MAC-019": {
       "description": "Allow localhost bind; OpenClaw gateway requires loopback",
-      "severity": "info"
+      "severity": "info",
+      "category": "security"
     },
     "LIN-001": {
       "description": "Reverse-shell connect to port 4444",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "LIN-002": {
       "description": "Reverse-shell connect to port 1337",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "LIN-003": {
       "description": "Crypto stratum TCP URL; miner pool connection",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "LIN-004": {
       "description": "Crypto stratum TCP -o; miner pool connection",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "LIN-005": {
       "description": "Crypto stratum SSL URL; miner pool connection",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "LIN-006": {
       "description": "Crypto stratum SSL -o; miner pool connection",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "LIN-007": {
       "description": "Miner donate-level flag; cryptominer signature",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "LIN-008": {
       "description": "Miner CPU threads flag; cryptominer signature",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "LIN-009": {
       "description": "RandomX algo; Monero miner signature",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "LIN-010": {
       "description": "Miner pool -o; cryptominer signature",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "LIN-011": {
       "description": "Cat SSH private key; credential theft",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "LIN-012": {
       "description": "Cat AWS credentials; credential theft",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "LIN-013": {
       "description": "Curl upload SSH key; exfiltration",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "LIN-014": {
       "description": "Tar SSH dir; credential archive for exfil",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "LIN-015": {
       "description": "Zip AWS dir; credential archive for exfil",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "LIN-016": {
       "description": "Tar kubeconfig; Kubernetes cred exfil",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "LIN-017": {
       "description": "Base64 decode pipe to sh; obfuscated payload execution",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "LIN-018": {
       "description": "Base64 decode pipe to bash; obfuscated payload execution",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "LIN-019": {
       "description": "Base64 --decode pipe to sh; obfuscated payload execution",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "LIN-020": {
       "description": "Python base64 decode; obfuscated payload execution",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "LIN-021": {
       "description": "Node child_process; arbitrary command execution",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "LIN-022": {
       "description": "Curl pipe to bash; remote code execution",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "LIN-023": {
       "description": "Curl pipe to sh; remote code execution",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "LIN-024": {
       "description": "Wget pipe to bash; remote code execution",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "LIN-025": {
       "description": "Wget pipe to sh; remote code execution",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "LIN-026": {
       "description": "Curl to Pastebin API; data exfiltration",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "LIN-027": {
       "description": "Netcat to termbin; data exfiltration",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "LIN-028": {
       "description": "Tar .git dir; source and secret exfiltration",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "LIN-029": {
       "description": "Grep AWS keys in .git; credential hunting",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "LIN-030": {
       "description": "Kill ClawEDR; EDR evasion",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "LIN-031": {
       "description": "Pkill ClawEDR; EDR evasion",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "LIN-032": {
       "description": "Systemctl stop ClawEDR; EDR evasion",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "LIN-033": {
       "description": "Remove compiled policy; EDR evasion",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "LIN-034": {
       "description": "Echo to .bashrc; persistence",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "LIN-035": {
       "description": "Echo to crontab; persistence",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "LIN-036": {
       "description": "Append to authorized_keys; backdoor persistence",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "LIN-037": {
       "description": "LD_PRELOAD injection; rootkit persistence",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "LIN-038": {
       "description": "Add root user to passwd; privilege escalation",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "LIN-039": {
       "description": "Disable SELinux; security control evasion",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "LIN-040": {
       "description": "Unload AppArmor; security control evasion",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "LIN-041": {
       "description": "Remove log files; evidence destruction",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "LIN-042": {
       "description": "Clear shell history; evidence destruction",
-      "severity": "medium"
+      "severity": "medium",
+      "category": "security"
     },
     "LIN-043": {
       "description": "AWS IMDS query; cloud credential theft / SSRF",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "LIN-044": {
       "description": "GCP metadata query; cloud credential theft",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "LIN-045": {
       "description": "Docker socket access; container escape",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "LIN-046": {
       "description": "Cgroups release_agent; container escape to host",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "LIN-047": {
       "description": "Kubelet API; Kubernetes recon / escape",
-      "severity": "critical"
+      "severity": "critical",
+      "category": "security"
     },
     "LIN-048": {
       "description": "Find SUID binaries; privilege escalation recon",
-      "severity": "high"
+      "severity": "high",
+      "category": "security"
     },
     "LIN-049": {
       "description": "Getcap recursive; capability recon for priv esc",
+      "severity": "high",
+      "category": "security"
+    },
+    "HEU-GOG-001": {
+      "description": "Mass Email Exfiltration \u2014 agent executes gog gmail send/forward >20 times in 10s",
+      "severity": "high",
+      "category": "heuristics",
+      "subcategory": "gog",
+      "platform_support": {
+        "linux": "full",
+        "macos": "none"
+      }
+    },
+    "HEU-GOG-002": {
+      "description": "Inbox Purge \u2014 agent runs destructive gmail operations (trash/delete) with broad queries",
+      "severity": "high",
+      "category": "heuristics",
+      "subcategory": "gog",
+      "platform_support": {
+        "linux": "full",
+        "macos": "none"
+      }
+    },
+    "HEU-GOG-003": {
+      "description": "Mass Drive Scraping \u2014 agent downloads >50 Drive files in 10s",
+      "severity": "high",
+      "category": "heuristics",
+      "subcategory": "gog",
+      "platform_support": {
+        "linux": "full",
+        "macos": "none"
+      }
+    },
+    "HEU-GOG-004": {
+      "description": "Unauthorized OAuth Scopes \u2014 agent escalates gog auth with admin/sensitive scopes",
+      "severity": "critical",
+      "category": "heuristics",
+      "subcategory": "gog",
+      "platform_support": {
+        "linux": "full",
+        "macos": "none"
+      }
+    },
+    "HEU-GOG-005": {
+      "description": "Spreadsheet Corruption \u2014 agent repeatedly overwrites same Sheet ID",
+      "severity": "medium",
+      "category": "heuristics",
+      "subcategory": "gog",
+      "platform_support": {
+        "linux": "full",
+        "macos": "none"
+      }
+    },
+    "HEU-GOG-006": {
+      "description": "Calendar Mass Delete \u2014 agent mass-deletes calendar events >10 in 5s",
+      "severity": "high",
+      "category": "heuristics",
+      "subcategory": "gog",
+      "platform_support": {
+        "linux": "full",
+        "macos": "none"
+      }
+    },
+    "HEU-GOG-007": {
+      "description": "Contact Export Spam \u2014 agent bulk-exports contacts via gog contacts",
+      "severity": "medium",
+      "category": "heuristics",
+      "subcategory": "gog",
+      "platform_support": {
+        "linux": "full",
+        "macos": "none"
+      }
+    },
+    "HEU-GIT-001": {
+      "description": "Issue/PR Spam \u2014 agent creates >5 issues or PRs in 60s",
+      "severity": "medium",
+      "category": "heuristics",
+      "subcategory": "github",
+      "platform_support": {
+        "linux": "full",
+        "macos": "none"
+      }
+    },
+    "HEU-GIT-002": {
+      "description": "Mass PR Approval \u2014 agent merges >3 PRs in 10s without review",
+      "severity": "high",
+      "category": "heuristics",
+      "subcategory": "github",
+      "platform_support": {
+        "linux": "full",
+        "macos": "none"
+      }
+    },
+    "HEU-GIT-003": {
+      "description": "CI/CD Budget Exhaustion \u2014 agent triggers repeated workflow runs",
+      "severity": "medium",
+      "category": "heuristics",
+      "subcategory": "github",
+      "platform_support": {
+        "linux": "full",
+        "macos": "none"
+      }
+    },
+    "HEU-GIT-004": {
+      "description": "Destructive API Calls \u2014 agent runs gh api -X DELETE on repo metadata",
+      "severity": "critical",
+      "category": "heuristics",
+      "subcategory": "github",
+      "platform_support": {
+        "linux": "full",
+        "macos": "none"
+      }
+    },
+    "HEU-GIT-005": {
+      "description": "Branch Protection Bypass \u2014 agent modifies branch protection settings",
+      "severity": "critical",
+      "category": "heuristics",
+      "subcategory": "github",
+      "platform_support": {
+        "linux": "full",
+        "macos": "none"
+      }
+    },
+    "HEU-GIT-006": {
+      "description": "Mass Repo Clone \u2014 agent clones >5 repos in 30s (recon/exfil)",
+      "severity": "high",
+      "category": "heuristics",
+      "subcategory": "github",
+      "platform_support": {
+        "linux": "full",
+        "macos": "none"
+      }
+    },
+    "HEU-BRW-001": {
+      "description": "Scrape Loop \u2014 agent-browser executes >20 page loads in 30s",
+      "severity": "medium",
+      "category": "heuristics",
+      "subcategory": "browser",
+      "platform_support": {
+        "linux": "full",
+        "macos": "none"
+      }
+    },
+    "HEU-BRW-002": {
+      "description": "Localhost SSRF \u2014 agent-browser targets 127.0.0.1/localhost URLs",
+      "severity": "critical",
+      "category": "heuristics",
+      "subcategory": "browser",
+      "platform_support": {
+        "linux": "full",
+        "macos": "none"
+      }
+    },
+    "HEU-BRW-003": {
+      "description": "Form Autofill Scraping \u2014 agent-browser extracts autofill/password data from forms",
+      "severity": "high",
+      "category": "heuristics",
+      "subcategory": "browser",
+      "platform_support": {
+        "linux": "full",
+        "macos": "none"
+      }
+    },
+    "HEU-BRW-004": {
+      "description": "Cookie Exfiltration \u2014 agent-browser reads cookies and sends to external endpoint",
+      "severity": "critical",
+      "category": "heuristics",
+      "subcategory": "browser",
+      "platform_support": {
+        "linux": "full",
+        "macos": "none"
+      }
+    },
+    "HEU-BRW-005": {
+      "description": "Iframe Injection \u2014 agent-browser injects script/iframe into page context",
+      "severity": "high",
+      "category": "heuristics",
+      "subcategory": "browser",
+      "platform_support": {
+        "linux": "full",
+        "macos": "none"
+      }
+    },
+    "HEU-SRH-001": {
+      "description": "Infinite Search Loop \u2014 agent executes >30 web searches in 60s",
+      "severity": "medium",
+      "category": "heuristics",
+      "subcategory": "search",
+      "platform_support": {
+        "linux": "full",
+        "macos": "none"
+      }
+    },
+    "HEU-SRH-002": {
+      "description": "Search Query Data Exfiltration \u2014 search queries contain base64/encoded sensitive data",
+      "severity": "high",
+      "category": "heuristics",
+      "subcategory": "search",
+      "platform_support": {
+        "linux": "full",
+        "macos": "none"
+      }
+    },
+    "HEU-SRH-003": {
+      "description": "API Key Abuse \u2014 search API called with rotating/stolen keys",
+      "severity": "high",
+      "category": "heuristics",
+      "subcategory": "search",
+      "platform_support": {
+        "linux": "full",
+        "macos": "none"
+      }
+    },
+    "HEU-PKM-001": {
+      "description": "Mass Page Deletion \u2014 agent deletes >10 Notion pages or Obsidian notes in 10s",
+      "severity": "high",
+      "category": "heuristics",
+      "subcategory": "pkm",
+      "platform_support": {
+        "linux": "full",
+        "macos": "none"
+      }
+    },
+    "HEU-PKM-002": {
+      "description": "Vault Data Exfiltration \u2014 agent bulk-reads and exports entire Obsidian vault",
+      "severity": "high",
+      "category": "heuristics",
+      "subcategory": "pkm",
+      "platform_support": {
+        "linux": "full",
+        "macos": "none"
+      }
+    },
+    "HEU-PKM-003": {
+      "description": "Database Schema Wipe \u2014 agent drops or truncates Notion database schemas",
+      "severity": "critical",
+      "category": "heuristics",
+      "subcategory": "pkm",
+      "platform_support": {
+        "linux": "full",
+        "macos": "none"
+      }
+    },
+    "HEU-EML-001": {
+      "description": "Mass Email Send \u2014 agent sends >20 emails via himalaya/SMTP in 30s",
+      "severity": "high",
+      "category": "heuristics",
+      "subcategory": "email",
+      "platform_support": {
+        "linux": "full",
+        "macos": "none"
+      }
+    },
+    "HEU-EML-002": {
+      "description": "Attachment Exfiltration \u2014 agent bulk-downloads email attachments >10 in 10s",
+      "severity": "high",
+      "category": "heuristics",
+      "subcategory": "email",
+      "platform_support": {
+        "linux": "full",
+        "macos": "none"
+      }
+    },
+    "HEU-PAG-001": {
+      "description": "Autonomous Cron Abuse \u2014 agent creates >5 autonomous cron jobs in 60s",
+      "severity": "high",
+      "category": "heuristics",
+      "subcategory": "proactive",
+      "platform_support": {
+        "linux": "full",
+        "macos": "none"
+      }
+    },
+    "HEU-PAG-003": {
+      "description": "Runaway Autonomous Loop \u2014 agent spawns >10 autonomous sub-tasks in 60s",
+      "severity": "high",
+      "category": "heuristics",
+      "subcategory": "proactive",
+      "platform_support": {
+        "linux": "full",
+        "macos": "none"
+      }
+    },
+    "HEU-API-001": {
+      "description": "Mass API Call Burst \u2014 agent makes >50 API gateway calls in 30s",
+      "severity": "medium",
+      "category": "heuristics",
+      "subcategory": "api_gateway",
+      "platform_support": {
+        "linux": "full",
+        "macos": "none"
+      }
+    },
+    "HEU-API-002": {
+      "description": "Unauthorized Scope Escalation \u2014 agent adds MCP tools with elevated permissions",
+      "severity": "critical",
+      "category": "heuristics",
+      "subcategory": "api_gateway",
+      "platform_support": {
+        "linux": "full",
+        "macos": "none"
+      }
+    },
+    "HEU-NOD-001": {
+      "description": "Rogue Global Package Install \u2014 agent runs npm install -g after initialization",
+      "severity": "high",
+      "category": "heuristics",
+      "subcategory": "node",
+      "platform_support": {
+        "linux": "full",
+        "macos": "none"
+      }
+    },
+    "HEU-NOD-002": {
+      "description": "Infinite Process Spawn \u2014 agent spawns >30 node processes in 60s (e.g. Tavily search)",
+      "severity": "medium",
+      "category": "heuristics",
+      "subcategory": "node",
+      "platform_support": {
+        "linux": "full",
+        "macos": "none"
+      }
+    },
+    "HEU-FS-001": {
+      "description": "Mass Deletion / Nuking \u2014 agent calls unlinkat/rmdir >50 times in 3s",
+      "severity": "critical",
+      "category": "heuristics",
+      "subcategory": "file_system",
+      "platform_support": {
+        "linux": "full",
+        "macos": "none"
+      }
+    },
+    "HEU-FS-002": {
+      "description": "Rapid Chmod Spam \u2014 agent calls chmod/fchmodat >100 times in 5s",
+      "severity": "high",
+      "category": "heuristics",
+      "subcategory": "file_system",
+      "platform_support": {
+        "linux": "full",
+        "macos": "none"
+      }
+    },
+    "HEU-FS-004": {
+      "description": "Symlink Abuse \u2014 agent creates >20 symlinks in 5s targeting sensitive paths",
+      "severity": "high",
+      "category": "heuristics",
+      "subcategory": "file_system",
+      "platform_support": {
+        "linux": "full",
+        "macos": "none"
+      }
+    },
+    "HEU-SYS-001": {
+      "description": "Runaway Fork Bomb \u2014 agent triggers >100 process forks in 1s",
+      "severity": "critical",
+      "category": "heuristics",
+      "subcategory": "system",
+      "platform_support": {
+        "linux": "full",
+        "macos": "none"
+      }
+    },
+    "HEU-SYS-003": {
+      "description": "Panic Deletion \u2014 agent attempts rm -rf * or rm -rf /",
+      "severity": "critical",
+      "category": "heuristics",
+      "subcategory": "system",
+      "platform_support": {
+        "linux": "full",
+        "macos": "none"
+      }
+    },
+    "HEU-SYS-005": {
+      "description": "Environment Variable Poisoning \u2014 agent modifies PATH/LD_PRELOAD/LD_LIBRARY_PATH",
+      "severity": "critical",
+      "category": "heuristics",
+      "subcategory": "system",
+      "platform_support": {
+        "linux": "full",
+        "macos": "partial"
+      }
+    },
+    "HEU-NET-004": {
+      "description": "Reverse Proxy Setup \u2014 agent configures socat/ngrok/localtunnel for external access",
+      "severity": "critical",
+      "category": "heuristics",
+      "subcategory": "network",
+      "platform_support": {
+        "linux": "full",
+        "macos": "none"
+      }
+    },
+    "HEU-CRD-003": {
+      "description": "SSH Agent Hijack \u2014 agent accesses SSH_AUTH_SOCK or calls ssh-add with foreign keys",
+      "severity": "critical",
+      "category": "heuristics",
+      "subcategory": "credential",
+      "platform_support": {
+        "linux": "full",
+        "macos": "partial"
+      }
+    },
+    "IP-006": {
+      "description": "Community threat intelligence",
       "severity": "high"
+    }
+  },
+  "heuristics": {
+    "HEU-GOG-001": {
+      "name": "Mass Email Exfiltration (Forwarding Loop)",
+      "description": "Agent executes gog gmail send/forward >20 times in 10s.",
+      "action": "enforce",
+      "threshold": 20,
+      "window_seconds": 10
+    },
+    "HEU-GOG-002": {
+      "name": "The Inbox Purge",
+      "description": "Agent runs destructive gmail operations (trash/delete) with broad queries (is:inbox).",
+      "action": "enforce",
+      "threshold": 1,
+      "window_seconds": 0
+    },
+    "HEU-GOG-003": {
+      "name": "Mass Drive Scraping",
+      "description": "Agent downloads >50 Drive files in 10s via gog drive download.",
+      "action": "enforce",
+      "threshold": 50,
+      "window_seconds": 10
+    },
+    "HEU-GOG-004": {
+      "name": "Unauthorized OAuth Scopes",
+      "description": "Agent escalates gog auth with admin/sensitive scopes in argv.",
+      "action": "enforce",
+      "threshold": 1,
+      "window_seconds": 0
+    },
+    "HEU-GOG-005": {
+      "name": "Spreadsheet Corruption",
+      "description": "Agent repeatedly overwrites the same Google Sheet ID >10 times in 30s.",
+      "action": "alert",
+      "threshold": 10,
+      "window_seconds": 30
+    },
+    "HEU-GOG-006": {
+      "name": "Calendar Mass Delete",
+      "description": "Agent mass-deletes calendar events >10 in 5s.",
+      "action": "enforce",
+      "threshold": 10,
+      "window_seconds": 5
+    },
+    "HEU-GOG-007": {
+      "name": "Contact Export Spam",
+      "description": "Agent bulk-exports contacts via gog contacts >5 times in 30s.",
+      "action": "alert",
+      "threshold": 5,
+      "window_seconds": 30
+    },
+    "HEU-GIT-001": {
+      "name": "Issue / PR Spam",
+      "description": "Agent creates >5 issues or PRs in 60s via gh.",
+      "action": "alert",
+      "threshold": 5,
+      "window_seconds": 60
+    },
+    "HEU-GIT-002": {
+      "name": "Mass PR Approval",
+      "description": "Agent merges >3 PRs in 10s without review via gh pr merge.",
+      "action": "enforce",
+      "threshold": 3,
+      "window_seconds": 10
+    },
+    "HEU-GIT-003": {
+      "name": "CI/CD Budget Exhaustion",
+      "description": "Agent triggers >5 gh workflow run commands in 60s.",
+      "action": "alert",
+      "threshold": 5,
+      "window_seconds": 60
+    },
+    "HEU-GIT-004": {
+      "name": "Destructive API Calls",
+      "description": "Agent runs gh api -X DELETE against repo metadata.",
+      "action": "enforce",
+      "threshold": 1,
+      "window_seconds": 0
+    },
+    "HEU-GIT-005": {
+      "name": "Branch Protection Bypass",
+      "description": "Agent modifies branch protection settings via gh api.",
+      "action": "enforce",
+      "threshold": 1,
+      "window_seconds": 0
+    },
+    "HEU-GIT-006": {
+      "name": "Mass Repo Clone",
+      "description": "Agent clones >5 repos in 30s (recon/exfil pattern).",
+      "action": "alert",
+      "threshold": 5,
+      "window_seconds": 30
+    },
+    "HEU-BRW-001": {
+      "name": "Scrape Loop",
+      "description": "Agent-browser executes >20 page loads in 30s.",
+      "action": "alert",
+      "threshold": 20,
+      "window_seconds": 30
+    },
+    "HEU-BRW-002": {
+      "name": "Localhost SSRF",
+      "description": "Agent-browser navigates to 127.0.0.1 or localhost URLs.",
+      "action": "enforce",
+      "threshold": 1,
+      "window_seconds": 0
+    },
+    "HEU-BRW-003": {
+      "name": "Form Autofill Scraping",
+      "description": "Agent-browser extracts autofill/password data from page forms.",
+      "action": "enforce",
+      "threshold": 1,
+      "window_seconds": 0
+    },
+    "HEU-BRW-004": {
+      "name": "Cookie Exfiltration",
+      "description": "Agent-browser reads cookies and sends to external endpoint.",
+      "action": "enforce",
+      "threshold": 1,
+      "window_seconds": 0
+    },
+    "HEU-BRW-005": {
+      "name": "Iframe Injection",
+      "description": "Agent-browser injects script or iframe into page context.",
+      "action": "enforce",
+      "threshold": 1,
+      "window_seconds": 0
+    },
+    "HEU-SRH-001": {
+      "name": "Infinite Search Loop",
+      "description": "Agent executes >30 web searches in 60s.",
+      "action": "alert",
+      "threshold": 30,
+      "window_seconds": 60
+    },
+    "HEU-SRH-002": {
+      "name": "Search Query Data Exfiltration",
+      "description": "Search queries contain base64-encoded or suspiciously long data.",
+      "action": "alert",
+      "threshold": 3,
+      "window_seconds": 60
+    },
+    "HEU-SRH-003": {
+      "name": "API Key Abuse",
+      "description": "Search API called with rotating or stolen API keys.",
+      "action": "enforce",
+      "threshold": 5,
+      "window_seconds": 30
+    },
+    "HEU-PKM-001": {
+      "name": "Mass Page Deletion",
+      "description": "Agent deletes >10 Notion pages or Obsidian notes in 10s.",
+      "action": "enforce",
+      "threshold": 10,
+      "window_seconds": 10
+    },
+    "HEU-PKM-002": {
+      "name": "Vault Data Exfiltration",
+      "description": "Agent bulk-reads and exports entire Obsidian vault or Notion workspace.",
+      "action": "alert",
+      "threshold": 50,
+      "window_seconds": 30
+    },
+    "HEU-PKM-003": {
+      "name": "Database Schema Wipe",
+      "description": "Agent drops or truncates Notion database schemas.",
+      "action": "enforce",
+      "threshold": 1,
+      "window_seconds": 0
+    },
+    "HEU-EML-001": {
+      "name": "Mass Email Send",
+      "description": "Agent sends >20 emails via himalaya/SMTP in 30s.",
+      "action": "enforce",
+      "threshold": 20,
+      "window_seconds": 30
+    },
+    "HEU-EML-002": {
+      "name": "Attachment Exfiltration",
+      "description": "Agent bulk-downloads email attachments >10 in 10s.",
+      "action": "alert",
+      "threshold": 10,
+      "window_seconds": 10
+    },
+    "HEU-PAG-001": {
+      "name": "Autonomous Cron Abuse",
+      "description": "Agent creates >5 autonomous cron jobs in 60s.",
+      "action": "enforce",
+      "threshold": 5,
+      "window_seconds": 60
+    },
+    "HEU-PAG-003": {
+      "name": "Runaway Autonomous Loop",
+      "description": "Agent spawns >10 autonomous sub-tasks in 60s.",
+      "action": "enforce",
+      "threshold": 10,
+      "window_seconds": 60
+    },
+    "HEU-API-001": {
+      "name": "Mass API Call Burst",
+      "description": "Agent makes >50 API gateway calls in 30s.",
+      "action": "alert",
+      "threshold": 50,
+      "window_seconds": 30
+    },
+    "HEU-API-002": {
+      "name": "Unauthorized Scope Escalation",
+      "description": "Agent adds MCP tools with elevated permissions beyond initial grant.",
+      "action": "enforce",
+      "threshold": 1,
+      "window_seconds": 0
+    },
+    "HEU-NOD-001": {
+      "name": "Rogue Payload Install",
+      "description": "Agent runs npm install -g after initialization phase.",
+      "action": "enforce",
+      "threshold": 1,
+      "window_seconds": 0
+    },
+    "HEU-NOD-002": {
+      "name": "Infinite Process Spawn",
+      "description": "Agent spawns >30 node processes in 60s (e.g. Tavily search loop).",
+      "action": "alert",
+      "threshold": 30,
+      "window_seconds": 60
+    },
+    "HEU-FS-001": {
+      "name": "Mass Deletion / Nuking",
+      "description": "Agent calls unlinkat or rmdir >50 times in 3s.",
+      "action": "enforce",
+      "threshold": 50,
+      "window_seconds": 3
+    },
+    "HEU-FS-002": {
+      "name": "Rapid Chmod Spam",
+      "description": "Agent calls chmod/fchmodat >100 times in 5s.",
+      "action": "alert",
+      "threshold": 100,
+      "window_seconds": 5
+    },
+    "HEU-FS-004": {
+      "name": "Symlink Abuse",
+      "description": "Agent creates >20 symlinks in 5s targeting sensitive paths.",
+      "action": "enforce",
+      "threshold": 20,
+      "window_seconds": 5
+    },
+    "HEU-SYS-001": {
+      "name": "Runaway Fork Bomb",
+      "description": "Agent triggers >100 process forks in 1s.",
+      "action": "enforce",
+      "threshold": 100,
+      "window_seconds": 1
+    },
+    "HEU-SYS-003": {
+      "name": "Panic Deletion",
+      "description": "Agent attempts rm -rf * or rm -rf / via argv matching.",
+      "action": "enforce",
+      "threshold": 1,
+      "window_seconds": 0
+    },
+    "HEU-SYS-005": {
+      "name": "Environment Variable Poisoning",
+      "description": "Agent modifies PATH, LD_PRELOAD, or LD_LIBRARY_PATH environment variables.",
+      "action": "enforce",
+      "threshold": 1,
+      "window_seconds": 0
+    },
+    "HEU-NET-004": {
+      "name": "Reverse Proxy Setup",
+      "description": "Agent configures socat/ngrok/localtunnel for external access to local services.",
+      "action": "enforce",
+      "threshold": 1,
+      "window_seconds": 0
+    },
+    "HEU-CRD-003": {
+      "name": "SSH Agent Hijack",
+      "description": "Agent accesses SSH_AUTH_SOCK or calls ssh-add with foreign keys.",
+      "action": "enforce",
+      "threshold": 1,
+      "window_seconds": 0
     }
   }
 }

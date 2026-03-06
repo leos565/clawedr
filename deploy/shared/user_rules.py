@@ -11,6 +11,10 @@ back to a minimal inline parser for the simple list format we use).
 Schema:
     exempted_rule_ids:
       - "BIN-001"
+    heuristic_overrides:
+      HEU-GOG-001: enforce
+      HEU-NET-001: alert
+      HEU-FS-002: disabled
     custom_rules:
       - id: USR-BIN-001
         type: executable
@@ -152,6 +156,52 @@ def get_custom_rules() -> list[dict[str, Any]]:
     """Return the list of user-defined custom blocking rules."""
     rules = load_user_rules()
     return list(rules.get("custom_rules", []))
+
+
+# Valid heuristic enforcement modes (three-tier hierarchy)
+VALID_HEURISTIC_MODES = frozenset({"disabled", "alert", "enforce"})
+
+
+def get_heuristic_overrides() -> dict[str, str]:
+    """Return heuristic overrides: { 'HEU-XXX-NNN': 'disabled'|'alert'|'enforce' }."""
+    rules = load_user_rules()
+    overrides = rules.get("heuristic_overrides", {})
+    if not isinstance(overrides, dict):
+        return {}
+    # Validate values
+    return {k: v for k, v in overrides.items() if v in VALID_HEURISTIC_MODES}
+
+
+def save_heuristic_overrides(overrides: dict[str, str]) -> None:
+    """Save heuristic overrides to user_rules.yaml."""
+    # Validate all values
+    clean = {k: v for k, v in overrides.items() if v in VALID_HEURISTIC_MODES}
+    rules = load_user_rules()
+    rules["heuristic_overrides"] = clean
+    save_user_rules(rules)
+    logger.info("Saved %d heuristic overrides", len(clean))
+
+
+def set_group_heuristic_mode(
+    rule_ids: list[str],
+    mode: str,
+) -> tuple[int, str]:
+    """Set a batch of heuristic rules to the same enforcement mode.
+
+    Returns (count_changed, error_message).
+    """
+    if mode not in VALID_HEURISTIC_MODES:
+        return 0, f"Invalid mode: {mode}. Must be one of: {', '.join(sorted(VALID_HEURISTIC_MODES))}"
+
+    overrides = get_heuristic_overrides()
+    changed = 0
+    for rid in rule_ids:
+        if rid.startswith("HEU-"):
+            if overrides.get(rid) != mode:
+                overrides[rid] = mode
+                changed += 1
+    save_heuristic_overrides(overrides)
+    return changed, ""
 
 
 def get_custom_rule_metadata(rule_id: str) -> tuple[str | None, str | None]:

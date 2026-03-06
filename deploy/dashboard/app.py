@@ -36,6 +36,8 @@ from shared.user_rules import (
     add_custom_rule, update_custom_rule, delete_custom_rule,
     get_custom_rules, get_custom_rule_metadata, CUSTOM_RULE_TYPES,
     load_settings, save_settings,
+    get_heuristic_overrides, save_heuristic_overrides, set_group_heuristic_mode,
+    VALID_HEURISTIC_MODES,
 )
 from shared.rule_updater import check_for_updates, download_and_apply
 
@@ -232,13 +234,15 @@ async def get_user_rules():
 
 @app.post("/api/user-rules")
 async def update_user_rules(request: Request):
-    """Update the user's rule exemptions (preserves custom_rules)."""
+    """Update the user's rule exemptions (preserves custom_rules and heuristic_overrides)."""
     try:
         body = await request.json()
-        # Preserve existing custom_rules when only exemptions are being saved
+        # Preserve existing custom_rules and heuristic_overrides when only exemptions are being saved
         existing = load_user_rules()
         if "custom_rules" not in body and "custom_rules" in existing:
             body["custom_rules"] = existing["custom_rules"]
+        if "heuristic_overrides" not in body and "heuristic_overrides" in existing:
+            body["heuristic_overrides"] = existing["heuristic_overrides"]
         save_user_rules(body)
         _trigger_enforcement()
         return JSONResponse({
@@ -391,6 +395,66 @@ async def remove_custom_rule(rule_id: str):
         "deleted": rule_id,
         "message": _get_enforcement_message()
     })
+
+
+# ---------------------------------------------------------------------------
+# Heuristic Overrides & Group Toggle
+# ---------------------------------------------------------------------------
+
+@app.get("/api/heuristic-overrides")
+async def get_heuristic_overrides_endpoint():
+    """Return the user's heuristic enforcement overrides."""
+    return JSONResponse({
+        "overrides": get_heuristic_overrides(),
+        "valid_modes": sorted(VALID_HEURISTIC_MODES),
+    })
+
+
+@app.post("/api/heuristic-overrides")
+async def save_heuristic_overrides_endpoint(request: Request):
+    """Save heuristic enforcement overrides.
+
+    Body: { "overrides": { "HEU-XXX-NNN": "disabled"|"alert"|"enforce", ... } }
+    """
+    try:
+        body = await request.json()
+        overrides = body.get("overrides", {})
+        if not isinstance(overrides, dict):
+            return JSONResponse({"error": "overrides must be a dict"}, status_code=400)
+        save_heuristic_overrides(overrides)
+        _trigger_enforcement()
+        return JSONResponse({
+            "status": "ok",
+            "count": len(overrides),
+            "message": _get_enforcement_message(),
+        })
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+
+
+@app.post("/api/group-toggle")
+async def group_toggle(request: Request):
+    """Toggle all heuristic rules in a subcategory to the same mode.
+
+    Body: { "rule_ids": ["HEU-GOG-001", ...], "mode": "alert" }
+    """
+    try:
+        body = await request.json()
+        rule_ids = body.get("rule_ids", [])
+        mode = body.get("mode", "")
+        if not rule_ids or not mode:
+            return JSONResponse({"error": "rule_ids and mode are required"}, status_code=400)
+        changed, err = set_group_heuristic_mode(rule_ids, mode)
+        if err:
+            return JSONResponse({"error": err}, status_code=400)
+        _trigger_enforcement()
+        return JSONResponse({
+            "status": "ok",
+            "changed": changed,
+            "message": _get_enforcement_message(),
+        })
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
 
 
 def _get_process_info(pid: int) -> dict | None:
