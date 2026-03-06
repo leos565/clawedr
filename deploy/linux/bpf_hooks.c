@@ -36,7 +36,8 @@ struct event_t {
   char comm[TASK_COMM_LEN];
   char filename[MAX_FILENAME_LEN];
   u8 action; // 0 = observed (enter), 1 = blocked (SIGKILL), 2 = post-exec
-             // (exit, for deny_rules), 3 = connect_attempt (userspace domain check)
+             // (exit, for deny_rules), 3 = connect_attempt (userspace domain
+             // check)
   u32 blocked_ip; // for connect events: IP in host byte order
 };
 
@@ -50,8 +51,11 @@ BPF_HASH(dangerous_sinks, u64, u8, 64);
 
 BPF_HASH(pipe_sources, u32, u64, 256);
 BPF_HASH(blocked_ips, u32, u8, 1024);
-/* Shell interpreters: only track when parent is tracked (agent-spawned shells) */
+/* Shell interpreters: only track when parent is tracked (agent-spawned shells)
+ */
 BPF_HASH(parent_tracked_bins, u64, u8, 16);
+/* OpenClaw gateway PIDs: never SIGKILL these (openat/statx log-only) */
+BPF_HASH(protected_pids, u32, u8, 16);
 
 BPF_PERF_OUTPUT(events);
 
@@ -60,6 +64,19 @@ static __always_inline u64 simple_hash(const char *s, int len) {
   for (int i = 0; i < len && i < MAX_FILENAME_LEN; i++) {
     char c = 0;
     bpf_probe_read_user(&c, 1, &s[i]);
+    if (c == 0)
+      break;
+    h = ((h << 5) + h) + (u64)c;
+  }
+  return h;
+}
+
+/* Hash path from kernel buffer (e.g. bpf_d_path output); must match djb2. */
+static __always_inline u64 hash_path_buf(const char *buf, int max_len) {
+  u64 h = 5381;
+  for (int i = 0; i < max_len && i < MAX_FILENAME_LEN; i++) {
+    char c = 0;
+    bpf_probe_read_kernel(&c, 1, &buf[i]);
     if (c == 0)
       break;
     h = ((h << 5) + h) + (u64)c;
@@ -106,7 +123,8 @@ TRACEPOINT_PROBE(syscalls, sys_enter_execve) {
     u8 one = 1;
     tracked_pids.update(&pid, &one);
   } else {
-    /* Shell interpreters: track only when parent is tracked (agent runs sh -c "curl ...") */
+    /* Shell interpreters: track only when parent is tracked (agent runs sh -c
+     * "curl ...") */
     u8 *is_parent_tracked_bin = parent_tracked_bins.lookup(&h);
     if (is_parent_tracked_bin) {
       u32 ppid = get_ppid();
@@ -196,7 +214,11 @@ TRACEPOINT_PROBE(syscalls, sys_exit_execve) {
   return 0;
 }
 
-/* ── openat: enforce blocked paths ── */
+/* ── openat: enforce blocked paths ──
+ * When CLAWEDR_USE_LSM: only log; LSM file_open blocks with -EPERM (keeps
+ * process alive). Otherwise: SIGKILL (kills process including OpenClaw when it
+ * reads directly).
+ */
 TRACEPOINT_PROBE(syscalls, sys_enter_openat) {
   u64 pid_tgid = bpf_get_current_pid_tgid();
   u32 pid = pid_tgid >> 32;
@@ -218,7 +240,14 @@ TRACEPOINT_PROBE(syscalls, sys_enter_openat) {
     bpf_probe_read_user_str(&evt.filename, sizeof(evt.filename), fname);
     evt.action = 1;
     events.perf_submit(args, &evt, sizeof(evt));
-    bpf_send_signal(SIGKILL);
+#ifdef CLAWEDR_USE_LSM
+    /* LSM file_open will block with -EPERM; don't kill (keeps OpenClaw intact)
+     */
+#else
+    /* Only SIGKILL subprocesses; protect OpenClaw gateway from being killed */
+    if (!protected_pids.lookup(&pid))
+      bpf_send_signal(SIGKILL);
+#endif
   }
 
   return 0;
@@ -246,24 +275,32 @@ TRACEPOINT_PROBE(syscalls, sys_enter_statx) {
     bpf_probe_read_user_str(&evt.filename, sizeof(evt.filename), fname);
     evt.action = 1;
     events.perf_submit(args, &evt, sizeof(evt));
-    bpf_send_signal(SIGKILL);
+    /* statx has no LSM equivalent; SIGKILL subprocesses but protect OpenClaw
+     * gateway */
+    if (!protected_pids.lookup(&pid))
+      bpf_send_signal(SIGKILL);
   }
 
   return 0;
 }
 
 /* Helper: check blocked IP and optionally kill (used by sendto tracepoint) */
-static __always_inline int _check_blocked_ip(void *ctx, u32 pid, u32 ip, int do_kill) {
+static __always_inline int _check_blocked_ip(void *ctx, u32 pid, u32 ip,
+                                             int do_kill) {
   u8 *is_blocked = blocked_ips.lookup(&ip);
   if (!is_blocked)
     return 0;
 
   char comm[TASK_COMM_LEN];
   bpf_get_current_comm(&comm, sizeof(comm));
-  /* Exempt sudo/systemctl: may connect to 8.8.8.8 for DNS; child processes (e.g. curl) still blocked */
-  if (comm[0] == 's' && comm[1] == 'u' && comm[2] == 'd' && comm[3] == 'o' && (comm[4] == '\0' || comm[4] == ' '))
+  /* Exempt sudo/systemctl: may connect to 8.8.8.8 for DNS; child processes
+   * (e.g. curl) still blocked */
+  if (comm[0] == 's' && comm[1] == 'u' && comm[2] == 'd' && comm[3] == 'o' &&
+      (comm[4] == '\0' || comm[4] == ' '))
     return 0;
-  if (comm[0] == 's' && comm[1] == 'y' && comm[2] == 's' && comm[3] == 't' && comm[4] == 'e' && comm[5] == 'm' && comm[6] == 'c' && comm[7] == 't' && comm[8] == 'l' && (comm[9] == '\0' || comm[9] == ' '))
+  if (comm[0] == 's' && comm[1] == 'y' && comm[2] == 's' && comm[3] == 't' &&
+      comm[4] == 'e' && comm[5] == 'm' && comm[6] == 'c' && comm[7] == 't' &&
+      comm[8] == 'l' && (comm[9] == '\0' || comm[9] == ' '))
     return 0;
 
   struct event_t evt = {};
@@ -286,7 +323,8 @@ static __always_inline int _check_blocked_ip(void *ctx, u32 pid, u32 ip, int do_
  * Tracepoints cannot prevent syscalls; LSM actually blocks the connect.
  * Requires CONFIG_BPF_LSM=y and lsm=...,bpf in kernel cmdline.
  */
-LSM_PROBE(socket_connect, struct socket *sock, struct sockaddr *address, int addrlen) {
+LSM_PROBE(socket_connect, struct socket *sock, struct sockaddr *address,
+          int addrlen) {
   u64 pid_tgid = bpf_get_current_pid_tgid();
   u32 pid = pid_tgid >> 32;
 
@@ -311,9 +349,12 @@ LSM_PROBE(socket_connect, struct socket *sock, struct sockaddr *address, int add
 
   char comm[TASK_COMM_LEN];
   bpf_get_current_comm(&comm, sizeof(comm));
-  if (comm[0] == 's' && comm[1] == 'u' && comm[2] == 'd' && comm[3] == 'o' && (comm[4] == '\0' || comm[4] == ' '))
+  if (comm[0] == 's' && comm[1] == 'u' && comm[2] == 'd' && comm[3] == 'o' &&
+      (comm[4] == '\0' || comm[4] == ' '))
     return 0;
-  if (comm[0] == 's' && comm[1] == 'y' && comm[2] == 's' && comm[3] == 't' && comm[4] == 'e' && comm[5] == 'm' && comm[6] == 'c' && comm[7] == 't' && comm[8] == 'l' && (comm[9] == '\0' || comm[9] == ' '))
+  if (comm[0] == 's' && comm[1] == 'y' && comm[2] == 's' && comm[3] == 't' &&
+      comm[4] == 'e' && comm[5] == 'm' && comm[6] == 'c' && comm[7] == 't' &&
+      comm[8] == 'l' && (comm[9] == '\0' || comm[9] == ' '))
     return 0;
 
   struct event_t evt = {};
@@ -349,7 +390,8 @@ TRACEPOINT_PROBE(syscalls, sys_enter_connect) {
                         (void *)addr + 4); /* sin_addr in sockaddr_in */
 
 #ifdef CLAWEDR_USE_LSM
-    /* LSM does blocking; we only emit CONNECT_ATTEMPT for non-blocked IPs (domain check) */
+    /* LSM does blocking; we only emit CONNECT_ATTEMPT for non-blocked IPs
+     * (domain check) */
     u8 *is_blocked = blocked_ips.lookup(&ip);
     if (!is_blocked) {
 #else

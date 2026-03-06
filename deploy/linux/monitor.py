@@ -80,7 +80,8 @@ PATH_PREFIXES = ("/usr/bin/", "/usr/sbin/", "/bin/", "/sbin/", "/usr/local/bin/"
 
 def _djb2_hash(s: str) -> int:
     h = 5381
-    for c in s.encode():
+    # Cap at 256 chars to match BPF simple_hash MAX_FILENAME_LEN
+    for c in s.encode()[:256]:
         h = ((h << 5) + h) + c
         h &= 0xFFFFFFFFFFFFFFFF
     return h
@@ -618,6 +619,58 @@ def bootstrap_tracked_pids(target_paths: list[str], quiet: bool = False) -> None
         logger.info("Bootstrap complete — %d PIDs seeded into tracked_pids", seeded)
 
 
+def populate_protected_pids(target_paths: list[str]) -> None:
+    """Mark OpenClaw gateway PIDs as protected — openat/statx will log but not SIGKILL them.
+
+    This prevents a blocked path access from killing the OpenClaw process itself.
+    Only subprocesses (which are not in protected_pids) get SIGKILLed.
+    """
+    if _bpf_instance is None:
+        return
+
+    real_paths = set()
+    for p in target_paths:
+        try:
+            real_paths.add(os.path.realpath(p))
+        except OSError:
+            real_paths.add(p)
+
+    protected_map = _bpf_instance["protected_pids"]
+    protected_map.clear()
+    count = 0
+
+    for entry in os.listdir("/proc"):
+        if not entry.isdigit():
+            continue
+        pid = int(entry)
+        exe = _read_exe(pid)
+        if exe is None:
+            continue
+
+        try:
+            exe_real = os.path.realpath(exe)
+        except OSError:
+            exe_real = exe
+
+        # Match OpenClaw gateway/agent processes (not their children)
+        if exe_real in real_paths or exe in real_paths:
+            protected_map[ctypes.c_uint32(pid)] = ctypes.c_uint8(1)
+            count += 1
+            continue
+
+        # Fallback: cmdline match for node-based gateway
+        cmdline = _read_cmdline(pid)
+        is_openclaw_cmdline = (
+            "openclaw" in cmdline or "openclaw.mjs" in cmdline or "openclaw-gateway" in cmdline
+        )
+        is_node_or_openclaw_exe = "node" in exe or "openclaw" in exe
+        if is_openclaw_cmdline and is_node_or_openclaw_exe:
+            protected_map[ctypes.c_uint32(pid)] = ctypes.c_uint8(1)
+            count += 1
+
+    logger.debug("Protected %d OpenClaw PIDs against openat/statx SIGKILL", count)
+
+
 # ---------------------------------------------------------------------------
 # Policy loading — blocked executables
 # ---------------------------------------------------------------------------
@@ -977,6 +1030,7 @@ def watch_and_reload(path: str, interval: int = POLL_INTERVAL) -> None:
             try:
                 target_paths = _resolve_openclaw_paths()
                 bootstrap_tracked_pids(target_paths, quiet=True)
+                populate_protected_pids(target_paths)
             except Exception:
                 logger.exception("Periodic bootstrap failed")
             next_bootstrap = now + BOOTSTRAP_INTERVAL
@@ -1077,6 +1131,7 @@ def main() -> int:
     populate_target_bins(target_paths)
     populate_parent_tracked_bins()
     bootstrap_tracked_pids(target_paths)
+    populate_protected_pids(target_paths)
 
     policy = load_policy(POLICY_PATH)
     apply_policy(policy)
