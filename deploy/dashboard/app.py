@@ -37,6 +37,7 @@ from shared.user_rules import (
     get_custom_rules, get_custom_rule_metadata, CUSTOM_RULE_TYPES,
     load_settings, save_settings,
     get_heuristic_overrides, save_heuristic_overrides, set_group_heuristic_mode,
+    get_rule_mode_overrides, save_rule_mode_overrides,
     VALID_HEURISTIC_MODES,
 )
 from shared.rule_updater import check_for_updates, download_and_apply
@@ -64,7 +65,7 @@ BLOCK_LOG_PATHS = [
 _BLOCK_LINE_RE = re.compile(
     r"(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}[,.]?\d*)\s+"
     r"WARNING\s+\[[\w.]+\]\s+"
-    r"(?:BLOCKED|WARNING)\s+\[([A-Z0-9_-]+)\]\s+(.*)"
+    r"(BLOCKED|ALERT|WARNING)\s+\[([A-Z0-9_-]+)\]\s+(.*)"
 )
 
 
@@ -117,10 +118,12 @@ def _parse_log_lines(max_lines: int = 1000) -> list[dict]:
             for line in lines[-max_lines:]:
                 m = _BLOCK_LINE_RE.search(line)
                 if m:
+                    kind = m.group(2).upper()  # BLOCKED, ALERT, WARNING
                     alerts.append({
                         "timestamp": m.group(1),
-                        "rule_id": m.group(2),
-                        "details": m.group(3).strip(),
+                        "rule_id": m.group(3),
+                        "details": m.group(4).strip(),
+                        "blocked": kind != "ALERT",
                     })
         except (PermissionError, OSError):
             continue
@@ -237,12 +240,23 @@ async def update_user_rules(request: Request):
     """Update the user's rule exemptions (preserves custom_rules and heuristic_overrides)."""
     try:
         body = await request.json()
-        # Preserve existing custom_rules and heuristic_overrides when only exemptions are being saved
+        # Preserve existing when not in body
         existing = load_user_rules()
         if "custom_rules" not in body and "custom_rules" in existing:
             body["custom_rules"] = existing["custom_rules"]
         if "heuristic_overrides" not in body and "heuristic_overrides" in existing:
             body["heuristic_overrides"] = existing["heuristic_overrides"]
+        if "rule_mode_overrides" not in body and "rule_mode_overrides" in existing:
+            body["rule_mode_overrides"] = existing["rule_mode_overrides"]
+        # Sync exempted_rule_ids from rule_mode_overrides (disabled = exempted)
+        if "rule_mode_overrides" in body and isinstance(body["rule_mode_overrides"], dict):
+            exempted = set(existing.get("exempted_rule_ids", []))
+            for rid, m in body["rule_mode_overrides"].items():
+                if m == "disabled":
+                    exempted.add(rid)
+                else:
+                    exempted.discard(rid)
+            body["exempted_rule_ids"] = list(exempted)
         save_user_rules(body)
         _trigger_enforcement()
         return JSONResponse({

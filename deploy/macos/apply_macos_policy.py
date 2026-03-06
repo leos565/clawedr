@@ -25,7 +25,7 @@ from pathlib import Path
 
 # Add parent directory to path so we can import shared modules
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from shared.user_rules import get_exempted_rule_ids, get_custom_rules
+from shared.user_rules import get_exempted_rule_ids, get_custom_rules, get_rule_mode
 
 logger = logging.getLogger("clawedr.apply_macos_policy")
 
@@ -48,17 +48,20 @@ _MACOS_BIN_PREFIXES = [
 def generate_seatbelt(policy: dict, exempted: set[str]) -> str:
     """Generate a macOS Seatbelt (.sb) LISP profile from the universal policy.
 
-    Rules whose ID is in `exempted` are skipped entirely.
+    Rules with mode disabled or alert are skipped; only enforce rules are added.
     """
     lines = [_SB_HEADER]
+
+    def should_enforce(rule_id: str) -> bool:
+        return get_rule_mode(rule_id) == "enforce"
 
     # ── Blocked paths ──
     blocked_paths = policy.get("blocked_paths", {}).get("macos", {})
     if blocked_paths:
         lines.append(";;; --- Blocked paths ---")
         for rule_id, path in blocked_paths.items():
-            if rule_id in exempted:
-                lines.append(f";;; [{rule_id}] EXEMPTED by user: {path}")
+            if not should_enforce(rule_id):
+                lines.append(f";;; [{rule_id}] {get_rule_mode(rule_id)}: {path}")
                 continue
             sb_path = path.replace("~", "/Users/*")
             lines.append(f";;; [{rule_id}]")
@@ -75,8 +78,8 @@ def generate_seatbelt(policy: dict, exempted: set[str]) -> str:
     if execs:
         lines.append(";;; --- Blocked executables ---")
         for rule_id, name in execs.items():
-            if rule_id in exempted:
-                lines.append(f";;; [{rule_id}] EXEMPTED by user: {name}")
+            if not should_enforce(rule_id):
+                lines.append(f";;; [{rule_id}] {get_rule_mode(rule_id)}: {name}")
                 continue
             lines.append(f";;; [{rule_id}]")
             if "/" in name:
@@ -92,8 +95,8 @@ def generate_seatbelt(policy: dict, exempted: set[str]) -> str:
     if custom_rules:
         lines.append(";;; --- Custom deny rules ---")
         for rule_id, custom in custom_rules.items():
-            if rule_id in exempted:
-                lines.append(f";;; [{rule_id}] EXEMPTED by user")
+            if not should_enforce(rule_id):
+                lines.append(f";;; [{rule_id}] {get_rule_mode(rule_id)}")
                 continue
             if isinstance(custom, str):
                 lines.append(f";;; [{rule_id}]")
@@ -158,6 +161,8 @@ def main() -> int:
             plat = rule.get("platform", "both")
             if plat not in ("both", "macos"):
                 continue  # Skip Linux-only custom rules on macOS
+            if get_rule_mode(rid) == "disabled":
+                continue  # Skip disabled custom rules
 
             if rtype == "executable":
                 policy.setdefault("blocked_executables", {})[rid] = val

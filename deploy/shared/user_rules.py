@@ -15,6 +15,11 @@ Schema:
       HEU-GOG-001: enforce
       HEU-NET-001: alert
       HEU-FS-002: disabled
+    rule_mode_overrides:
+      BIN-001: alert
+      DOM-001: enforce
+      USR-BIN-001: disabled
+      # Applies to security + custom rules. disabled|alert|enforce.
     custom_rules:
       - id: USR-BIN-001
         type: executable
@@ -147,9 +152,14 @@ def load_user_rules() -> dict[str, Any]:
 
 
 def get_exempted_rule_ids() -> set[str]:
-    """Return the set of Rule IDs the user has exempted."""
+    """Return the set of Rule IDs the user has exempted (disabled)."""
     rules = load_user_rules()
-    return set(rules.get("exempted_rule_ids", []))
+    exempted = set(rules.get("exempted_rule_ids", []))
+    # Include rules with mode=disabled from rule_mode_overrides
+    overrides = rules.get("rule_mode_overrides", {})
+    if isinstance(overrides, dict):
+        exempted.update(rid for rid, m in overrides.items() if m == "disabled")
+    return exempted
 
 
 def get_custom_rules() -> list[dict[str, Any]]:
@@ -180,6 +190,45 @@ def save_heuristic_overrides(overrides: dict[str, str]) -> None:
     rules["heuristic_overrides"] = clean
     save_user_rules(rules)
     logger.info("Saved %d heuristic overrides", len(clean))
+
+
+def get_rule_mode_overrides() -> dict[str, str]:
+    """Return rule mode overrides for security + custom rules: { rule_id: 'disabled'|'alert'|'enforce' }."""
+    rules = load_user_rules()
+    overrides = rules.get("rule_mode_overrides", {})
+    if not isinstance(overrides, dict):
+        return {}
+    return {k: v for k, v in overrides.items() if v in VALID_HEURISTIC_MODES}
+
+
+def save_rule_mode_overrides(overrides: dict[str, str]) -> None:
+    """Save rule mode overrides for security + custom rules."""
+    clean = {k: v for k, v in overrides.items() if v in VALID_HEURISTIC_MODES}
+    rules = load_user_rules()
+    rules["rule_mode_overrides"] = clean
+    # Sync exempted_rule_ids: disabled = exempted, alert/enforce = not exempted
+    exempted = set(rules.get("exempted_rule_ids", []))
+    for rid, m in clean.items():
+        if m == "disabled":
+            exempted.add(rid)
+        else:
+            exempted.discard(rid)
+    rules["exempted_rule_ids"] = list(exempted)
+    save_user_rules(rules)
+    logger.info("Saved %d rule mode overrides", len(clean))
+
+
+def get_rule_mode(rule_id: str) -> str:
+    """Return effective mode for a rule: disabled|alert|enforce.
+    For HEU-* rules uses heuristic_overrides; for others uses rule_mode_overrides + exempted_rule_ids."""
+    if rule_id.startswith("HEU-"):
+        overrides = get_heuristic_overrides()
+        return overrides.get(rule_id, "enforce")
+    exempted = get_exempted_rule_ids()
+    if rule_id in exempted:
+        return "disabled"
+    overrides = get_rule_mode_overrides()
+    return overrides.get(rule_id, "enforce")
 
 
 def set_group_heuristic_mode(

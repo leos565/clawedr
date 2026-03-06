@@ -41,7 +41,8 @@ struct event_t {
   char filename[MAX_FILENAME_LEN];
   u8 action; // 0 = observed (enter), 1 = blocked (SIGKILL), 2 = post-exec
              // (exit, for deny_rules), 3 = connect_attempt (userspace domain
-             // check), 4 = heuristic_alert, 5 = heuristic_block
+             // check), 4 = heuristic_alert, 5 = heuristic_block,
+             // 6 = security_alert (match but no kill)
   u32 blocked_ip; // for connect events: IP in host byte order
   u16 heu_slot;  // for heuristic events: slot index for rule_id lookup
 };
@@ -238,12 +239,13 @@ TRACEPOINT_PROBE(syscalls, sys_enter_execve) {
   bpf_get_current_comm(&evt.comm, sizeof(evt.comm));
   bpf_probe_read_user_str(&evt.filename, sizeof(evt.filename), fname);
 
-  /* Layer 1: blocked executable */
-  u8 *is_blocked = blocked_hashes.lookup(&h);
-  if (is_blocked) {
-    evt.action = 1;
+  /* Layer 1: blocked executable — value 1=alert, 2=enforce */
+  u8 *mode = blocked_hashes.lookup(&h);
+  if (mode) {
+    evt.action = (*mode == 2) ? 1 : 6;
     events.perf_submit(args, &evt, sizeof(evt));
-    bpf_send_signal(SIGKILL);
+    if (*mode == 2)
+      bpf_send_signal(SIGKILL);
     return 0;
   }
 
@@ -373,22 +375,22 @@ TRACEPOINT_PROBE(syscalls, sys_enter_openat) {
   const char *fname = args->filename;
   u64 h = simple_hash(fname, MAX_FILENAME_LEN);
 
-  u8 *is_blocked = blocked_path_hashes.lookup(&h);
-  if (is_blocked) {
+  u8 *mode = blocked_path_hashes.lookup(&h);
+  if (mode) {
     struct event_t evt = {};
     evt.pid = pid;
     evt.ns_pid = get_ns_pid();
     evt.uid = bpf_get_current_uid_gid() & 0xFFFFFFFF;
     bpf_get_current_comm(&evt.comm, sizeof(evt.comm));
     bpf_probe_read_user_str(&evt.filename, sizeof(evt.filename), fname);
-    evt.action = 1;
+    evt.action = (*mode == 2) ? 1 : 6;
     events.perf_submit(args, &evt, sizeof(evt));
 #ifdef CLAWEDR_USE_LSM
-    /* LSM file_open will block with -EPERM; don't kill (keeps OpenClaw intact)
-     */
+    if (*mode == 2)
+      /* LSM file_open will block with -EPERM; don't kill (keeps OpenClaw intact) */
+      ;
 #else
-    /* Only SIGKILL subprocesses; protect OpenClaw gateway from being killed */
-    if (!protected_pids.lookup(&pid))
+    if (*mode == 2 && !protected_pids.lookup(&pid))
       bpf_send_signal(SIGKILL);
 #endif
   }
@@ -408,36 +410,31 @@ TRACEPOINT_PROBE(syscalls, sys_enter_statx) {
   const char *fname = (const char *)args->filename;
   u64 h = simple_hash(fname, MAX_FILENAME_LEN);
 
-  u8 *is_blocked = blocked_path_hashes.lookup(&h);
-  if (is_blocked) {
+  u8 *mode = blocked_path_hashes.lookup(&h);
+  if (mode) {
     struct event_t evt = {};
     evt.pid = pid;
     evt.ns_pid = get_ns_pid();
     evt.uid = bpf_get_current_uid_gid() & 0xFFFFFFFF;
     bpf_get_current_comm(&evt.comm, sizeof(evt.comm));
     bpf_probe_read_user_str(&evt.filename, sizeof(evt.filename), fname);
-    evt.action = 1;
+    evt.action = (*mode == 2) ? 1 : 6;
     events.perf_submit(args, &evt, sizeof(evt));
-    /* statx has no LSM equivalent; SIGKILL subprocesses but protect OpenClaw
-     * gateway */
-    if (!protected_pids.lookup(&pid))
+    if (*mode == 2 && !protected_pids.lookup(&pid))
       bpf_send_signal(SIGKILL);
   }
 
   return 0;
 }
 
-/* Helper: check blocked IP and optionally kill (used by sendto tracepoint) */
-static __always_inline int _check_blocked_ip(void *ctx, u32 pid, u32 ip,
-                                             int do_kill) {
-  u8 *is_blocked = blocked_ips.lookup(&ip);
-  if (!is_blocked)
+/* Helper: check blocked IP — value 1=alert, 2=enforce */
+static __always_inline int _check_blocked_ip(void *ctx, u32 pid, u32 ip) {
+  u8 *mode = blocked_ips.lookup(&ip);
+  if (!mode)
     return 0;
 
   char comm[TASK_COMM_LEN];
   bpf_get_current_comm(&comm, sizeof(comm));
-  /* Exempt sudo/systemctl: may connect to 8.8.8.8 for DNS; child processes
-   * (e.g. curl) still blocked */
   if (comm[0] == 's' && comm[1] == 'u' && comm[2] == 'd' && comm[3] == 'o' &&
       (comm[4] == '\0' || comm[4] == ' '))
     return 0;
@@ -454,9 +451,9 @@ static __always_inline int _check_blocked_ip(void *ctx, u32 pid, u32 ip,
   evt.blocked_ip = ip;
   const char msg[] = "NETWORK_CONNECT";
   __builtin_memcpy((void *)evt.filename, msg, sizeof(msg));
-  evt.action = 1;
+  evt.action = (*mode == 2) ? 1 : 6;
   events.perf_submit(ctx, &evt, sizeof(evt));
-  if (do_kill)
+  if (*mode == 2)
     bpf_send_signal(SIGKILL);
   return 1;
 }
@@ -486,8 +483,8 @@ LSM_PROBE(socket_connect, struct socket *sock, struct sockaddr *address,
   u32 ip = 0;
   bpf_probe_read_kernel(&ip, sizeof(ip), (void *)address + 4);
 
-  u8 *is_blocked = blocked_ips.lookup(&ip);
-  if (!is_blocked)
+  u8 *mode = blocked_ips.lookup(&ip);
+  if (!mode)
     return 0;
 
   char comm[TASK_COMM_LEN];
@@ -508,9 +505,11 @@ LSM_PROBE(socket_connect, struct socket *sock, struct sockaddr *address,
   evt.blocked_ip = ip;
   const char msg[] = "NETWORK_CONNECT";
   __builtin_memcpy((void *)evt.filename, msg, sizeof(msg));
-  evt.action = 1;
+  evt.action = (*mode == 2) ? 1 : 6;
   events.perf_submit(sock, &evt, sizeof(evt));
-  return -1; /* -EPERM */
+  if (*mode == 2)
+    return -1; /* -EPERM */
+  return 0;
 }
 #endif
 
@@ -539,7 +538,7 @@ TRACEPOINT_PROBE(syscalls, sys_enter_connect) {
     if (!is_blocked) {
 #else
     /* Fallback: tracepoint + SIGKILL when LSM unavailable */
-    if (_check_blocked_ip(args, pid, ip, 1))
+    if (_check_blocked_ip(args, pid, ip))
       return 0;
     {
 #endif
@@ -584,7 +583,7 @@ TRACEPOINT_PROBE(syscalls, sys_enter_sendto) {
   if (family == 2) { /* AF_INET */
     u32 ip = 0;
     bpf_probe_read_user(&ip, sizeof(ip), (void *)addr + 4);
-    _check_blocked_ip(args, pid, ip, 1);
+    _check_blocked_ip(args, pid, ip);
   }
 
   return 0;

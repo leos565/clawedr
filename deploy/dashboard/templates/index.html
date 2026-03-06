@@ -1901,6 +1901,7 @@
         }
 
         function isMonitoredAlert(a) {
+            if (a.blocked === false) return true;
             const d = (a.details || '').toLowerCase();
             return d.includes('monitored') || d.includes('observed') || d.includes('action=allow');
         }
@@ -1953,13 +1954,16 @@
                 const d = await fetchJSON('/api/user-rules');
                 exemptedIds = new Set(d.rules.exempted_rule_ids || []);
                 heuristicOverrides = d.rules.heuristic_overrides || {};
+                ruleModeOverrides = d.rules.rule_mode_overrides || {};
                 pendingExemptions = null;
                 pendingHeuristics = null;
+                pendingRuleModes = null;
                 renderRules();
             }
             catch {
                 exemptedIds = new Set();
                 heuristicOverrides = {};
+                ruleModeOverrides = {};
             }
         }
 
@@ -2016,7 +2020,8 @@
                 const platLabel = plat === 'both' ? '' : '(' + plat + ')';
                 const sev = r.severity ? `<span class="rule-tag severity-${r.severity.toLowerCase()}">${esc(r.severity)}</span>` : '';
                 const desc = r.description ? `<div style="font-size:12px;color:var(--text-muted);margin-top:4px;width:100%;">${esc(r.description)}</div>` : '';
-                html += `<div class="rule-item">
+                const mode = (pendingRuleModes ?? ruleModeOverrides)[r.id] || (exemptedIds.has(r.id) ? 'disabled' : 'enforce');
+                html += `<div class="rule-item" style="${mode === 'disabled' ? 'opacity:0.5;' : ''}">
           <div class="rule-info" style="flex-wrap:wrap;">
             <span class="rule-tag custom">${r.id}</span>
             <span style="font-size:16px;flex-shrink:0;">${typeIcons[r.type] || '📌'}</span>
@@ -2025,7 +2030,8 @@
             <span style="font-size:11px;color:var(--text-muted);flex-shrink:0;">${r.type} ${platLabel}</span>
             ${desc}
           </div>
-          <div class="rule-actions">
+          <div class="rule-actions" style="display:flex; align-items:center; gap:8px;">
+            <div class="tri-toggle mode-${mode}"><div class="tri-slider"></div><div class="tri-btn" data-val="disabled" onclick="toggleRuleMode('${r.id}', 'disabled')">🚫 Off</div><div class="tri-btn" data-val="alert" onclick="toggleRuleMode('${r.id}', 'alert')">👀 Alert</div><div class="tri-btn" data-val="enforce" onclick="toggleRuleMode('${r.id}', 'enforce')">🛡️ Enforce</div></div>
             <button class="btn btn-ghost btn-sm" onclick="editCustomRule('${r.id}')">Edit</button>
             <button class="btn btn-danger btn-sm" onclick="deleteCustomRule('${r.id}')">Delete</button>
           </div>
@@ -2036,6 +2042,8 @@
 
         // ── Render System Rules ──
         let activeRuleCategory = 'security';
+        let ruleModeOverrides = {};
+        let pendingRuleModes = null;
         function setRuleCategory(cat) {
             activeRuleCategory = cat;
             document.getElementById('btnCatSecurity').style.background = cat === 'security' ? 'var(--accent)' : 'transparent';
@@ -2045,10 +2053,17 @@
             renderRules();
         }
 
+        function getSecurityRuleMode(r) {
+            const cur = pendingRuleModes ?? ruleModeOverrides;
+            if (cur[r.id]) return cur[r.id];
+            return exemptedIds.has(r.id) ? 'disabled' : 'enforce';
+        }
+
         function renderRules() {
             const c = document.getElementById('rulesContainer');
-            const curExempts = pendingExemptions || exemptedIds;
-            const curHeuristics = pendingHeuristics || heuristicOverrides;
+            const curExempts = pendingExemptions ?? exemptedIds;
+            const curHeuristics = pendingHeuristics ?? heuristicOverrides;
+            const curRuleModes = pendingRuleModes ?? ruleModeOverrides;
             const q = (document.getElementById('ruleSearch')?.value || '').toLowerCase();
 
             const visible = allRuleItems.filter(r => {
@@ -2056,7 +2071,11 @@
                 return shouldShowRule(r);
             });
 
-            document.getElementById('exemptionCount').textContent = `${curExempts.size} exempted`;
+            const exemptCount = [...visible].filter(r => {
+                const m = activeRuleCategory === 'security' ? getSecurityRuleMode(r) : (curHeuristics[r.id] || r.defaultAction || 'alert');
+                return m === 'disabled';
+            }).length;
+            document.getElementById('exemptionCount').textContent = `${exemptCount} off`;
 
             if (!visible.length) {
                 c.innerHTML = '<div class="empty-state"><p>No rules match your search for this category.</p></div>';
@@ -2073,18 +2092,17 @@
             let html = '';
             for (const [cat, items] of Object.entries(groups)) {
                 if (activeRuleCategory === 'security') {
-                    const ec = items.filter(r => curExempts.has(r.id)).length;
-                    html += `<div class="rule-group"><div class="rule-group-title">${ec ? `${cat} (${items.length}) · ${ec} exempted` : `${cat} (${items.length})`}</div>`;
+                    html += `<div class="rule-group"><div class="rule-group-title">${cat} (${items.length})</div>`;
                     for (const r of items) {
-                        const ex = curExempts.has(r.id);
+                        const mode = getSecurityRuleMode(r);
                         const typeBadge = ruleTypeBadge(r.id);
-                        html += `<div class="rule-item" style="${ex ? 'opacity:0.5;' : ''}"><div class="rule-info">${typeBadge}<span class="rule-tag ${ex ? 'exempted' : ''}">${r.id}</span><span class="rule-value" title="${esc(r.val)}">${esc(r.val)}</span></div><label class="toggle"><input type="checkbox" ${ex ? '' : 'checked'} onchange="toggleExemption('${r.id}',this.checked)"><span class="toggle-slider"></span></label></div>`;
+                        html += `<div class="rule-item" style="${mode === 'disabled' ? 'opacity:0.5;' : ''}"><div class="rule-info">${typeBadge}<span class="rule-tag ${mode === 'disabled' ? 'exempted' : ''}">${r.id}</span><span class="rule-value" title="${esc(r.val)}">${esc(r.val)}</span></div><div class="rule-actions" style="min-width:100px;"><div class="tri-toggle mode-${mode}"><div class="tri-slider"></div><div class="tri-btn" data-val="disabled" onclick="toggleRuleMode('${r.id}', 'disabled')">🚫 Off</div><div class="tri-btn" data-val="alert" onclick="toggleRuleMode('${r.id}', 'alert')">👀 Alert</div><div class="tri-btn" data-val="enforce" onclick="toggleRuleMode('${r.id}', 'enforce')">🛡️ Enforce</div></div></div></div>`;
                     }
                     html += '</div>';
                 } else {
                     // Heuristics
                     const rids = items.map(r => r.id).join(',');
-                    html += `<details class="rule-group-details" open style="padding-bottom:12px; margin-bottom: 8px;">
+                    html += `<details class="rule-group-details" style="padding-bottom:12px; margin-bottom: 8px;">
                         <summary class="rule-group-title" style="display:flex; justify-content:space-between; align-items:center;">
                             <span><span class="group-arrow">▶</span>${cat} (${items.length})</span>
                             <div style="display:flex; gap:8px; align-items:center; font-size:12px; font-weight:normal;">
@@ -2141,6 +2159,20 @@
             renderRules();
         }
 
+        function toggleRuleMode(id, mode) {
+            if (!pendingRuleModes) pendingRuleModes = { ...ruleModeOverrides };
+            pendingRuleModes[id] = mode;
+            if (mode === 'disabled') {
+                if (!pendingExemptions) pendingExemptions = new Set(exemptedIds);
+                pendingExemptions.add(id);
+            } else {
+                if (!pendingExemptions) pendingExemptions = new Set(exemptedIds);
+                pendingExemptions.delete(id);
+            }
+            document.getElementById('saveBanner').classList.add('visible');
+            renderRules();
+        }
+
         function toggleHeuristic(id, mode) {
             if (!pendingHeuristics) pendingHeuristics = { ...heuristicOverrides };
             pendingHeuristics[id] = mode;
@@ -2161,15 +2193,24 @@
 
         async function saveExemptions() {
             try {
+                const body = {};
                 if (pendingExemptions) {
-                    await fetch('/api/user-rules', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ exempted_rule_ids: Array.from(pendingExemptions) }) });
+                    body.exempted_rule_ids = Array.from(pendingExemptions);
                     exemptedIds = new Set(pendingExemptions);
                     pendingExemptions = null;
                 }
+                if (pendingRuleModes) {
+                    body.rule_mode_overrides = { ...ruleModeOverrides, ...pendingRuleModes };
+                    ruleModeOverrides = body.rule_mode_overrides;
+                    pendingRuleModes = null;
+                }
                 if (pendingHeuristics) {
-                    await fetch('/api/heuristic-overrides', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ overrides: pendingHeuristics }) });
-                    heuristicOverrides = { ...pendingHeuristics };
+                    body.heuristic_overrides = { ...heuristicOverrides, ...pendingHeuristics };
+                    heuristicOverrides = body.heuristic_overrides;
                     pendingHeuristics = null;
+                }
+                if (Object.keys(body).length) {
+                    await fetch('/api/user-rules', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
                 }
                 document.getElementById('saveBanner').classList.remove('visible');
                 renderRules();
@@ -2180,6 +2221,7 @@
         function cancelExemptions() {
             pendingExemptions = null;
             pendingHeuristics = null;
+            pendingRuleModes = null;
             document.getElementById('saveBanner').classList.remove('visible');
             renderRules();
         }
@@ -2190,10 +2232,7 @@
                 toggleHeuristic(id, 'disabled');
             } else {
                 setRuleCategory('security');
-                if (!pendingExemptions) pendingExemptions = new Set(exemptedIds);
-                pendingExemptions.add(id);
-                document.getElementById('saveBanner').classList.add('visible');
-                renderRules();
+                toggleRuleMode(id, 'disabled');
             }
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));

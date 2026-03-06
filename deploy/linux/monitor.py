@@ -48,7 +48,7 @@ _script_dir = os.path.dirname(os.path.abspath(__file__))
 _parent = os.path.dirname(_script_dir)
 sys.path.insert(0, _parent)
 sys.path.insert(0, _script_dir)
-from shared.user_rules import get_exempted_rule_ids, get_custom_rules, get_heuristic_overrides, USER_RULES_PATH
+from shared.user_rules import get_exempted_rule_ids, get_custom_rules, get_heuristic_overrides, get_rule_mode, USER_RULES_PATH
 from shared.alert_dispatcher import dispatch_alert_async
 
 logger = logging.getLogger("clawedr.monitor")
@@ -311,7 +311,7 @@ def load_bpf(source_path: str):
         filename = event.filename.decode(errors="replace")
         ns_pid = event.ns_pid if event.ns_pid else event.pid
         if event.action == 1 and filename == "NETWORK_CONNECT":
-            # This is blocked_ips via sys_enter_connect
+            # Blocked IP (enforce)
             ip_int = getattr(event, "blocked_ip", 0)
             ip_str = _ip_int_to_str(ip_int) if ip_int else "0.0.0.0"
             rule_id = _ip_to_rule_id.get(ip_str, "IP-005")
@@ -326,13 +326,43 @@ def load_bpf(source_path: str):
                 pid=ns_pid,
                 comm=comm,
             )
+        elif event.action == 6 and filename == "NETWORK_CONNECT":
+            # Blocked IP (alert-only)
+            ip_int = getattr(event, "blocked_ip", 0)
+            ip_str = _ip_int_to_str(ip_int) if ip_int else "0.0.0.0"
+            rule_id = _ip_to_rule_id.get(ip_str, "IP-005")
+            block_logger.warning(
+                "ALERT [%s] action=network-connect pid=%d comm=%s target=%s",
+                rule_id, ns_pid, comm, ip_str,
+            )
+            dispatch_alert_async(
+                rule_id=rule_id,
+                action="network-connect",
+                target=ip_str,
+                pid=ns_pid,
+                comm=comm,
+            )
+        elif event.action == 6:
+            # Security rule alert-only (execve, openat, statx)
+            rule_id = _find_rule_id_for_block(filename)
+            block_logger.warning(
+                "ALERT [%s] pid=%d uid=%d comm=%s file=%s",
+                rule_id, ns_pid, event.uid, comm, filename,
+            )
+            dispatch_alert_async(
+                rule_id=rule_id,
+                action="observed",
+                target=filename,
+                pid=ns_pid,
+                comm=comm,
+            )
         elif event.action == 3 and filename == "CONNECT_ATTEMPT":
             # Connect not in blocked_ips: check cmdline for blocked domains (argv-based)
             ip_int = getattr(event, "blocked_ip", 0)
             ip_str = _ip_int_to_str(ip_int) if ip_int else "0.0.0.0"
             _check_connect_domain_rules(ns_pid, comm, ip_str)
         elif event.action == 1:
-            # Blocked by BPF — find the matching rule ID
+            # Blocked by BPF (enforce) — find the matching rule ID
             rule_id = _find_rule_id_for_block(filename)
             block_logger.warning(
                 "BLOCKED [%s] pid=%d uid=%d comm=%s file=%s",
@@ -427,9 +457,11 @@ def _check_malicious_hashes(pid: int, comm: str, filename: str) -> str | None:
         
     for rule_id, target_hash in _malicious_hashes.items():
         if file_hash == target_hash:
+            mode = get_rule_mode(rule_id)
+            log_msg = "BLOCKED" if mode == "enforce" else "ALERT"
             block_logger.warning(
-                "BLOCKED [%s] (malicious_hash=%s) pid=%d comm=%s",
-                rule_id, target_hash, pid, comm,
+                "%s [%s] (malicious_hash=%s) pid=%d comm=%s",
+                log_msg, rule_id, target_hash, pid, comm,
             )
             dispatch_alert_async(
                 rule_id=rule_id,
@@ -438,10 +470,11 @@ def _check_malicious_hashes(pid: int, comm: str, filename: str) -> str | None:
                 pid=pid,
                 comm=comm,
             )
-            try:
-                os.kill(pid, 9)
-            except OSError:
-                pass
+            if mode == "enforce":
+                try:
+                    os.kill(pid, 9)
+                except OSError:
+                    pass
             return rule_id
             
     return None
@@ -471,9 +504,11 @@ def _check_connect_domain_rules(pid: int, comm: str, ip_str: str) -> str | None:
 
     for rule_id, domain in _blocked_domains.items():
         if domain in cmdline:
+            mode = get_rule_mode(rule_id)
+            log_msg = "BLOCKED" if mode == "enforce" else "ALERT"
             block_logger.warning(
-                "BLOCKED [%s] (domain=connect) pid=%d comm=%s target=%s cmdline=%s",
-                rule_id, pid, comm, ip_str, cmdline[:150],
+                "%s [%s] (domain=connect) pid=%d comm=%s target=%s cmdline=%s",
+                log_msg, rule_id, pid, comm, ip_str, cmdline[:150],
             )
             dispatch_alert_async(
                 rule_id=rule_id,
@@ -482,10 +517,11 @@ def _check_connect_domain_rules(pid: int, comm: str, ip_str: str) -> str | None:
                 pid=pid,
                 comm=comm,
             )
-            try:
-                os.kill(pid, 9)
-            except OSError:
-                pass
+            if mode == "enforce":
+                try:
+                    os.kill(pid, 9)
+                except OSError:
+                    pass
             return rule_id
 
     return None
@@ -540,9 +576,11 @@ def _check_deny_rules(pid: int, comm: str, filename: str) -> str | None:
         if required_exec and comm != required_exec:
             continue
         if fnmatch.fnmatch(cmdline, pattern) or fnmatch.fnmatch(cmdline, f"*{pattern}*"):
+            mode = get_rule_mode(rule_id)
+            log_msg = "BLOCKED" if mode == "enforce" else "ALERT"
             block_logger.warning(
-                "BLOCKED [%s] (deny_rule=%s) pid=%d cmdline=%s",
-                rule_id, rule.get("rule", "unknown"), pid, cmdline[:200],
+                "%s [%s] (deny_rule=%s) pid=%d cmdline=%s",
+                log_msg, rule_id, rule.get("rule", "unknown"), pid, cmdline[:200],
             )
             dispatch_alert_async(
                 rule_id=rule_id,
@@ -551,10 +589,11 @@ def _check_deny_rules(pid: int, comm: str, filename: str) -> str | None:
                 pid=pid,
                 comm=comm,
             )
-            try:
-                os.kill(pid, 9)
-            except OSError:
-                pass
+            if mode == "enforce":
+                try:
+                    os.kill(pid, 9)
+                except OSError:
+                    pass
             return rule_id
 
     return None
@@ -780,6 +819,8 @@ def apply_policy(policy: dict) -> None:
             plat = rule.get("platform", "both")
             if plat not in ("both", "linux"):
                 continue  # Skip macOS-only custom rules on Linux
+            if rid in exempted:
+                continue  # Skip disabled custom rules
 
             if rtype == "executable":
                 policy.setdefault("blocked_executables", {})[rid] = val
@@ -823,13 +864,15 @@ def _apply_blocked_executables(policy: dict, exempted: set[str]) -> None:
             logger.info("Skipping exempted rule %s (%s)", rule_id, name)
             skipped += 1
             continue
+        mode = get_rule_mode(rule_id)
+        val = 2 if mode == "enforce" else 1  # 1=alert, 2=enforce
         for prefix in PATH_PREFIXES:
             h = _djb2_hash(prefix + name)
-            blocked_map[ctypes.c_uint64(h)] = ctypes.c_uint8(1)
+            blocked_map[ctypes.c_uint64(h)] = ctypes.c_uint8(val)
             _hash_to_rule_id[h] = rule_id
             loaded += 1
         h = _djb2_hash(name)
-        blocked_map[ctypes.c_uint64(h)] = ctypes.c_uint8(1)
+        blocked_map[ctypes.c_uint64(h)] = ctypes.c_uint8(val)
         _hash_to_rule_id[h] = rule_id
         loaded += 1
 
@@ -916,9 +959,11 @@ def _apply_blocked_paths(policy: dict, exempted: set[str]) -> None:
 
     loaded = 0
     for rule_id, paths in expanded.items():
+        mode = get_rule_mode(rule_id)
+        val = 2 if mode == "enforce" else 1  # 1=alert, 2=enforce
         for p in sorted(paths):
             h = _djb2_hash(p)
-            path_map[ctypes.c_uint64(h)] = ctypes.c_uint8(1)
+            path_map[ctypes.c_uint64(h)] = ctypes.c_uint8(val)
             _hash_to_rule_id[h] = rule_id
             loaded += 1
 
@@ -1003,9 +1048,11 @@ def _apply_blocked_ips(policy: dict, exempted: set[str]) -> None:
     for rule_id, ip in raw_ips.items():
         if rule_id in exempted:
             continue
+        mode = get_rule_mode(rule_id)
+        val = 2 if mode == "enforce" else 1  # 1=alert, 2=enforce
         try:
             ip_int = struct.unpack("=I", socket.inet_aton(ip))[0]
-            ip_map[ctypes.c_uint32(ip_int)] = ctypes.c_uint8(1)
+            ip_map[ctypes.c_uint32(ip_int)] = ctypes.c_uint8(val)
             _ip_to_rule_id[ip] = rule_id
             loaded += 1
         except Exception:
