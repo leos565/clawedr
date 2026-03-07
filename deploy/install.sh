@@ -524,13 +524,13 @@ fi
 if command -v systemctl >/dev/null 2>&1 && systemctl is-active clawedr-monitor >/dev/null 2>&1; then
     :
 elif command -v systemctl >/dev/null 2>&1; then
-    echo "[clawedr] Starting ClawEDR eBPF monitor (systemd)..."
+    echo "[clawedr] Starting ClawEDR eBPF monitor (systemd)..." >&2
     sudo systemctl start clawedr-monitor 2>/dev/null || true
     sleep 2
 elif [ -f "$CLAWEDR_PID" ] && kill -0 "$(cat "$CLAWEDR_PID")" 2>/dev/null; then
     :
 else
-    echo "[clawedr] Starting ClawEDR eBPF monitor..."
+    echo "[clawedr] Starting ClawEDR eBPF monitor..." >&2
     sudo CLAWEDR_POLICY_PATH="$CLAWEDR_POLICY" \
          CLAWEDR_BPF_SOURCE="$CLAWEDR_BPF" \
          CLAWEDR_LOG_FILE=/var/log/clawedr_monitor.log \
@@ -539,7 +539,7 @@ else
     MONITOR_PID=$!
     echo "$MONITOR_PID" > "$CLAWEDR_PID" 2>/dev/null || true
     sleep 2
-    echo "[clawedr] Monitor active (PID $MONITOR_PID)"
+    echo "[clawedr] Monitor active (PID $MONITOR_PID)" >&2
 fi
 
 exec "$CLAWEDR_REAL" "$@"
