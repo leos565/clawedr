@@ -19,29 +19,16 @@ orb -m ubuntu -u root bash << 'ORBEOF'
 set -e
 export DEBIAN_FRONTEND=noninteractive
 
-echo '[Linux] Killing existing instances...'
-killall -9 openclaw 2>/dev/null || true
-killall -9 uvicorn 2>/dev/null || true
-systemctl stop clawedr.service 2>/dev/null || true
-systemctl stop clawedr-dashboard.service 2>/dev/null || true
-systemctl stop clawedr-monitor 2>/dev/null || true
+echo '[Linux] Syncing latest ui-revamp code for testing...'
+rm -rf /tmp/clawedr_update 2>/dev/null || true
+git clone -b ui-revamp https://github.com/leos565/clawedr.git /tmp/clawedr_update
+cp -r /tmp/clawedr_update/deploy/* /usr/local/share/clawedr/
+rm -rf /tmp/clawedr_update
 
-echo '[Linux] Clearing /tmp (kheaders, clawedr pid, etc.)...'
-rm -rf /tmp/kheaders-* /tmp/clawedr-* /tmp/pip-* /tmp/npm-* 2>/dev/null || true
-sync 2>/dev/null || true
-
-echo '[Linux] Cleaning old policy and logs...'
-rm -f /usr/local/share/clawedr/compiled_policy.json
-rm -f /etc/clawedr/user_rules.yaml
-rm -f /var/log/clawedr*.log
-
-echo '[Linux] Compiling rules...'
-cd /Users/leo/clawedr
-python3 main.py compile
-
-echo '[Linux] Fresh Install...'
-export CLAWEDR_BASE_URL="file:///Users/leo/clawedr/deploy"
-./deploy/install.sh
+echo '[Linux] Restarting existing openclaw services to pick up changes...'
+systemctl restart clawedr.service 2>/dev/null || true
+systemctl restart clawedr-dashboard.service 2>/dev/null || true
+systemctl restart clawedr-monitor.service 2>/dev/null || true
 
 echo '[Linux] Waiting for Services...'
 sleep 3
@@ -52,8 +39,9 @@ fi
 echo 'Dashboard is up.'
 
 echo '[Linux] Adding Custom Rules (block nmap, block 1.1.1.1 for DNS test)...'
-curl -s -X POST -H 'Content-Type: application/json' -d '{"type": "executable", "value": "nmap", "platform": "linux"}' http://localhost:8477/api/custom-rules
-curl -s -X POST -H 'Content-Type: application/json' -d '{"type": "ip", "value": "1.1.1.1", "platform": "linux"}' http://localhost:8477/api/custom-rules
+TOKEN=$(cat /etc/clawedr/settings.yaml | grep dashboard_token | awk '{print $2}')
+curl -s -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{"type": "executable", "value": "nmap", "platform": "linux"}' http://localhost:8477/api/custom-rules
+curl -s -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{"type": "ip", "value": "1.1.1.1", "platform": "linux"}' http://localhost:8477/api/custom-rules
 sleep 4 # Wait for BPF hotreload
 
 echo '[Linux] Phase 1: Mock script (CLAWEDR_TARGET_BINARY) — validates BPF rules without OpenClaw deps'
@@ -89,18 +77,7 @@ echo "[Mock] Done."
 MOCKEOF
 chmod +x "$MOCK_SCRIPT"
 
-echo '[Linux] Restarting monitor with CLAWEDR_TARGET_BINARY so it tracks our mock...'
-systemctl stop clawedr-monitor 2>/dev/null || true
-pkill -f "monitor.py" 2>/dev/null || true
-sleep 2
-rm -f /tmp/clawedr-monitor.pid
-CLAWEDR_TARGET_BINARY="$MOCK_SCRIPT" CLAWEDR_POLICY_PATH=/usr/local/share/clawedr/compiled_policy.json \
-  CLAWEDR_BPF_SOURCE=/usr/local/share/clawedr/bpf_hooks.c CLAWEDR_LOG_FILE=/var/log/clawedr_monitor.log \
-  PYTHONPATH=/usr/local/share/clawedr \
-  nohup python3 /usr/local/share/clawedr/monitor.py >/tmp/clawedr_monitor_out.log 2>&1 &
-sleep 3
-
-echo '[Linux] Running mock script (tracked via CLAWEDR_TARGET_BINARY)...'
+echo '[Linux] Running mock script...'
 "$MOCK_SCRIPT" &
 MOCK_PID=$!
 
@@ -108,14 +85,11 @@ MOCK_PID=$!
 sleep 10
 
 # Debug: if alerts empty, show block log and monitor tail for troubleshooting
-ALERTS=$(curl -s http://localhost:8477/api/alerts)
+ALERTS=$(curl -H "Authorization: Bearer $TOKEN" -s http://localhost:8477/api/alerts)
 if [ "$(echo "$ALERTS" | python3 -c 'import sys,json; d=json.load(sys.stdin); print(len(d.get("alerts",[])))' 2>/dev/null)" = "0" ]; then
   echo -e '\n[Debug] No alerts; block log:'
   cat /var/log/clawedr.log 2>/dev/null || echo "(empty)"
-  echo -e '\n[Debug] Monitor log tail:'
-  tail -15 /tmp/clawedr_monitor_out.log 2>/dev/null || true
 fi
-
 
 echo -e '\n--- Linux Alert Report ---'
 echo "$ALERTS" | python3 -c "import sys,json; d=json.load(sys.stdin); print(json.dumps(d['alerts'], indent=2))" || true
@@ -161,12 +135,6 @@ fi
 echo '[*] Cleanup...'
 kill -9 $MOCK_PID 2>/dev/null || true
 rm -f "$MOCK_SCRIPT" 2>/dev/null || true
-# Restart monitor via systemd (real openclaw only, no CLAWEDR_TARGET_BINARY)
-pkill -f "monitor.py" 2>/dev/null || true
-sleep 2
-rm -f /tmp/clawedr-monitor.pid
-systemctl start clawedr-monitor 2>/dev/null || true
-sleep 2
 # Truncate block log so dashboard stops showing test alerts
 : > /var/log/clawedr.log 2>/dev/null || true
 
