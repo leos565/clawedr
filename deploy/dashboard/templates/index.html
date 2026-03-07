@@ -4,8 +4,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#002D62">
     <title>ClawEDR Dashboard</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300&display=swap" rel="stylesheet">
     <style>
         :root {
             --claw-blue: #0091CF;
@@ -15,18 +16,17 @@
 
             --bg-primary: var(--foundation-white);
             --text-primary: var(--charcoal-grey);
-            --text-secondary: #4A5568;
-            --text-muted: #718096;
+            --text-secondary: var(--charcoal-grey);
+            --text-muted: #5A6573;
             --accent: var(--claw-blue);
             --accent-hover: #007AB0;
             --danger: #EF4444;
             --danger-glow: rgba(239, 68, 68, 0.1);
             --success: #10B981;
             --warning: #F59E0B;
-            --purple: #8B5CF6;
-            --glass-bg: rgba(255, 255, 255, 0.7);
-            --glass-border: rgba(0, 45, 98, 0.1);
-            --shadow: 0 10px 40px rgba(0, 45, 98, 0.05), inset 0 1px 0 rgba(255, 255, 255, 1);
+            --glass-bg: rgba(255, 255, 255, 0.85);
+            --glass-border: rgba(0, 45, 98, 0.08);
+            --shadow: 0 10px 40px rgba(0, 45, 98, 0.06), inset 0 1px 0 rgba(255, 255, 255, 1);
             --radius: 24px;
             --radius-sm: 12px;
         }
@@ -38,7 +38,8 @@
         }
 
         body {
-            font-family: 'Inter', -apple-system, sans-serif;
+            font-family: 'Montserrat', -apple-system, sans-serif;
+            font-size: 14px;
             background: var(--bg-primary);
             color: var(--text-primary);
             height: 100vh;
@@ -53,14 +54,18 @@
             border-radius: 50%;
             filter: blur(80px);
             z-index: -1;
-            opacity: 0.5;
+            opacity: 0.35;
             animation: orb-float 20s infinite alternate cubic-bezier(0.5, 0, 0.5, 1);
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .ambient-orb { animation: none; }
         }
 
         .orb-1 {
             width: 600px;
             height: 600px;
-            background: linear-gradient(40deg, #8983F7, #A3DAFB 70%);
+            background: linear-gradient(40deg, var(--claw-blue), rgba(0, 145, 207, 0.4) 70%);
             top: -100px;
             left: -100px;
         }
@@ -68,7 +73,7 @@
         .orb-2 {
             width: 500px;
             height: 500px;
-            background: linear-gradient(40deg, #FF0080, #FF8C00 70%);
+            background: linear-gradient(40deg, var(--deep-navy), rgba(0, 45, 98, 0.3) 70%);
             bottom: -50px;
             right: -50px;
             animation-delay: -5s;
@@ -77,7 +82,7 @@
         .orb-3 {
             width: 400px;
             height: 400px;
-            background: linear-gradient(40deg, #10B981, #34D399 70%);
+            background: linear-gradient(40deg, var(--claw-blue), rgba(0, 145, 207, 0.25) 70%);
             top: 40%;
             left: 40%;
             animation-duration: 25s;
@@ -173,22 +178,25 @@
         .logo-placeholder {
             width: 44px;
             height: 44px;
-            background: linear-gradient(135deg, var(--accent), #A3DAFB);
-            border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(79, 70, 229, 0.3);
+            flex-shrink: 0;
             display: flex;
             align-items: center;
             justify-content: center;
         }
 
+        .logo-placeholder svg {
+            width: 36px;
+            height: 36px;
+        }
+
         .logo h1 {
-            font-size: 20px;
-            font-weight: 700;
-            letter-spacing: -0.5px;
+            font-size: 16px;
+            font-weight: 600;
+            letter-spacing: -0.3px;
         }
 
         .logo h1 span {
-            color: var(--text-muted);
+            color: rgba(255, 255, 255, 0.8);
             font-weight: 400;
         }
 
@@ -201,7 +209,6 @@
             border-radius: var(--radius-sm);
             background: transparent;
             border: none;
-            color: var(--text-secondary);
             font-family: inherit;
             font-size: 14px;
             font-weight: 500;
@@ -210,18 +217,6 @@
             position: relative;
             overflow: hidden;
             margin-bottom: 8px;
-        }
-
-        .sidebar-link:hover {
-            background: rgba(255, 255, 255, 0.5);
-            color: var(--text-primary);
-        }
-
-        .sidebar-link.active {
-            background: rgba(255, 255, 255, 0.9);
-            color: var(--accent);
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05), inset 0 1px 0 #fff;
-            border: 1px solid rgba(255, 255, 255, 0.6);
         }
 
         .main-content {
@@ -244,9 +239,9 @@
         }
 
         .page-title {
-            font-size: 28px;
-            font-weight: 700;
-            letter-spacing: -0.5px;
+            font-size: 18px;
+            font-weight: 600;
+            letter-spacing: -0.3px;
             display: inline-block;
         }
 
@@ -301,7 +296,7 @@
         .bg-column {
             flex: 1;
             height: 100%;
-            background: linear-gradient(to bottom, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0));
+            background: linear-gradient(to bottom, rgba(0, 145, 207, 0.03), rgba(0, 45, 98, 0.02));
             clip-path: inset(0 0 100% 0);
             animation: col-clip 1s cubic-bezier(0.85, 0, 0.15, 1) both;
         }
@@ -348,7 +343,7 @@
             font-size: 13px;
             font-weight: 600;
             box-shadow: var(--shadow);
-            color: var(--text-secondary);
+            color: var(--text-primary);
         }
 
         .status-dot {
@@ -407,14 +402,14 @@
         }
 
         .card-title {
-            font-size: 18px;
+            font-size: 15px;
             font-weight: 600;
         }
 
         .card-count {
             font-size: 13px;
             color: var(--accent);
-            background: rgba(79, 70, 229, 0.1);
+            background: rgba(0, 145, 207, 0.1);
             padding: 4px 12px;
             border-radius: 20px;
             font-weight: 600;
@@ -472,14 +467,15 @@
         }
 
         .btn-primary {
-            background: linear-gradient(135deg, var(--accent), #8b5cf6);
+            background: var(--claw-blue);
             color: white;
-            box-shadow: 0 4px 15px rgba(79, 70, 229, 0.3);
+            box-shadow: 0 4px 15px rgba(0, 145, 207, 0.3);
             border: none;
         }
 
         .btn-primary:hover {
-            box-shadow: 0 6px 20px rgba(79, 70, 229, 0.4);
+            background: var(--accent-hover);
+            box-shadow: 0 6px 20px rgba(0, 145, 207, 0.4);
             transform: translateY(-1px);
         }
 
@@ -506,13 +502,13 @@
         }
 
         .btn-purple {
-            background: rgba(139, 92, 246, 0.1);
-            color: var(--purple);
-            border: 1px solid rgba(139, 92, 246, 0.2);
+            background: rgba(0, 145, 207, 0.1);
+            color: var(--claw-blue);
+            border: 1px solid rgba(0, 145, 207, 0.2);
         }
 
         .btn-purple:hover {
-            background: rgba(139, 92, 246, 0.2);
+            background: rgba(0, 145, 207, 0.2);
         }
 
         .filters-bar {
@@ -535,6 +531,7 @@
             text-transform: uppercase;
             letter-spacing: 0.5px;
             color: var(--text-muted);
+            font-family: 'Montserrat', sans-serif;
         }
 
         .filter-select {
@@ -554,7 +551,7 @@
 
         .filter-select:focus {
             border-color: var(--accent);
-            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+            box-shadow: 0 0 0 3px rgba(0, 145, 207, 0.15);
         }
 
         .alerts-layout {
@@ -600,7 +597,7 @@
         }
 
         .alert-card.medium {
-            border-left: 4px solid #3B82F6;
+            border-left: 4px solid var(--claw-blue);
         }
 
         .alert-card.low {
@@ -613,7 +610,7 @@
 
         .alert-card-selected {
             border-color: var(--accent);
-            box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.2);
+            box-shadow: 0 0 0 2px rgba(0, 145, 207, 0.2);
         }
 
         .alert-detail-sidecard {
@@ -690,18 +687,18 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            background: rgba(250, 250, 251, 0.8);
+            background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(40px);
             -webkit-backdrop-filter: blur(40px);
         }
 
         .login-card {
-            background: rgba(255, 255, 255, 0.7);
+            background: var(--foundation-white);
             border: 1px solid var(--glass-border);
             border-radius: var(--radius);
             padding: 48px 40px;
             width: 420px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.08), inset 0 1px 0 #fff;
+            box-shadow: 0 20px 60px rgba(0, 45, 98, 0.08), inset 0 1px 0 #fff;
             text-align: center;
             position: relative;
             overflow: hidden;
@@ -712,19 +709,19 @@
             position: absolute;
             inset: 0;
             z-index: -1;
-            background: radial-gradient(circle at top left, rgba(137, 131, 247, 0.2), transparent 70%),
-                radial-gradient(circle at bottom right, rgba(163, 218, 251, 0.2), transparent 70%);
+            background: radial-gradient(circle at top left, rgba(0, 145, 207, 0.08), transparent 70%),
+                radial-gradient(circle at bottom right, rgba(0, 45, 98, 0.06), transparent 70%);
         }
 
         /* Tags and Pills */
         .rule-tag {
             display: inline-block;
             padding: 4px 12px;
-            font-size: 11px;
+            font-size: 12px;
             font-weight: 600;
-            font-family: 'SF Mono', monospace;
-            background: rgba(79, 70, 229, 0.1);
-            border: 1px solid rgba(79, 70, 229, 0.2);
+            font-family: 'Montserrat', sans-serif;
+            background: rgba(0, 145, 207, 0.1);
+            border: 1px solid rgba(0, 145, 207, 0.2);
             border-radius: 20px;
             color: var(--accent);
         }
@@ -778,7 +775,7 @@
         .search-input:focus,
         .form-input:focus {
             border-color: var(--accent);
-            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+            box-shadow: 0 0 0 3px rgba(0, 145, 207, 0.15);
         }
 
         .toggle {
@@ -815,7 +812,7 @@
         }
 
         .toggle input:checked+.toggle-slider {
-            background: linear-gradient(135deg, var(--accent), #8b5cf6);
+            background: var(--claw-blue);
         }
 
         .toggle input:checked+.toggle-slider::before {
@@ -867,8 +864,8 @@
         }
 
         .session-id {
-            font-family: 'SF Mono', 'Fira Code', monospace;
-            font-size: 11px;
+            font-family: 'Montserrat', monospace;
+            font-size: 12px;
             color: var(--claw-blue);
             background: rgba(0, 145, 207, 0.1);
             padding: 2px 6px;
@@ -981,7 +978,7 @@
         .modal-overlay {
             position: fixed;
             inset: 0;
-            background: rgba(250, 250, 251, 0.6);
+            background: rgba(255, 255, 255, 0.9);
             backdrop-filter: blur(10px);
             display: none;
             align-items: center;
@@ -1126,12 +1123,14 @@
     <div id="loginOverlay">
         <div class="login-card">
             <div class="logo-placeholder" style="margin: 0 auto 24px;">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
-                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" width="48" height="48">
+                    <path fill="#0091CF" d="M80 150c-22.5 0-43.2-10.4-56.8-28.4C12.5 107.5 7.5 86.8 7.5 65.4V22.5h72.5L152.5 40v67.7c0 14.8-5.2 29.1-14.7 40.5C124.2 139.6 102.5 150 80 150zM22.5 35.5v29.9c0 18.2 4.1 35.8 11.8 50.8 9.3 18.1 24.1 28.8 45.7 28.8s36.4-10.7 45.7-28.8c7.7-15 11.8-32.6 11.8-50.8V38.5L80 52.5 22.5 35.5z"/>
+                    <path fill="#0091CF" d="M105.5 55.5c-8.2-2.5-16.4-3.5-22.5-3.5-4.5 0-8.5.5-11.5 1.5-1.5.5-3 1-4.5 2s-2.5 2-3.5 3.5l14.5 38.5c1.5 3.5 6 3.5 7.5 0l11-28c1-2.5 3.5-4.5 6.5-5.5l10-2.5c1.5-.5 2-2.5.5-3.5-2.5-1.5-6.5-2-9.5-2.5z"/>
+                    <path fill="#0091CF" d="M80 45.5c-5.5 0-10.5 1-14.5 3-4.5 2-8 5.5-10.5 9.5L42.5 83.5c-1 1.5-1 3.5 0 5s3 2.5 4.5 2.5h23.5c2 0 4-1 5.5-2.5l15.5-15.5c1.5-1.5 4-1.5 5.5 0l7.5 7.5c1.5 1.5 4 1.5 5.5 0s1.5-4 0-5.5L95.5 60.5c-4-4-9.5-6.5-15.5-6.5v-8.5z"/>
                 </svg>
             </div>
-            <h2 style="font-size: 24px; margin-bottom: 8px; font-weight: 700;">ClawEDR Dashboard</h2>
-            <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 32px;">
+            <h2 style="font-size: 18px; margin-bottom: 8px; font-weight: 600;">ClawEDR Dashboard</h2>
+            <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 32px; font-weight: 400;">
                 Enter your secure token to continue.<br><span style="font-size: 12px;">Token is in your console or
                     settings file.</span>
             </p>
@@ -1152,7 +1151,7 @@
                     <div class="marquis-content">
                         <!-- Duplicated logos for infinite scroll effect -->
                         <span
-                            style="display:inline-flex; align-items:center; gap:32px; padding-right:32px; font-weight:700; font-size:16px; color:#64748B;">
+                            style="display:inline-flex; align-items:center; gap:32px; padding-right:32px; font-weight:600; font-size:14px; color:var(--charcoal-grey);">
                             <span>AEROSPACE</span> <span>GLOBEX</span> <span>SOYUZ</span> <span>FINCORP</span>
                             <span>QUANTUS</span>
                             <span>AEROSPACE</span> <span>GLOBEX</span> <span>SOYUZ</span> <span>FINCORP</span>
@@ -1170,8 +1169,10 @@
         <aside class="sidebar">
             <div class="logo">
                 <div class="logo-placeholder">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
-                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160">
+                        <path fill="#FFFFFF" d="M80 150c-22.5 0-43.2-10.4-56.8-28.4C12.5 107.5 7.5 86.8 7.5 65.4V22.5h72.5L152.5 40v67.7c0 14.8-5.2 29.1-14.7 40.5C124.2 139.6 102.5 150 80 150zM22.5 35.5v29.9c0 18.2 4.1 35.8 11.8 50.8 9.3 18.1 24.1 28.8 45.7 28.8s36.4-10.7 45.7-28.8c7.7-15 11.8-32.6 11.8-50.8V38.5L80 52.5 22.5 35.5z"/>
+                        <path fill="#FFFFFF" d="M105.5 55.5c-8.2-2.5-16.4-3.5-22.5-3.5-4.5 0-8.5.5-11.5 1.5-1.5.5-3 1-4.5 2s-2.5 2-3.5 3.5l14.5 38.5c1.5 3.5 6 3.5 7.5 0l11-28c1-2.5 3.5-4.5 6.5-5.5l10-2.5c1.5-.5 2-2.5.5-3.5-2.5-1.5-6.5-2-9.5-2.5z"/>
+                        <path fill="#FFFFFF" d="M80 45.5c-5.5 0-10.5 1-14.5 3-4.5 2-8 5.5-10.5 9.5L42.5 83.5c-1 1.5-1 3.5 0 5s3 2.5 4.5 2.5h23.5c2 0 4-1 5.5-2.5l15.5-15.5c1.5-1.5 4-1.5 5.5 0l7.5 7.5c1.5 1.5 4 1.5 5.5 0s1.5-4 0-5.5L95.5 60.5c-4-4-9.5-6.5-15.5-6.5v-8.5z"/>
                     </svg>
                 </div>
                 <h1 style="display:inline-block; overflow:hidden;">
@@ -1181,7 +1182,7 @@
                         style="animation-delay: 0.25s;">w</span><span class="letter-wrap"
                         style="animation-delay: 0.3s;">E</span><span class="letter-wrap"
                         style="animation-delay: 0.35s;">D</span><span class="letter-wrap"
-                        style="animation-delay: 0.4s;">R</span> <span style="color:var(--text-muted); font-weight:400;"
+                        style="animation-delay: 0.4s;">R</span> <span style="color:rgba(255,255,255,0.8); font-weight:400;"
                         class="letter-wrap" style="animation-delay: 0.45s;">Web</span>
                 </h1>
             </div>
@@ -1324,7 +1325,7 @@
                         </div>
                         <aside class="alert-detail-sidecard" id="alertDetailSidecard">
                             <div class="sidecard-header">
-                                <h3 style="font-size: 16px; font-weight: 600;">Alert Details</h3>
+                                <h3 style="font-size: 15px; font-weight: 600;">Alert Details</h3>
                                 <button class="btn btn-ghost btn-sm" onclick="closeAlertDetails()"
                                     style="border: none; padding: 4px;">✕</button>
                             </div>
@@ -1408,7 +1409,7 @@
             </div>
 
             <div class="update-banner" id="updateBanner"
-                style="display:none; background: linear-gradient(135deg, var(--accent), #8b5cf6); color: white; padding: 16px 24px; border-radius: 16px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 10px 30px rgba(79, 70, 229, 0.2);">
+                style="display:none; background: var(--claw-blue); color: white; padding: 16px 24px; border-radius: 16px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 10px 30px rgba(0, 145, 207, 0.25);">
                 <span id="updateBannerText" style="font-weight: 500;"></span>
                 <button class="btn btn-ghost btn-sm" onclick="applyUpdates()" id="applyUpdatesBtn"
                     style="border-color: rgba(255,255,255,0.4); color: white;">Apply</button>
@@ -1428,7 +1429,7 @@
     <div class="modal-overlay" id="ruleModal">
         <div class="modal">
             <div class="modal-header">
-                <h2 id="modalTitle" style="font-size: 20px; font-weight: 600;">Add Custom Rule</h2>
+                <h2 id="modalTitle" style="font-size: 16px; font-weight: 600;">Add Custom Rule</h2>
                 <button onclick="closeModal()"
                     style="background: transparent; border: none; font-size: 20px; cursor: pointer; color: var(--text-muted);">✕</button>
             </div>
