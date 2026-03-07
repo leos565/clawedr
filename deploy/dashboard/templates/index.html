@@ -1371,16 +1371,21 @@
         };
 
         // ── Tabs ──
-        document.querySelectorAll('.tab').forEach(tab => {
+        document.querySelectorAll('.sidebar-link').forEach(tab => {
             tab.addEventListener('click', () => {
-                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.sidebar-link').forEach(t => t.classList.remove('active'));
                 document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
                 tab.classList.add('active');
-                document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+                if (tab.dataset.tab) {
+                    document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+                }
 
-                // Update page title
+                // Update page title without destroying inner HTML elements (like animations) if present
                 const titleNode = document.getElementById('pageTitle');
                 if (titleNode) {
+                    // Try to update text but keep animations if possible. For simplicity, just set innerText on non-animated or reconstruct.
+                    // If it has letter-wrap spans, we just replace it flat or rebuild it.
+                    // simpler: just replace Text
                     titleNode.textContent = tab.textContent.trim();
                 }
             });
