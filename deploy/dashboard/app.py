@@ -788,8 +788,13 @@ async def get_sessions():
         if result.returncode != 0:
             return JSONResponse({"sessions": [], "error": result.stderr.strip()})
 
-        data = json.loads(result.stdout)
-        return JSONResponse(data)
+        try:
+            data = json.loads(result.stdout)
+            return JSONResponse(data)
+        except json.JSONDecodeError as exc:
+            logger.error("Failed to parse sessions JSON. STDOUT: %r", result.stdout)
+            logger.error("STDERR: %r", result.stderr)
+            return JSONResponse({"sessions": [], "error": f"{str(exc)} - {repr(result.stdout[:100])}"})
     except Exception as exc:
         return JSONResponse({"sessions": [], "error": str(exc)})
 
