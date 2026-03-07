@@ -91,7 +91,7 @@ _PROTECTED_EXECUTABLES = frozenset({
 def _load_yaml(path: Path) -> dict[str, Any]:
     """Load a YAML file, trying PyYAML first then falling back."""
     try:
-        import yaml
+        import yaml  # pyre-ignore[21]: optional dep
         with open(path) as f:
             return yaml.safe_load(f) or {}
     except ImportError:
@@ -113,10 +113,10 @@ def _load_yaml(path: Path) -> dict[str, Any]:
             if not stripped or stripped.startswith("#"):
                 continue
             if stripped.endswith(":"):
-                current_key = stripped[:-1].strip()
+                current_key = stripped[:-1].strip()  # pyre-ignore[9]: slice
                 result[current_key] = []
             elif stripped.startswith("- ") and current_key is not None:
-                content = stripped[2:].strip()
+                content = stripped[2:].strip()  # pyre-ignore[9]: slice
                 if ":" in content:
                     # Simple dict item within list: "- key: val"
                     k, v = content.split(":", 1)
@@ -248,7 +248,7 @@ def set_group_heuristic_mode(
         if rid.startswith("HEU-"):
             if overrides.get(rid) != mode:
                 overrides[rid] = mode
-                changed += 1
+                changed += 1  # pyre-ignore[58]: int += int
     save_heuristic_overrides(overrides)
     return changed, ""
 
@@ -272,7 +272,7 @@ def save_user_rules(rules: dict[str, Any]) -> None:
     """Write user rules to ~/.clawedr/user_rules.yaml."""
     USER_RULES_DIR.mkdir(parents=True, exist_ok=True)
     try:
-        import yaml
+        import yaml  # pyre-ignore[21]: optional dep
         with open(USER_RULES_PATH, "w") as f:
             yaml.dump(rules, f, default_flow_style=False, sort_keys=False)
     except ImportError:
@@ -284,24 +284,45 @@ def save_user_rules(rules: dict[str, Any]) -> None:
 
 def load_settings() -> dict[str, Any]:
     """Load dashboard settings from settings.yaml."""
+    defaults = {
+        "auto_update_rules": True,
+        "last_update_check": None,
+        "dashboard_token": None,
+        "dashboard_bind_addresses": [],
+    }
     if not SETTINGS_PATH.exists():
-        return {"auto_update_rules": True, "last_update_check": None}
+        return dict(defaults)
     try:
         data = _load_yaml(SETTINGS_PATH)
         return {
             "auto_update_rules": data.get("auto_update_rules", True),
             "last_update_check": data.get("last_update_check"),
+            "dashboard_token": data.get("dashboard_token"),
+            "dashboard_bind_addresses": data.get("dashboard_bind_addresses", []),
         }
     except Exception as exc:
         logger.warning("Failed to load settings from %s: %s", SETTINGS_PATH, exc)
-        return {"auto_update_rules": True, "last_update_check": None}
+        return dict(defaults)
+
+
+def get_dashboard_token() -> str:
+    """Return the dashboard auth token, generating one if it doesn't exist yet."""
+    import uuid
+    settings = load_settings()
+    token = settings.get("dashboard_token")
+    if not token:
+        token = str(uuid.uuid4())
+        settings["dashboard_token"] = token
+        save_settings(settings)
+        logger.info("Generated new dashboard token")
+    return token
 
 
 def save_settings(settings: dict[str, Any]) -> None:
     """Write dashboard settings to settings.yaml."""
     USER_RULES_DIR.mkdir(parents=True, exist_ok=True)
     try:
-        import yaml
+        import yaml  # pyre-ignore[21]: optional dep
         with open(SETTINGS_PATH, "w") as f:
             yaml.dump(settings, f, default_flow_style=False, sort_keys=False)
     except ImportError:
@@ -452,7 +473,10 @@ def update_custom_rule(
     if target is None:
         return None, f"Rule {rule_id} not found"
 
+    assert isinstance(target, dict)  # narrowed above for Pyre
+
     if value is not None:
+        assert isinstance(value, str)  # narrow for Pyre
         ok, err = validate_custom_rule(target["type"], value, platform or target.get("platform"))
         if not ok:
             return None, err

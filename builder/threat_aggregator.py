@@ -19,12 +19,12 @@ import logging
 from pathlib import Path
 from typing import Any
 
-import requests
-import yaml
+import requests  # pyre-ignore[21]: third-party
+import yaml  # pyre-ignore[21]: third-party
 
 logger = logging.getLogger(__name__)
 
-CLAWSEC_FEED_URL = "https://clawsec.prompt.security/advisories/feed.json"
+CLAWSEC_FEED_URL = "https://raw.githubusercontent.com/prompt-security/clawsec/main/advisories/feed.json"
 BUILDER_DIR = Path(__file__).resolve().parent
 MASTER_RULES_PATH = BUILDER_DIR / "master_rules.yaml"
 MERGED_RULES_PATH = BUILDER_DIR / ".merged_rules.json"
@@ -32,7 +32,7 @@ MERGED_RULES_PATH = BUILDER_DIR / ".merged_rules.json"
 
 def _thrt_id(prefix: str, value: str) -> str:
     """Generate a deterministic threat-feed Rule ID from a prefix and value."""
-    h = hashlib.sha256(value.encode()).hexdigest()[:8]
+    h = hashlib.sha256(value.encode()).hexdigest()[:8]  # pyre-ignore[9]: slice
     return f"THRT-{prefix}-{h}"
 
 
@@ -76,7 +76,7 @@ def parse_feed(feed: dict[str, Any]) -> dict[str, Any]:
 
         for os_key in ("macos", "linux"):
             for p in adv.get("blocked_paths", {}).get(os_key, []):
-                blocked_paths[os_key][_thrt_id("PATH", p)] = p
+                blocked_paths[os_key][_thrt_id("PATH", p)] = p  # pyre-ignore[29]
 
     return {
         "affected_skills": sorted(set(affected_skills)),

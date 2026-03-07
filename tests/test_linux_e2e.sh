@@ -90,13 +90,14 @@ MOCKEOF
 chmod +x "$MOCK_SCRIPT"
 
 echo '[Linux] Restarting monitor with CLAWEDR_TARGET_BINARY so it tracks our mock...'
+systemctl stop clawedr-monitor 2>/dev/null || true
 pkill -f "monitor.py" 2>/dev/null || true
 sleep 2
 rm -f /tmp/clawedr-monitor.pid
 CLAWEDR_TARGET_BINARY="$MOCK_SCRIPT" CLAWEDR_POLICY_PATH=/usr/local/share/clawedr/compiled_policy.json \
   CLAWEDR_BPF_SOURCE=/usr/local/share/clawedr/bpf_hooks.c CLAWEDR_LOG_FILE=/var/log/clawedr_monitor.log \
   PYTHONPATH=/usr/local/share/clawedr \
-  nohup python3 /usr/local/share/clawedr/monitor.py >/dev/null 2>&1 &
+  nohup python3 /usr/local/share/clawedr/monitor.py >/tmp/clawedr_monitor_out.log 2>&1 &
 sleep 3
 
 echo '[Linux] Running mock script (tracked via CLAWEDR_TARGET_BINARY)...'
@@ -105,7 +106,16 @@ MOCK_PID=$!
 
 # Give alerts time to buffer and flush to dashboard
 sleep 10
+
+# Debug: if alerts empty, show block log and monitor tail for troubleshooting
 ALERTS=$(curl -s http://localhost:8477/api/alerts)
+if [ "$(echo "$ALERTS" | python3 -c 'import sys,json; d=json.load(sys.stdin); print(len(d.get("alerts",[])))' 2>/dev/null)" = "0" ]; then
+  echo -e '\n[Debug] No alerts; block log:'
+  cat /var/log/clawedr.log 2>/dev/null || echo "(empty)"
+  echo -e '\n[Debug] Monitor log tail:'
+  tail -15 /tmp/clawedr_monitor_out.log 2>/dev/null || true
+fi
+
 
 echo -e '\n--- Linux Alert Report ---'
 echo "$ALERTS" | python3 -c "import sys,json; d=json.load(sys.stdin); print(json.dumps(d['alerts'], indent=2))" || true

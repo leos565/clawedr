@@ -8,28 +8,22 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-primary: #f3f6f9;
-            --bg-secondary: #ffffff;
-            --bg-card: #ffffff;
-            --bg-card-hover: #f8fafc;
-            --border: #e2e8f0;
-            --text-primary: #0f172a;
+            --bg-primary: #FAFAFB;
+            --text-primary: #0F172A;
             --text-secondary: #334155;
-            --text-muted: #64748b;
-            --accent: #2563eb;
-            --accent-hover: #1d4ed8;
-            --danger: #ef4444;
+            --text-muted: #64748B;
+            --accent: #4F46E5;
+            --accent-hover: #4338CA;
+            --danger: #EF4444;
             --danger-glow: rgba(239, 68, 68, 0.1);
-            --success: #10b981;
-            --warning: #f59e0b;
-            --purple: #8b5cf6;
-            --purple-bg: rgba(139, 92, 246, 0.1);
-            --purple-border: rgba(139, 92, 246, 0.2);
-            --tag-bg: #eff6ff;
-            --tag-border: #bfdbfe;
-            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
-            --radius: 12px;
-            --radius-sm: 8px;
+            --success: #10B981;
+            --warning: #F59E0B;
+            --purple: #8B5CF6;
+            --glass-bg: rgba(255, 255, 255, 0.6);
+            --glass-border: rgba(255, 255, 255, 0.8);
+            --shadow: 0 10px 40px rgba(0, 0, 0, 0.05), inset 0 1px 0 rgba(255, 255, 255, 1);
+            --radius: 24px;
+            --radius-sm: 12px;
         }
 
         * {
@@ -45,62 +39,101 @@
             height: 100vh;
             overflow: hidden;
             line-height: 1.5;
-            display: flex;
+            position: relative;
+        }
+
+        /* Ambient Liquid Backgrounds */
+        .ambient-orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            z-index: -1;
+            opacity: 0.5;
+            animation: orb-float 20s infinite alternate cubic-bezier(0.5, 0, 0.5, 1);
+        }
+
+        .orb-1 {
+            width: 600px;
+            height: 600px;
+            background: linear-gradient(40deg, #8983F7, #A3DAFB 70%);
+            top: -100px;
+            left: -100px;
+        }
+
+        .orb-2 {
+            width: 500px;
+            height: 500px;
+            background: linear-gradient(40deg, #FF0080, #FF8C00 70%);
+            bottom: -50px;
+            right: -50px;
+            animation-delay: -5s;
+        }
+
+        .orb-3 {
+            width: 400px;
+            height: 400px;
+            background: linear-gradient(40deg, #10B981, #34D399 70%);
+            top: 40%;
+            left: 40%;
+            animation-duration: 25s;
+        }
+
+        @keyframes orb-float {
+            0% {
+                transform: translate(0, 0) scale(1);
+            }
+
+            50% {
+                transform: translate(50px, -50px) scale(1.1);
+            }
+
+            100% {
+                transform: translate(-30px, 40px) scale(0.9);
+            }
         }
 
         .app-layout {
             display: flex;
             width: 100vw;
             height: 100vh;
+            position: relative;
+            z-index: 1;
         }
 
-        /* Sidebar */
+        /* Glass Sidebar */
         .sidebar {
-            width: 260px;
-            background: var(--bg-secondary);
-            border-right: 1px solid var(--border);
+            width: 280px;
+            background: rgba(255, 255, 255, 0.3);
+            backdrop-filter: blur(30px);
+            -webkit-backdrop-filter: blur(30px);
+            border-right: 1px solid var(--glass-border);
             display: flex;
             flex-direction: column;
-            padding: 24px 16px;
+            padding: 24px 20px;
+            box-shadow: 1px 0 20px rgba(0, 0, 0, 0.02);
             z-index: 10;
-        }
-
-        .main-content {
-            flex: 1;
-            overflow-y: auto;
-            padding: 32px 48px;
-            background: var(--bg-primary);
-        }
-
-        /* Header */
-        header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 20px 0 32px;
-            border-bottom: 1px solid var(--border);
-            margin-bottom: 32px;
         }
 
         .logo {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 14px;
+            margin-bottom: 40px;
         }
 
-        .logo-icon {
-            width: 40px;
-            height: 40px;
-            background: linear-gradient(135deg, var(--accent), #8b5cf6);
-            border-radius: 10px;
+        .logo-placeholder {
+            width: 44px;
+            height: 44px;
+            background: linear-gradient(135deg, var(--accent), #A3DAFB);
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(79, 70, 229, 0.3);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 20px;
         }
 
         .logo h1 {
-            font-size: 22px;
+            font-size: 20px;
             font-weight: 700;
             letter-spacing: -0.5px;
         }
@@ -110,126 +143,162 @@
             font-weight: 400;
         }
 
-        .header-right {
+        .sidebar-link {
+            text-align: left;
             display: flex;
             align-items: center;
-            gap: 16px;
-        }
-
-        /* Sessions */
-        .sessions-dropdown {
-            position: relative;
-        }
-
-        .sessions-trigger {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px 14px;
-            background: var(--bg-card);
-            border: 1px solid var(--border);
+            gap: 12px;
+            padding: 12px 16px;
             border-radius: var(--radius-sm);
-            cursor: pointer;
-            font-size: 13px;
+            background: transparent;
+            border: none;
             color: var(--text-secondary);
             font-family: inherit;
-            transition: border-color 0.2s;
-        }
-
-        .sessions-trigger:hover {
-            border-color: var(--text-muted);
-        }
-
-        .sessions-trigger .count-badge {
-            background: var(--accent);
-            color: white;
-            font-size: 11px;
-            font-weight: 700;
-            padding: 1px 7px;
-            border-radius: 10px;
-            min-width: 20px;
-            text-align: center;
-        }
-
-        .sessions-menu {
-            display: none;
-            position: absolute;
-            top: calc(100% + 6px);
-            right: 0;
-            min-width: 300px;
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
-            z-index: 200;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
             overflow: hidden;
+            margin-bottom: 8px;
         }
 
-        .sessions-menu.open {
-            display: block;
-        }
-
-        .sessions-menu-header {
-            padding: 12px 16px;
-            font-size: 11px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: var(--text-muted);
-            border-bottom: 1px solid var(--border);
-        }
-
-        .session-item {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 10px 16px;
-            font-size: 13px;
-            color: var(--text-secondary);
-            border-bottom: 1px solid var(--border);
-        }
-
-        .session-item:last-child {
-            border-bottom: none;
-        }
-
-        .session-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: var(--success);
-            flex-shrink: 0;
-        }
-
-        .session-id {
-            font-family: 'SF Mono', 'Fira Code', monospace;
-            font-size: 12px;
+        .sidebar-link:hover {
+            background: rgba(255, 255, 255, 0.5);
             color: var(--text-primary);
         }
 
-        .session-channel {
-            font-size: 11px;
-            color: var(--text-muted);
-            margin-left: auto;
+        .sidebar-link.active {
+            background: rgba(255, 255, 255, 0.9);
+            color: var(--accent);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05), inset 0 1px 0 #fff;
+            border: 1px solid rgba(255, 255, 255, 0.6);
         }
 
-        .sessions-empty {
-            padding: 16px;
-            text-align: center;
-            font-size: 12px;
-            color: var(--text-muted);
+        .main-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 40px 56px;
+            scrollbar-width: none;
+            /* Hide scrollbar for a cleaner look */
         }
 
-        /* Status */
+        .main-content::-webkit-scrollbar {
+            display: none;
+        }
+
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 40px;
+        }
+
+        .page-title {
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            display: inline-block;
+        }
+
+        .letter-wrap {
+            display: inline-block;
+            clip-path: inset(0 0 100% 0);
+            transform: translateY(-20px);
+            animation: text-clip-slide-down 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+
+        @keyframes text-clip-slide-down {
+            0% {
+                clip-path: inset(0 0 100% 0);
+                transform: translateY(-20px);
+            }
+
+            100% {
+                clip-path: inset(-20% -20% -20% -20%);
+                transform: translateY(0);
+            }
+        }
+
+        .stagger-in {
+            filter: blur(10px);
+            transform: translateY(20px);
+            animation: slide-blur-in 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+
+        @keyframes slide-blur-in {
+            0% {
+                filter: blur(10px);
+                transform: translateY(20px);
+            }
+
+            100% {
+                filter: blur(0);
+                transform: translateY(0);
+            }
+        }
+
+        .bg-columns {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -2;
+            display: flex;
+            pointer-events: none;
+        }
+
+        .bg-column {
+            flex: 1;
+            height: 100%;
+            background: linear-gradient(to bottom, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0));
+            clip-path: inset(0 0 100% 0);
+            animation: col-clip 1s cubic-bezier(0.85, 0, 0.15, 1) both;
+        }
+
+        @keyframes col-clip {
+            100% {
+                clip-path: inset(0 0 0 0);
+            }
+        }
+
+        .marquis-container {
+            overflow: hidden;
+            mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+            -webkit-mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+            white-space: nowrap;
+        }
+
+        .marquis-content {
+            display: inline-block;
+            animation: marquis 20s linear infinite;
+        }
+
+        @keyframes marquis {
+            0% {
+                transform: translateX(0);
+            }
+
+            100% {
+                transform: translateX(-50%);
+            }
+        }
+
+
+        /* Status Badge */
         .status-badge {
             display: flex;
             align-items: center;
             gap: 8px;
             padding: 8px 16px;
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 20px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 30px;
             font-size: 13px;
+            font-weight: 600;
+            box-shadow: var(--shadow);
             color: var(--text-secondary);
         }
 
@@ -238,205 +307,181 @@
             height: 8px;
             border-radius: 50%;
             background: var(--success);
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-
-            0%,
-            100% {
-                opacity: 1;
-            }
-
-            50% {
-                opacity: 0.5;
-            }
-        }
-
-        /* Tabs */
-        .tabs {
-            display: flex;
-            gap: 4px;
-            background: var(--bg-secondary);
-            padding: 4px;
-            border-radius: var(--radius);
-            margin-bottom: 28px;
-            border: 1px solid var(--border);
-        }
-
-        .tab {
-            flex: 1;
-            padding: 12px 20px;
-            border: none;
-            background: transparent;
-            color: var(--text-secondary);
-            font-family: inherit;
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-            border-radius: var(--radius-sm);
-            transition: all 0.2s;
-        }
-
-        .tab:hover {
-            color: var(--text-primary);
-        }
-
-        .tab.active {
-            background: var(--bg-card);
-            color: var(--text-primary);
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
         }
 
         .tab-panel {
             display: none;
+            filter: blur(10px);
+            transform: translateY(20px);
+            animation: slide-blur-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
         }
 
         .tab-panel.active {
             display: block;
         }
 
-        /* Cards */
+
+        /* Glass Cards */
         .card {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
+            background: var(--glass-bg);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid var(--glass-border);
             border-radius: var(--radius);
-            padding: 24px;
-            margin-bottom: 16px;
-            box-shadow: var(--shadow);
+            padding: 32px;
+            margin-bottom: 24px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Flashlight Effect */
+        .card::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            z-index: -1;
+            background: radial-gradient(circle 300px at var(--x, 50%) var(--y, 50%), rgba(255, 255, 255, 0.8), transparent 80%);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .card:hover::after {
+            opacity: 1;
         }
 
         .card-header {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            margin-bottom: 20px;
+            margin-bottom: 24px;
         }
 
         .card-title {
-            font-size: 16px;
+            font-size: 18px;
             font-weight: 600;
         }
 
         .card-count {
             font-size: 13px;
-            color: var(--text-muted);
-            background: var(--bg-secondary);
-            padding: 4px 10px;
-            border-radius: 12px;
-        }
-
-        /* Alert Table */
-        .alert-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .alert-table th {
-            text-align: left;
-            padding: 10px 12px;
-            font-size: 11px;
+            color: var(--accent);
+            background: rgba(79, 70, 229, 0.1);
+            padding: 4px 12px;
+            border-radius: 20px;
             font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: var(--text-muted);
-            border-bottom: 1px solid var(--border);
         }
 
-        .alert-table td {
-            padding: 12px;
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 10px 20px;
+            font-family: inherit;
+            font-size: 14px;
+            font-weight: 500;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* 1px border beam animation on hover */
+        .btn::before {
+            content: '';
+            position: absolute;
+            inset: -1px;
+            border-radius: inherit;
+            background: conic-gradient(from var(--angle), transparent 20%, white 80%);
+            z-index: -1;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        @property --angle {
+            syntax: '<angle>';
+            initial-value: 0deg;
+            inherits: false;
+        }
+
+        @keyframes beam {
+            to {
+                --angle: 360deg;
+            }
+        }
+
+        .btn:hover::before {
+            opacity: 1;
+            animation: beam 2s linear infinite;
+        }
+
+        .btn-sm {
+            padding: 6px 14px;
             font-size: 13px;
-            border-bottom: 1px solid var(--border);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent), #8b5cf6);
+            color: white;
+            box-shadow: 0 4px 15px rgba(79, 70, 229, 0.3);
+            border: none;
+        }
+
+        .btn-primary:hover {
+            box-shadow: 0 6px 20px rgba(79, 70, 229, 0.4);
+            transform: translateY(-1px);
+        }
+
+        .btn-ghost {
+            background: rgba(255, 255, 255, 0.5);
+            border: 1px solid var(--glass-border);
             color: var(--text-secondary);
+            backdrop-filter: blur(10px);
         }
 
-        .alert-table tr:last-child td {
-            border-bottom: none;
+        .btn-ghost:hover {
+            background: rgba(255, 255, 255, 0.8);
+            color: var(--text-primary);
         }
 
-        .alert-table tr:hover td {
-            background: var(--bg-card-hover);
-        }
-
-        /* Tags */
-        .rule-tag {
-            display: inline-block;
-            padding: 3px 10px;
-            font-size: 12px;
-            font-weight: 600;
-            font-family: 'SF Mono', 'Fira Code', monospace;
-            background: var(--tag-bg);
-            border: 1px solid var(--tag-border);
-            border-radius: 6px;
-            color: var(--accent);
-        }
-
-        .rule-tag.danger {
-            background: var(--danger-glow);
-            border-color: rgba(239, 68, 68, 0.3);
+        .btn-danger {
+            background: rgba(239, 68, 68, 0.1);
             color: var(--danger);
+            border: 1px solid rgba(239, 68, 68, 0.2);
         }
 
-        .severity-critical {
+        .btn-danger:hover {
             background: rgba(239, 68, 68, 0.2);
-            border-color: rgba(239, 68, 68, 0.4);
-            color: #f87171;
         }
 
-        .severity-high {
-            background: rgba(245, 158, 11, 0.2);
-            border-color: rgba(245, 158, 11, 0.4);
-            color: #fbbf24;
+        .btn-purple {
+            background: rgba(139, 92, 246, 0.1);
+            color: var(--purple);
+            border: 1px solid rgba(139, 92, 246, 0.2);
         }
 
-        .severity-medium {
-            background: rgba(59, 130, 246, 0.2);
-            border-color: rgba(59, 130, 246, 0.4);
-            color: #60a5fa;
-        }
-
-        .severity-low {
-            background: rgba(107, 114, 128, 0.2);
-            border-color: rgba(107, 114, 128, 0.4);
-            color: #9ca3af;
-        }
-
-        .severity-info {
-            background: rgba(34, 197, 94, 0.15);
-            border-color: rgba(34, 197, 94, 0.3);
-            color: #4ade80;
-        }
-
-        .severity-unknown {
-            background: var(--tag-bg);
-            border-color: var(--tag-border);
-            color: var(--accent);
-        }
-
-        .alert-description {
-            font-size: 12px;
-            color: var(--text-muted);
-            margin-top: 4px;
-            line-height: 1.4;
-            max-width: 480px;
+        .btn-purple:hover {
+            background: rgba(139, 92, 246, 0.2);
         }
 
         .filters-bar {
             display: flex;
             flex-wrap: wrap;
-            gap: 12px;
+            gap: 16px;
             align-items: center;
-            margin-bottom: 16px;
+            margin-bottom: 24px;
         }
 
         .filter-group {
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 8px;
         }
 
         .filter-label {
-            font-size: 11px;
+            font-size: 12px;
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.5px;
@@ -444,181 +489,23 @@
         }
 
         .filter-select {
-            padding: 6px 12px;
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
             border-radius: var(--radius-sm);
             font-family: inherit;
-            font-size: 12px;
+            font-size: 13px;
             color: var(--text-primary);
+            font-weight: 500;
             cursor: pointer;
+            outline: none;
+            transition: 0.2s;
         }
 
         .filter-select:focus {
             border-color: var(--accent);
-            outline: none;
-        }
-
-        .alerts-grid {
-            display: grid;
-            gap: 12px;
-        }
-
-        .alert-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 16px;
-            transition: border-color 0.2s;
-        }
-
-        .alert-card:hover {
-            border-color: var(--text-muted);
-        }
-
-        .alert-card.critical {
-            border-left: 3px solid #ef4444;
-        }
-
-        .alert-card.high {
-            border-left: 3px solid #f59e0b;
-        }
-
-        .alert-card.medium {
-            border-left: 3px solid #3b82f6;
-        }
-
-        .alert-card.low {
-            border-left: 3px solid #6b7280;
-        }
-
-        .alert-card.info {
-            border-left: 3px solid #22c55e;
-        }
-
-        .alert-card-selected {
-            border-color: var(--accent);
-            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
-        }
-
-        .badge-blocked {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-size: 11px;
-            font-weight: 600;
-            background: rgba(16, 185, 129, 0.15);
-            color: var(--success);
-            border: 1px solid rgba(16, 185, 129, 0.3);
-        }
-
-        .badge-monitored {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-size: 11px;
-            font-weight: 600;
-            background: rgba(245, 158, 11, 0.15);
-            color: var(--warning);
-            border: 1px solid rgba(245, 158, 11, 0.3);
-        }
-
-        .badge-openclaw {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-size: 11px;
-            font-weight: 600;
-            background: rgba(99, 102, 241, 0.15);
-            color: var(--accent);
-            border: 1px solid rgba(99, 102, 241, 0.3);
-        }
-
-        .rule-type-badge {
-            display: inline-flex;
-            padding: 2px 6px;
-            border-radius: 6px;
-            font-size: 10px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-right: 6px;
-        }
-
-        .rule-type-domain {
-            background: rgba(59, 130, 246, 0.15);
-            color: #3b82f6;
-        }
-
-        .rule-type-ip {
-            background: rgba(168, 85, 247, 0.15);
-            color: #a855f7;
-        }
-
-        .detail-pill {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            padding: 4px 10px;
-            border-radius: 8px;
-            font-size: 12px;
-            font-family: 'SF Mono', monospace;
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            color: var(--text-secondary);
-            margin: 2px 4px 2px 0;
-        }
-
-        .detail-pill-label {
-            font-size: 10px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: var(--text-muted);
-            margin-right: 4px;
-        }
-
-        .detail-pill-value {
-            color: var(--text-primary);
-            word-break: break-all;
-        }
-
-        .refresh-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            padding: 6px 12px;
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            background: var(--bg-card);
-            color: var(--text-secondary);
-            font-size: 12px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .refresh-btn:hover {
-            border-color: var(--accent);
-            color: var(--accent);
-        }
-
-        .refresh-btn.spinning svg {
-            animation: spin 0.6s linear infinite;
-        }
-
-        @keyframes spin {
-            from {
-                transform: rotate(0deg);
-            }
-
-            to {
-                transform: rotate(360deg);
-            }
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
         }
 
         .alerts-layout {
@@ -633,144 +520,216 @@
             min-width: 0;
         }
 
+        .alerts-grid {
+            display: grid;
+            gap: 16px;
+        }
+
+        .alert-card {
+            background: rgba(255, 255, 255, 0.6);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 20px;
+            transition: all 0.2s;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.02);
+        }
+
+        .alert-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.06);
+            border-color: #E2E8F0;
+        }
+
+        .alert-card.critical {
+            border-left: 4px solid var(--danger);
+        }
+
+        .alert-card.high {
+            border-left: 4px solid var(--warning);
+        }
+
+        .alert-card.medium {
+            border-left: 4px solid #3B82F6;
+        }
+
+        .alert-card.low {
+            border-left: 4px solid var(--text-muted);
+        }
+
+        .alert-card.info {
+            border-left: 4px solid var(--success);
+        }
+
+        .alert-card-selected {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.2);
+        }
+
         .alert-detail-sidecard {
-            width: 380px;
+            width: 400px;
             flex-shrink: 0;
-            background: var(--bg-card);
-            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(30px);
+            border: 1px solid var(--glass-border);
             border-radius: var(--radius);
-            overflow: hidden;
             display: none;
             flex-direction: column;
+            overflow: hidden;
             box-shadow: var(--shadow);
+            animation: slide-in-right 0.3s ease-out;
+        }
+
+        @keyframes slide-in-right {
+            from {
+                transform: translateX(20px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
         }
 
         .alert-detail-sidecard.open {
             display: flex;
         }
 
-        .alert-detail-sidecard .sidecard-header {
-            padding: 16px 20px;
-            border-bottom: 1px solid var(--border);
+        .sidecard-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
             display: flex;
             align-items: center;
             justify-content: space-between;
         }
 
-        .alert-detail-sidecard .sidecard-body {
-            padding: 20px;
+        .sidecard-body {
+            padding: 24px;
             overflow-y: auto;
             flex: 1;
         }
 
-        .alert-detail-sidecard .sidecard-footer {
-            padding: 12px 20px;
-            border-top: 1px solid var(--border);
-        }
-
-        .alert-card-header {
-            display: flex;
-            align-items: flex-start;
-            justify-content: space-between;
-            gap: 12px;
-            flex-wrap: wrap;
-        }
-
-        .alert-card-meta {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            flex-wrap: wrap;
-        }
-
-        .alert-card-body {
-            margin-top: 10px;
-        }
-
-        .alert-card-details {
-            font-family: 'SF Mono', monospace;
-            font-size: 12px;
-            color: var(--text-secondary);
-            word-break: break-all;
-        }
-
-        .rule-tag.exempted {
-            background: rgba(245, 158, 11, 0.12);
-            border-color: rgba(245, 158, 11, 0.3);
-            color: var(--warning);
-        }
-
-        .rule-tag.custom {
-            background: var(--purple-bg);
-            border-color: var(--purple-border);
-            color: var(--purple);
-        }
-
-        .timestamp {
-            font-family: 'SF Mono', monospace;
-            font-size: 12px;
-            color: var(--text-muted);
-        }
-
-        /* Rules */
-        .rule-group {
-            margin-bottom: 24px;
-        }
-
-        .rule-group-title {
-            font-size: 12px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.8px;
-            color: var(--text-muted);
-            margin-bottom: 12px;
-            padding-bottom: 8px;
-            border-bottom: 1px solid var(--border);
+        .sidecard-footer {
+            padding: 16px 24px;
+            border-top: 1px solid rgba(0, 0, 0, 0.05);
         }
 
         .rule-item {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 10px 14px;
+            padding: 12px 16px;
             border-radius: var(--radius-sm);
-            margin-bottom: 4px;
-            transition: background 0.15s;
-            gap: 8px;
+            margin-bottom: 8px;
+            background: rgba(255, 255, 255, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            transition: all 0.15s;
         }
 
         .rule-item:hover {
-            background: var(--bg-card-hover);
+            background: rgba(255, 255, 255, 0.8);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
         }
 
-        .rule-info {
+        /* Login Overlay */
+        #loginOverlay {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
             display: flex;
             align-items: center;
-            gap: 12px;
-            flex: 1;
-            min-width: 0;
+            justify-content: center;
+            background: rgba(250, 250, 251, 0.8);
+            backdrop-filter: blur(40px);
+            -webkit-backdrop-filter: blur(40px);
         }
 
-        .rule-value {
-            font-size: 13px;
-            font-family: 'SF Mono', monospace;
-            color: var(--text-primary);
-            white-space: nowrap;
+        .login-card {
+            background: rgba(255, 255, 255, 0.7);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius);
+            padding: 48px 40px;
+            width: 420px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.08), inset 0 1px 0 #fff;
+            text-align: center;
+            position: relative;
             overflow: hidden;
-            text-overflow: ellipsis;
         }
 
-        .rule-actions {
-            display: flex;
-            gap: 4px;
-            flex-shrink: 0;
+        .login-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            z-index: -1;
+            background: radial-gradient(circle at top left, rgba(137, 131, 247, 0.2), transparent 70%),
+                radial-gradient(circle at bottom right, rgba(163, 218, 251, 0.2), transparent 70%);
         }
 
-        /* Toggle */
+        /* Tags and Pills */
+        .rule-tag {
+            display: inline-block;
+            padding: 4px 12px;
+            font-size: 11px;
+            font-weight: 600;
+            font-family: 'SF Mono', monospace;
+            background: rgba(79, 70, 229, 0.1);
+            border: 1px solid rgba(79, 70, 229, 0.2);
+            border-radius: 20px;
+            color: var(--accent);
+        }
+
+        .badge-blocked,
+        .badge-monitored,
+        .badge-openclaw {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .badge-blocked {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--success);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+        }
+
+        .badge-monitored {
+            background: rgba(245, 158, 11, 0.1);
+            color: var(--warning);
+            border: 1px solid rgba(245, 158, 11, 0.2);
+        }
+
+        .search-input,
+        .form-input,
+        .form-select {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            border-radius: var(--radius-sm);
+            font-family: inherit;
+            font-size: 14px;
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(10px);
+            outline: none;
+            transition: 0.2s;
+            margin-bottom: 8px;
+        }
+
+        .search-input:focus,
+        .form-input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+
         .toggle {
             position: relative;
-            width: 40px;
-            height: 22px;
+            width: 44px;
+            height: 24px;
             cursor: pointer;
             flex-shrink: 0;
         }
@@ -782,583 +741,302 @@
         .toggle-slider {
             position: absolute;
             inset: 0;
-            background: var(--border);
-            border-radius: 11px;
-            transition: 0.2s;
+            background: rgba(0, 0, 0, 0.1);
+            border-radius: 12px;
+            transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .toggle-slider::before {
             content: '';
             position: absolute;
-            width: 16px;
-            height: 16px;
+            width: 18px;
+            height: 18px;
             left: 3px;
             bottom: 3px;
-            background: var(--text-secondary);
+            background: white;
             border-radius: 50%;
-            transition: 0.2s;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .toggle input:checked+.toggle-slider {
-            background: var(--accent);
+            background: linear-gradient(135deg, var(--accent), #8b5cf6);
         }
 
         .toggle input:checked+.toggle-slider::before {
-            transform: translateX(18px);
-            background: white;
+            transform: translateX(20px);
         }
 
-        /* Platform Pills */
-        .platform-pills {
+        /* Sessions */
+        .sessions-dropdown {
+            position: relative;
+            margin-top: auto;
+        }
+
+        .sessions-trigger {
             display: flex;
-            gap: 6px;
-            margin-bottom: 12px;
-        }
-
-        .platform-pill {
-            padding: 5px 14px;
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            background: transparent;
-            color: var(--text-muted);
-            font-family: inherit;
-            font-size: 12px;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 16px;
+            background: rgba(255, 255, 255, 0.5);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            font-size: 13px;
+            color: var(--text-primary);
             font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s;
         }
 
-        .platform-pill:hover {
-            border-color: var(--text-secondary);
-            color: var(--text-secondary);
-        }
-
-        .platform-pill.active {
-            background: var(--accent);
-            border-color: var(--accent);
-            color: white;
-        }
-
-        /* Search */
-        .search-input {
-            width: 100%;
-            padding: 10px 14px;
-            margin-bottom: 12px;
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
+        .sessions-menu {
+            display: none;
+            position: absolute;
+            top: auto;
+            bottom: calc(100% + 10px);
+            left: 0;
+            min-width: 250px;
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
             border-radius: var(--radius-sm);
-            font-family: inherit;
-            font-size: 13px;
-            color: var(--text-primary);
-            outline: none;
-            transition: border-color 0.2s;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
         }
 
-        .search-input:focus {
-            border-color: var(--accent);
+        .sessions-menu.open {
+            display: block;
+            animation: fade-in 0.2s;
         }
 
-        .search-input::placeholder {
-            color: var(--text-muted);
-        }
-
-        /* Buttons */
-        .btn {
-            padding: 10px 20px;
-            border: none;
-            border-radius: var(--radius-sm);
-            font-family: inherit;
-            font-size: 13px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .btn-primary {
-            background: var(--accent);
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background: var(--accent-hover);
-            transform: translateY(-1px);
-        }
-
-        .btn-ghost {
-            background: transparent;
-            border: 1px solid var(--border);
-            color: var(--text-secondary);
-        }
-
-        .btn-ghost:hover {
-            border-color: var(--text-muted);
-            color: var(--text-primary);
-        }
-
-        .btn-danger {
-            background: transparent;
-            border: 1px solid rgba(239, 68, 68, 0.3);
-            color: var(--danger);
-        }
-
-        .btn-danger:hover {
-            background: var(--danger-glow);
-        }
-
-        .btn-sm {
-            padding: 4px 10px;
-            font-size: 11px;
-        }
-
-        .btn-purple {
-            background: var(--purple);
-            color: white;
-        }
-
-        .btn-purple:hover {
-            background: #7c3aed;
-            transform: translateY(-1px);
-        }
-
-        /* Empty / Footer / Banner */
         .empty-state {
+            padding: 40px;
             text-align: center;
-            padding: 48px 24px;
             color: var(--text-muted);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
         }
 
         .empty-state .icon {
-            font-size: 36px;
-            margin-bottom: 12px;
-            opacity: 0.5;
-        }
-
-        .empty-state p {
-            font-size: 14px;
-        }
-
-        .footer {
-            text-align: center;
-            padding: 32px 0 16px;
-            font-size: 12px;
-            color: var(--text-muted);
-        }
-
-        .save-banner {
-            position: fixed;
-            bottom: 24px;
-            left: 50%;
-            transform: translateX(-50%) translateY(100px);
-            background: var(--bg-card);
-            border: 1px solid var(--accent);
-            border-radius: var(--radius);
-            padding: 14px 24px;
+            width: 64px;
+            height: 64px;
+            border-radius: 32px;
+            background: rgba(0, 0, 0, 0.03);
             display: flex;
-            align-items: center;
-            gap: 16px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-            transition: transform 0.3s ease;
-            z-index: 100;
-        }
-
-        .save-banner.visible {
-            transform: translateX(-50%) translateY(0);
-        }
-
-        .save-banner p {
-            font-size: 13px;
-            color: var(--text-secondary);
-        }
-
-        /* ── Modal ── */
-        .modal-overlay {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.6);
-            backdrop-filter: blur(4px);
-            z-index: 300;
             align-items: center;
             justify-content: center;
         }
 
-        .modal-overlay.open {
+        /* Modals and Banners */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(250, 250, 251, 0.6);
+            backdrop-filter: blur(10px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal-overlay.visible {
             display: flex;
+            animation: fade-in 0.2s;
         }
 
         .modal {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid var(--glass-border);
             border-radius: var(--radius);
-            width: 520px;
+            width: 500px;
             max-width: 90vw;
-            box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
-            animation: modalIn 0.2s ease;
-        }
-
-        @keyframes modalIn {
-            from {
-                opacity: 0;
-                transform: translateY(12px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
         }
 
         .modal-header {
+            padding: 24px;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
             display: flex;
-            align-items: center;
             justify-content: space-between;
-            padding: 20px 24px;
-            border-bottom: 1px solid var(--border);
-        }
-
-        .modal-header h2 {
-            font-size: 16px;
-            font-weight: 600;
-        }
-
-        .modal-close {
-            background: none;
-            border: none;
-            color: var(--text-muted);
-            font-size: 20px;
-            cursor: pointer;
-            padding: 4px 8px;
-            border-radius: 4px;
-        }
-
-        .modal-close:hover {
-            color: var(--text-primary);
-            background: var(--bg-card-hover);
+            align-items: center;
         }
 
         .modal-body {
             padding: 24px;
+            max-height: 70vh;
+            overflow-y: auto;
         }
 
         .modal-footer {
+            padding: 24px;
+            border-top: 1px solid rgba(0, 0, 0, 0.05);
             display: flex;
             justify-content: flex-end;
-            gap: 10px;
+            gap: 12px;
+        }
+
+        .save-banner {
+            position: fixed;
+            bottom: -100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(17, 24, 39, 0.9);
+            backdrop-filter: blur(20px);
+            color: white;
             padding: 16px 24px;
-            border-top: 1px solid var(--border);
+            border-radius: 100px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            transition: bottom 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 100;
         }
 
-        /* Form */
-        .form-group {
-            margin-bottom: 18px;
+        .save-banner.visible {
+            bottom: 40px;
         }
 
-        .form-label {
-            display: block;
-            font-size: 12px;
-            font-weight: 600;
-            color: var(--text-secondary);
-            margin-bottom: 6px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .form-input {
-            width: 100%;
-            padding: 10px 14px;
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            font-family: inherit;
-            font-size: 13px;
-            color: var(--text-primary);
-            outline: none;
-            transition: border-color 0.2s;
-        }
-
-        .form-input:focus {
-            border-color: var(--accent);
-        }
-
-        .form-select {
-            width: 100%;
-            padding: 10px 14px;
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            font-family: inherit;
-            font-size: 13px;
-            color: var(--text-primary);
-            outline: none;
-            appearance: none;
-            cursor: pointer;
-            transition: border-color 0.2s;
-            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235a6a80' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
-            background-repeat: no-repeat;
-            background-position: right 12px center;
-            background-size: 16px;
-        }
-
-        .form-select:focus {
-            border-color: var(--accent);
-        }
-
-        .form-hint {
-            font-size: 11px;
-            color: var(--text-muted);
-            margin-top: 4px;
-        }
-
-        .form-error {
-            font-size: 12px;
-            color: var(--danger);
-            margin-top: 6px;
-            display: none;
-        }
-
-        .form-error.visible {
-            display: block;
-        }
-
-        /* Type cards in modal */
         .type-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: 8px;
+            gap: 12px;
+            margin-bottom: 16px;
         }
 
         .type-card {
-            padding: 10px 12px;
-            border: 1px solid var(--border);
+            padding: 16px;
+            text-align: center;
+            border: 1px solid rgba(0, 0, 0, 0.1);
             border-radius: var(--radius-sm);
             cursor: pointer;
-            text-align: center;
-            transition: all 0.15s;
-        }
-
-        .type-card:hover {
-            border-color: var(--text-muted);
+            transition: 0.2s;
+            background: rgba(255, 255, 255, 0.5);
         }
 
         .type-card.selected {
-            border-color: var(--purple);
-            background: var(--purple-bg);
+            border-color: var(--accent);
+            background: rgba(79, 70, 229, 0.05);
+            box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.1);
         }
 
-        .type-card .type-icon {
-            font-size: 20px;
-            margin-bottom: 4px;
+        .type-icon {
+            margin-bottom: 8px;
+            color: var(--text-muted);
         }
 
-        .type-card .type-name {
-            font-size: 12px;
-            font-weight: 600;
-            color: var(--text-primary);
+        .type-card.selected .type-icon {
+            color: var(--accent);
         }
 
-        /* Toast */
         .toast-container {
             position: fixed;
-            top: 24px;
+            bottom: 24px;
             right: 24px;
+            z-index: 9999;
             display: flex;
             flex-direction: column;
             gap: 12px;
-            z-index: 1000;
-            pointer-events: none;
         }
 
         .toast {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-left: 4px solid var(--accent);
-            padding: 14px 20px;
-            border-radius: var(--radius-sm);
+            padding: 16px 20px;
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(20px);
+            border-radius: 12px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-            font-size: 13px;
-            color: var(--text-primary);
-            min-width: 280px;
-            max-width: 400px;
-            transform: translateX(120%);
-            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            pointer-events: auto;
+            border-left: 4px solid var(--accent);
             display: flex;
             align-items: center;
-            justify-content: space-between;
             gap: 12px;
-        }
-
-        .toast.visible {
-            transform: translateX(0);
-        }
-
-        .toast.success {
-            border-left-color: var(--success);
-        }
-
-        .toast.warning {
-            border-left-color: var(--warning);
-        }
-
-        .toast.danger {
-            border-left-color: var(--danger);
-        }
-
-        .toast-close {
-            background: none;
-            border: none;
-            color: var(--text-muted);
-            cursor: pointer;
-            font-size: 16px;
-            padding: 0;
-            display: flex;
-        }
-
-        /* Update banner (macOS: new rules available) */
-        .update-banner {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            background: linear-gradient(135deg, var(--warning) 0%, #f59e0b 100%);
-            color: #1a1a1a;
-            padding: 12px 24px;
-            z-index: 500;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        }
-
-        .update-banner-content {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 16px;
-            flex-wrap: wrap;
-        }
-
-        .update-banner-content .btn-primary {
-            background: #1a1a1a;
-            color: white;
-            border-color: #1a1a1a;
-        }
-
-        .update-banner-content .btn-primary:hover {
-            background: #333;
-            color: white;
-        }
-
-        /* Tri-State Slider */
-        .tri-toggle {
-            display: inline-flex;
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 20px;
-            padding: 3px;
-            position: relative;
-            user-select: none;
-            align-items: center;
-            width: 240px;
-            height: 32px;
-            box-sizing: border-box;
-        }
-
-        .tri-slider {
-            position: absolute;
-            top: 2px;
-            bottom: 2px;
-            width: calc(33.33% - 2px);
-            border-radius: 16px;
-            transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.35s;
-            z-index: 1;
-        }
-
-        .tri-toggle.mode-disabled .tri-slider {
-            transform: translateX(2px);
-            background: var(--text-muted);
-        }
-
-        .tri-toggle.mode-alert .tri-slider {
-            transform: translateX(calc(100% + 4px));
-            background: var(--warning);
-        }
-
-        .tri-toggle.mode-enforce .tri-slider {
-            transform: translateX(calc(200% + 6px));
-            background: var(--danger);
-            box-shadow: 0 0 10px rgba(239, 68, 68, 0.3);
-        }
-
-        .tri-btn {
-            flex: 1;
-            text-align: center;
-            font-size: 11px;
-            font-weight: 600;
-            color: var(--text-secondary);
-            cursor: pointer;
-            z-index: 2;
-            transition: color 0.3s;
-            line-height: 24px;
-        }
-
-        .tri-toggle.mode-disabled .tri-btn[data-val="disabled"],
-        .tri-toggle.mode-alert .tri-btn[data-val="alert"],
-        .tri-toggle.mode-enforce .tri-btn[data-val="enforce"] {
-            color: white;
-            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-        }
-
-        .tri-toggle.disabled {
-            opacity: 0.4;
-            pointer-events: none;
-            filter: grayscale(100%);
-        }
-
-        /* Collapsible Rule Groups */
-        .rule-group-details summary {
-            list-style: none;
-            /* Hide default arrow */
-            cursor: pointer;
-            user-select: none;
-        }
-
-        .rule-group-details summary::-webkit-details-marker {
-            display: none;
-        }
-
-        .group-arrow {
-            display: inline-block;
-            transition: transform 0.2s ease;
-            font-size: 10px;
-            margin-right: 8px;
-            color: var(--text-muted);
-        }
-
-        .rule-group-details[open] .group-arrow {
-            transform: rotate(90deg);
+            font-size: 14px;
+            font-weight: 500;
+            animation: slide-in-right 0.3s ease-out;
         }
     </style>
 </head>
 
 <body>
+    <div class="bg-columns">
+        <div class="bg-column" style="animation-delay: 0s;"></div>
+        <div class="bg-column" style="animation-delay: 0.1s;"></div>
+        <div class="bg-column" style="animation-delay: 0.2s;"></div>
+        <div class="bg-column" style="animation-delay: 0.3s;"></div>
+        <div class="bg-column" style="animation-delay: 0.4s;"></div>
+        <div class="bg-column" style="animation-delay: 0.5s;"></div>
+    </div>
+    <div class="ambient-orb orb-1"></div>
+    <div class="ambient-orb orb-2"></div>
+    <div class="ambient-orb orb-3"></div>
+
+
+    <!-- Login Overlay -->
+    <div id="loginOverlay">
+        <div class="login-card">
+            <div class="logo-placeholder" style="margin: 0 auto 24px;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                </svg>
+            </div>
+            <h2 style="font-size: 24px; margin-bottom: 8px; font-weight: 700;">ClawEDR Dashboard</h2>
+            <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 32px;">
+                Enter your secure token to continue.<br><span style="font-size: 12px;">Token is in your console or
+                    settings file.</span>
+            </p>
+            <div id="loginError"
+                style="display: none; color: var(--danger); font-size: 13px; margin-bottom: 16px; background: rgba(239,68,68,0.1); padding: 8px; border-radius: 8px;">
+            </div>
+            <input id="tokenInput" type="password" placeholder="Dashboard token" class="form-input"
+                style="margin-bottom: 20px;" onkeydown="if(event.key==='Enter') attemptLogin()">
+            <button class="btn btn-primary" onclick="attemptLogin()"
+                style="width: 100%; padding: 12px; font-size: 15px;">Secure Login</button>
+
+            <!-- Marquis Logos -->
+            <div style="margin-top: 40px; border-top: 1px solid rgba(0,0,0,0.05); padding-top: 24px;">
+                <p
+                    style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 16px;">
+                    Trusted by Fortune 500 Teams</p>
+                <div class="marquis-container" style="width: 100%; opacity: 0.6;">
+                    <div class="marquis-content">
+                        <!-- Duplicated logos for infinite scroll effect -->
+                        <span
+                            style="display:inline-flex; align-items:center; gap:32px; padding-right:32px; font-weight:700; font-size:16px; color:#64748B;">
+                            <span>AEROSPACE</span> <span>GLOBEX</span> <span>SOYUZ</span> <span>FINCORP</span>
+                            <span>QUANTUS</span>
+                            <span>AEROSPACE</span> <span>GLOBEX</span> <span>SOYUZ</span> <span>FINCORP</span>
+                            <span>QUANTUS</span>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="toast-container" id="toastContainer"></div>
+
     <div class="app-layout">
-        <!-- Sidebar -->
         <aside class="sidebar">
-            <div class="logo" style="margin-bottom: 40px;">
-                <div class="logo-icon">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"
-                        stroke-linecap="round" stroke-linejoin="round">
+            <div class="logo">
+                <div class="logo-placeholder">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
                         <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
                     </svg>
                 </div>
-                <h1>ClawEDR <span>Dashboard</span></h1>
+                <h1 style="display:inline-block; overflow:hidden;">
+                    <span class="letter-wrap" style="animation-delay: 0.1s;">C</span><span class="letter-wrap"
+                        style="animation-delay: 0.15s;">l</span><span class="letter-wrap"
+                        style="animation-delay: 0.2s;">a</span><span class="letter-wrap"
+                        style="animation-delay: 0.25s;">w</span><span class="letter-wrap"
+                        style="animation-delay: 0.3s;">E</span><span class="letter-wrap"
+                        style="animation-delay: 0.35s;">D</span><span class="letter-wrap"
+                        style="animation-delay: 0.4s;">R</span> <span style="color:var(--text-muted); font-weight:400;"
+                        class="letter-wrap" style="animation-delay: 0.45s;">Web</span>
+                </h1>
             </div>
 
-            <nav class="sidebar-nav tabs"
-                style="flex-direction: column; gap: 8px; background: transparent; border: none; padding: 0; margin-bottom: auto;">
-                <button class="tab active sidebar-link" data-tab="alerts"
-                    style="text-align: left; display: flex; align-items: center; gap: 12px; padding: 10px 16px;">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                        stroke-linecap="round" stroke-linejoin="round">
+            <nav class="sidebar-nav">
+                <button class="sidebar-link active" data-tab="alerts">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path
                             d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z">
                         </path>
@@ -1367,10 +1045,8 @@
                     </svg>
                     Alerts Dashboard
                 </button>
-                <button class="tab sidebar-link" data-tab="rules"
-                    style="text-align: left; display: flex; align-items: center; gap: 12px; padding: 10px 16px;">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                        stroke-linecap="round" stroke-linejoin="round">
+                <button class="sidebar-link" data-tab="rules">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
                         <line x1="16" y1="2" x2="16" y2="6"></line>
                         <line x1="8" y1="2" x2="8" y2="6"></line>
@@ -1378,10 +1054,8 @@
                     </svg>
                     Policy Rules
                 </button>
-                <button class="tab sidebar-link" data-tab="settings"
-                    style="text-align: left; display: flex; align-items: center; gap: 12px; padding: 10px 16px;">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                        stroke-linecap="round" stroke-linejoin="round">
+                <button class="sidebar-link" data-tab="settings">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <circle cx="12" cy="12" r="3"></circle>
                         <path
                             d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
@@ -1391,38 +1065,53 @@
                 </button>
             </nav>
 
-            <div class="sidebar-footer" style="margin-top: 24px; display: flex; flex-direction: column; gap: 12px;">
-                <div class="sessions-dropdown" id="sessionsDropdown">
-                    <button class="sessions-trigger" onclick="toggleSessions()"
-                        style="width: 100%; justify-content: space-between;">
-                        <span style="display: flex; align-items: center; gap: 6px;">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--success)"
-                                stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                                <circle cx="12" cy="12" r="10"></circle>
-                            </svg>
-                            Instances
-                        </span>
-                        <span class="count-badge" id="sessionCountBadge">0</span>
-                    </button>
-                    <div class="sessions-menu" id="sessionsMenu"
-                        style="bottom: 100%; top: auto; margin-bottom: 8px; left: 0;">
-                        <div class="sessions-menu-header">Monitored Sessions</div>
-                        <div id="sessionsListContainer">
-                            <div class="sessions-empty">No active sessions</div>
-                        </div>
+            <div class="sessions-dropdown" id="sessionsDropdown">
+                <button class="sessions-trigger" onclick="toggleSessions()"
+                    style="width: 100%; justify-content: space-between;">
+                    <span style="display: flex; align-items: center; gap: 8px;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--success)"
+                            stroke-width="3">
+                            <circle cx="12" cy="12" r="10"></circle>
+                        </svg>
+                        Instances
+                    </span>
+                    <span class="card-count" id="sessionCountBadge"
+                        style="background: var(--success); color: white;">0</span>
+                </button>
+                <div class="sessions-menu" id="sessionsMenu">
+                    <div
+                        style="padding: 12px 16px; font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); border-bottom: 1px solid rgba(0,0,0,0.05);">
+                        Monitored Sessions</div>
+                    <div id="sessionsListContainer">
+                        <div style="padding: 16px; text-align: center; font-size: 12px; color: var(--text-muted);">No
+                            active sessions</div>
                     </div>
                 </div>
             </div>
         </aside>
 
-        <main class="main-content">
-            <header style="padding: 0 0 24px 0; margin-bottom: 24px;">
-                <h2 id="pageTitle" style="font-size: 20px; font-weight: 600;">Alerts Dashboard</h2>
-                <div class="header-right">
-                    <div class="status-badge" id="statusBadge">
-                        <div class="status-dot"></div>
-                        <span>Loading...</span>
-                    </div>
+        <main class="main-content stagger-in" style="animation-delay: 0.6s;">
+            <header>
+                <h2 id="pageTitle" class="page-title">
+                    <span class="letter-wrap" style="animation-delay: 0.5s;">A</span><span class="letter-wrap"
+                        style="animation-delay: 0.53s;">l</span><span class="letter-wrap"
+                        style="animation-delay: 0.56s;">e</span><span class="letter-wrap"
+                        style="animation-delay: 0.59s;">r</span><span class="letter-wrap"
+                        style="animation-delay: 0.62s;">t</span><span class="letter-wrap"
+                        style="animation-delay: 0.65s;">s</span> <span class="letter-wrap"
+                        style="animation-delay: 0.68s;">D</span><span class="letter-wrap"
+                        style="animation-delay: 0.71s;">a</span><span class="letter-wrap"
+                        style="animation-delay: 0.74s;">s</span><span class="letter-wrap"
+                        style="animation-delay: 0.77s;">h</span><span class="letter-wrap"
+                        style="animation-delay: 0.8s;">b</span><span class="letter-wrap"
+                        style="animation-delay: 0.83s;">o</span><span class="letter-wrap"
+                        style="animation-delay: 0.86s;">a</span><span class="letter-wrap"
+                        style="animation-delay: 0.89s;">r</span><span class="letter-wrap"
+                        style="animation-delay: 0.92s;">d</span>
+                </h2>
+                <div class="status-badge" id="statusBadge">
+                    <div class="status-dot"></div>
+                    <span>Connected</span>
                 </div>
             </header>
 
@@ -1432,10 +1121,9 @@
                     <div class="card-header">
                         <span class="card-title">Threat Alerts</span>
                         <div style="display: flex; align-items: center; gap: 12px;">
-                            <button class="refresh-btn" id="refreshAlertsBtn" onclick="manualRefreshAlerts()"
-                                title="Refresh alerts">
+                            <button class="btn btn-ghost btn-sm" id="refreshAlertsBtn" onclick="manualRefreshAlerts()">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    stroke-width="2">
                                     <polyline points="23 4 23 10 17 10"></polyline>
                                     <polyline points="1 20 1 14 7 14"></polyline>
                                     <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15">
@@ -1470,31 +1158,28 @@
                         </div>
                     </div>
                     <div class="alerts-layout">
-                        <div class="alerts-main">
-                            <div id="alertsContainer">
-                                <div class="empty-state">
-                                    <div class="icon">
-                                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none"
-                                            stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
-                                            stroke-linejoin="round">
-                                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                                            <line x1="3" y1="9" x2="21" y2="9"></line>
-                                            <line x1="9" y1="21" x2="9" y2="9"></line>
-                                        </svg>
-                                    </div>
-                                    <p>No recent alerts</p>
+                        <div class="alerts-main" id="alertsContainer">
+                            <div class="empty-state">
+                                <div class="icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none"
+                                        stroke="currentColor" stroke-width="2">
+                                        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                                    </svg></div>
+                                <div>
+                                    <h3 style="font-weight: 600; margin-bottom: 4px;">No recent alerts</h3>
+                                    <p>Your systems are secure and quiet.</p>
                                 </div>
                             </div>
                         </div>
                         <aside class="alert-detail-sidecard" id="alertDetailSidecard">
                             <div class="sidecard-header">
-                                <h3 style="font-size: 15px; font-weight: 600;">Alert Details</h3>
-                                <button class="btn btn-ghost btn-sm" onclick="closeAlertDetails()">✕</button>
+                                <h3 style="font-size: 16px; font-weight: 600;">Alert Details</h3>
+                                <button class="btn btn-ghost btn-sm" onclick="closeAlertDetails()"
+                                    style="border: none; padding: 4px;">✕</button>
                             </div>
                             <div class="sidecard-body" id="alertDetailsBody"></div>
                             <div class="sidecard-footer">
-                                <button class="btn btn-danger btn-sm" id="alertDetailsExemptBtn"
-                                    style="width:100%;">Exempt Rule</button>
+                                <button class="btn btn-danger" id="alertDetailsExemptBtn" style="width:100%;">Exempt
+                                    Rule</button>
                             </div>
                         </aside>
                     </div>
@@ -1503,67 +1188,42 @@
 
             <!-- Rules Tab -->
             <div class="tab-panel" id="tab-rules">
-                <!-- Custom Rules Card -->
                 <div class="card">
                     <div class="card-header">
-                        <span class="card-title">✨ Custom Rules</span>
+                        <span class="card-title">Custom Rules</span>
                         <div style="display:flex;align-items:center;gap:12px;">
                             <span class="card-count" id="customCount">0 rules</span>
-                            <button class="btn btn-purple btn-sm" onclick="openAddModal()" style="padding:6px 16px;">+
-                                Add
-                                Rule</button>
+                            <button class="btn btn-primary btn-sm" onclick="openAddModal()">+ Add Rule</button>
                         </div>
                     </div>
-                    <p style="color:var(--text-muted);font-size:12px;margin-bottom:16px;">
-                        User-defined blocking rules. These are enforced alongside the system policy and persist across
-                        updates.
-                    </p>
+                    <p style="color:var(--text-muted);font-size:13px;margin-bottom:20px;">User-defined blocking rules.
+                        Enforced alongside the system policy.</p>
                     <div id="customRulesContainer">
-                        <div class="empty-state" style="padding:24px;">
-                            <p>No custom rules yet. Click "Add Rule" to block a hash, domain, executable, path, or
-                                argument
-                                pattern.</p>
+                        <div class="empty-state">
+                            <p>No custom rules yet. Click "Add Rule" to block a pattern.</p>
                         </div>
                     </div>
                 </div>
 
-                <!-- System Rules Card -->
                 <div class="card">
                     <div class="card-header">
-                        <span class="card-title">System Rules</span>
+                        <span class="card-title">System Policies</span>
                         <div style="display:flex;align-items:center;gap:12px;">
                             <span class="card-count" id="exemptionCount">0 exempted</span>
-                            <button class="btn btn-ghost btn-sm" onclick="loadRules()" style="padding:6px 14px;">↻
-                                Refresh</button>
+                            <button class="btn btn-ghost btn-sm" onclick="loadRules()">↻ Refresh</button>
                         </div>
                     </div>
                     <input type="text" class="search-input" id="ruleSearch"
                         placeholder="Search rules by ID, value, or category..." oninput="filterRules()">
-                    <p style="color:var(--text-muted);font-size:12px;margin-bottom:20px;">
-                        Manage security rules and autonomous agent behavioral heuristics.
-                        Exemptions and heuristic overrides are saved to
-                        <code
-                            style="background:var(--bg-secondary);padding:2px 6px;border-radius:4px;">~/.clawedr/user_rules.yaml</code>
-                    </p>
 
-                    <div class="category-tabs"
-                        style="display:flex; gap:8px; margin-bottom:16px; border-bottom:1px solid var(--border); padding-bottom:12px;">
-                        <button class="btn btn-sm" id="btnCatSecurity" style="background:var(--accent); color:white;"
+                    <div
+                        style="display:flex; gap:8px; margin-bottom:20px; border-bottom:1px solid rgba(0,0,0,0.05); padding-bottom:16px; margin-top:20px;">
+                        <button class="btn btn-sm btn-primary" id="btnCatSecurity"
                             onclick="setRuleCategory('security')">Security</button>
                         <button class="btn btn-sm btn-ghost" id="btnCatHeuristics"
                             onclick="setRuleCategory('heuristics')">Heuristics</button>
                     </div>
 
-                    <div class="platform-pills">
-                        <button class="platform-pill active" data-platform="auto"
-                            onclick="setPlatformFilter('auto')">Auto</button>
-                        <button class="platform-pill" data-platform="all" onclick="setPlatformFilter('all')">All
-                            Platforms</button>
-                        <button class="platform-pill" data-platform="macos"
-                            onclick="setPlatformFilter('macos')">macOS</button>
-                        <button class="platform-pill" data-platform="linux"
-                            onclick="setPlatformFilter('linux')">Linux</button>
-                    </div>
                     <div id="rulesContainer">
                         <div class="empty-state">
                             <p>Loading rules...</p>
@@ -1575,160 +1235,99 @@
             <!-- Settings Tab -->
             <div class="tab-panel" id="tab-settings">
                 <div class="card">
-                    <div class="card-header">
-                        <span class="card-title">Rule Updates</span>
-                    </div>
-                    <p style="color:var(--text-muted);font-size:12px;margin-bottom:16px;">
-                        ClawEDR checks the GitHub registry every hour for updated threat signatures/rules.
-                        When enabled, updates are applied automatically on Linux. On macOS, you'll see a banner
-                        and must restart OpenClaw to enforce new rules.
-                    </p>
-                    <div class="form-group">
-                        <label class="form-label" style="display:flex;align-items:center;gap:12px;cursor:pointer;">
+                    <div class="card-header"><span class="card-title">System Settings</span></div>
+                    <p style="color:var(--text-muted);font-size:13px;margin-bottom:24px;">Manage updates and dashboard
+                        configurations.</p>
+                    <div style="display:flex; align-items:center; justify-content: space-between;">
+                        <span style="font-weight:500;">Auto-check for rule updates (hourly)</span>
+                        <label class="toggle">
                             <input type="checkbox" id="autoUpdateToggle" checked
                                 onchange="toggleAutoUpdate(this.checked)">
-                            <span>Auto-check for rule updates (hourly)</span>
+                            <span class="toggle-slider"></span>
                         </label>
                     </div>
-                    <div style="display:flex;gap:12px;margin-top:16px;">
-                        <button class="btn btn-primary" onclick="checkForUpdates()" id="checkUpdatesBtn">
-                            Check for updates now
-                        </button>
+                    <div style="display:flex;gap:12px;margin-top:24px;">
+                        <button class="btn btn-primary" onclick="checkForUpdates()" id="checkUpdatesBtn">Check for
+                            updates now</button>
                         <span id="lastCheckLabel"
-                            style="font-size:12px;color:var(--text-muted);align-self:center;"></span>
+                            style="font-size:13px;color:var(--text-muted);align-self:center;"></span>
                     </div>
                 </div>
             </div>
 
-            <!-- Update banner (macOS: when updates available, show count + restart message) -->
-            <div class="update-banner" id="updateBanner" style="display:none;">
-                <div class="update-banner-content">
-                    <span id="updateBannerText"></span>
-                    <button class="btn btn-primary btn-sm" onclick="applyUpdates()" id="applyUpdatesBtn">Download &
-                        apply</button>
-                </div>
+            <div class="update-banner" id="updateBanner"
+                style="display:none; background: linear-gradient(135deg, var(--accent), #8b5cf6); color: white; padding: 16px 24px; border-radius: 16px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 10px 30px rgba(79, 70, 229, 0.2);">
+                <span id="updateBannerText" style="font-weight: 500;"></span>
+                <button class="btn btn-ghost btn-sm" onclick="applyUpdates()" id="applyUpdatesBtn"
+                    style="border-color: rgba(255,255,255,0.4); color: white;">Apply</button>
             </div>
-
-            <div class="footer">ClawEDR v2.0 — Kernel-level endpoint detection for AI agents</div>
         </main>
     </div>
 
     <!-- Save Banner -->
     <div class="save-banner" id="saveBanner">
-        <p>You have unsaved exemption changes</p>
-        <button class="btn btn-primary" onclick="saveExemptions()">Save & Apply</button>
-        <button class="btn btn-ghost" onclick="cancelExemptions()">Cancel</button>
+        <p style="font-weight: 500;">You have unsaved exemption changes</p>
+        <button class="btn btn-primary btn-sm" onclick="saveExemptions()">Save & Apply</button>
+        <button class="btn btn-ghost btn-sm" onclick="cancelExemptions()"
+            style="background: transparent; border: none; color: rgba(255,255,255,0.7);">Cancel</button>
     </div>
 
-    <!-- Add/Edit Rule Modal -->
+    <!-- Modals -->
     <div class="modal-overlay" id="ruleModal">
         <div class="modal">
             <div class="modal-header">
-                <h2 id="modalTitle">Add Custom Rule</h2>
-                <button class="modal-close" onclick="closeModal()">✕</button>
+                <h2 id="modalTitle" style="font-size: 20px; font-weight: 600;">Add Custom Rule</h2>
+                <button onclick="closeModal()"
+                    style="background: transparent; border: none; font-size: 20px; cursor: pointer; color: var(--text-muted);">✕</button>
             </div>
             <div class="modal-body">
-                <div class="form-group">
-                    <label class="form-label">Rule Type</label>
+                <div style="margin-bottom: 20px;">
+                    <label style="display:block; font-size:13px; font-weight:600; margin-bottom:12px;">Rule Type</label>
                     <div class="type-grid" id="typeGrid">
                         <div class="type-card" data-type="executable" onclick="selectType('executable')">
-                            <div class="type-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"
-                                    stroke="currentColor" stroke-width="2">
-                                    <circle cx="12" cy="12" r="3"></circle>
-                                    <path
-                                        d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
-                                    </path>
-                                </svg></div>
-                            <div class="type-name">Executable</div>
+                            <div class="type-icon">●</div>
+                            <div>Executable</div>
                         </div>
                         <div class="type-card" data-type="domain" onclick="selectType('domain')">
-                            <div class="type-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"
-                                    stroke="currentColor" stroke-width="2">
-                                    <circle cx="12" cy="12" r="10"></circle>
-                                    <line x1="2" y1="12" x2="22" y2="12"></line>
-                                    <path
-                                        d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z">
-                                    </path>
-                                </svg></div>
-                            <div class="type-name">Domain <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-                                    stroke="currentColor" stroke-width="2"
-                                    style="display:inline; margin-left:4px; opacity:0.6;"
-                                    title="Supported on Linux (eBPF). macOS: monitoring-only via log_tailer.">
-                                    <circle cx="12" cy="12" r="10"></circle>
-                                    <line x1="12" y1="16" x2="12" y2="12"></line>
-                                    <line x1="12" y1="8" x2="12.01" y2="8"></line>
-                                </svg></div>
+                            <div class="type-icon">🌐</div>
+                            <div>Domain</div>
                         </div>
                         <div class="type-card" data-type="ip" onclick="selectType('ip')">
-                            <div class="type-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"
-                                    stroke="currentColor" stroke-width="2">
-                                    <circle cx="12" cy="12" r="10"></circle>
-                                    <line x1="2" y1="12" x2="22" y2="12"></line>
-                                    <path
-                                        d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z">
-                                    </path>
-                                </svg></div>
-                            <div class="type-name">IP <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-                                    stroke="currentColor" stroke-width="2"
-                                    style="display:inline; margin-left:4px; opacity:0.6;"
-                                    title="Supported on Linux (eBPF). macOS: monitoring-only via log_tailer.">
-                                    <circle cx="12" cy="12" r="10"></circle>
-                                    <line x1="12" y1="16" x2="12" y2="12"></line>
-                                    <line x1="12" y1="8" x2="12.01" y2="8"></line>
-                                </svg></div>
+                            <div class="type-icon">🖥</div>
+                            <div>IP</div>
                         </div>
                         <div class="type-card" data-type="hash" onclick="selectType('hash')">
-                            <div class="type-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"
-                                    stroke="currentColor" stroke-width="2">
-                                    <path
-                                        d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4">
-                                    </path>
-                                </svg></div>
-                            <div class="type-name">Hash</div>
+                            <div class="type-icon">#</div>
+                            <div>Hash</div>
                         </div>
                         <div class="type-card" data-type="path" onclick="selectType('path')">
-                            <div class="type-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"
-                                    stroke="currentColor" stroke-width="2">
-                                    <path
-                                        d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z">
-                                    </path>
-                                </svg></div>
-                            <div class="type-name">Path</div>
+                            <div class="type-icon">📁</div>
+                            <div>Path</div>
                         </div>
                         <div class="type-card" data-type="argument" onclick="selectType('argument')">
-                            <div class="type-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"
-                                    stroke="currentColor" stroke-width="2">
-                                    <line x1="17" y1="3" x2="21" y2="7"></line>
-                                    <path d="M21 7L7 21H3v-4L17 3z"></path>
-                                </svg></div>
-                            <div class="type-name">Argument</div>
+                            <div class="type-icon">»</div>
+                            <div>Argument</div>
                         </div>
                     </div>
                 </div>
-                <div class="form-group">
-                    <label class="form-label" for="ruleValue">Value</label>
+                <div style="margin-bottom: 16px;">
+                    <label style="display:block; font-size:13px; font-weight:600; margin-bottom:8px;">Value</label>
                     <input type="text" class="form-input" id="ruleValue" placeholder="Enter value...">
-                    <div class="form-hint" id="ruleHint">Select a rule type above</div>
-                    <div class="form-error" id="ruleError"></div>
+                    <div style="font-size:12px; color:var(--text-muted);" id="ruleHint">Select a rule type above</div>
+                    <div style="color:var(--danger); font-size:13px; display:none;" id="ruleError"></div>
                 </div>
-                <div class="form-group" id="macDomainWarning" style="display:none; margin-top:12px;">
-                    <div
-                        style="background: rgba(255, 171, 0, 0.1); border-left: 4px solid #ffab00; padding: 12px; border-radius: 4px; display:flex; gap:12px; align-items:center;">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffab00" stroke-width="2">
-                            <circle cx="12" cy="12" r="10"></circle>
-                            <line x1="12" y1="8" x2="12" y2="12"></line>
-                            <line x1="12" y1="16" x2="12.01" y2="16"></line>
-                        </svg>
-                        <div id="macWarningText" style="color: #ffab00; font-size: 13px; font-weight: 500;"></div>
-                    </div>
+                <div id="macDomainWarning"
+                    style="display:none; margin-bottom:16px; background: rgba(245, 158, 11, 0.1); padding: 12px; border-radius: 8px;">
+                    <div id="macWarningText" style="color: #D97706; font-size: 13px; font-weight: 500;"></div>
                 </div>
-                <div class="form-group">
-                    <label class="form-label" for="ruleDescription">Description (optional)</label>
-                    <input type="text" class="form-input" id="ruleDescription"
-                        placeholder="e.g. Blocks access to internal secrets">
+                <div style="margin-bottom: 16px;">
+                    <label style="display:block; font-size:13px; font-weight:600; margin-bottom:8px;">Description
+                        (optional)</label>
+                    <input type="text" class="form-input" id="ruleDescription">
                 </div>
-                <div class="form-group">
-                    <label class="form-label" for="ruleSeverity">Severity (optional)</label>
+                <div style="margin-bottom: 16px;">
+                    <label style="display:block; font-size:13px; font-weight:600; margin-bottom:8px;">Severity
+                        (optional)</label>
                     <select class="form-select" id="ruleSeverity">
                         <option value="">—</option>
                         <option value="critical">Critical</option>
@@ -1738,27 +1337,29 @@
                         <option value="info">Info</option>
                     </select>
                 </div>
-                <div class="form-group">
-                    <label class="form-label" for="rulePlatform">Platform</label>
+                <div style="margin-bottom: 16px;">
+                    <label style="display:block; font-size:13px; font-weight:600; margin-bottom:8px;">Platform</label>
                     <select class="form-select" id="rulePlatform">
-                        <option value="both">Both (macOS & Linux)</option>
-                        <option value="macos">macOS only</option>
-                        <option value="linux">Linux only</option>
+                        <option value="both">Both</option>
+                        <option value="macos">macOS</option>
+                        <option value="linux">Linux</option>
                     </select>
                 </div>
             </div>
             <div class="modal-footer">
                 <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
-                <button class="btn btn-purple" id="modalSubmit" onclick="submitRule()">Add Rule</button>
+                <button class="btn btn-primary" id="modalSubmit" onclick="submitRule()">Add Rule</button>
             </div>
         </div>
     </div>
-
     <script>
+
         let allRules = {}, allRuleItems = [], exemptedIds = new Set(), pendingExemptions = null;
         let customRules = [];
         let detectedOS = null, platformFilter = 'auto';
         let modalMode = 'add', editingRuleId = null, selectedType = null;
+        let authToken = localStorage.getItem('clawedr_token') || '';
+        let activeSessions = [];  // Cached sessions for alert enrichment
 
         const TYPE_HINTS = {
             executable: 'Binary name to block, e.g. "terraform", "curl"',
@@ -1821,8 +1422,59 @@
             }, 5000);
         }
 
-        // ── API ──
-        async function fetchJSON(u) { return (await fetch(u)).json(); }
+        // ── Auth ──
+        async function attemptLogin() {
+            const input = document.getElementById('tokenInput');
+            const token = input.value.trim();
+            if (!token) return;
+            try {
+                const res = await fetch('/api/auth/check', { headers: { 'Authorization': 'Bearer ' + token } });
+                if (res.ok) {
+                    authToken = token;
+                    localStorage.setItem('clawedr_token', token);
+                    document.cookie = 'clawedr_token=' + encodeURIComponent(token) + '; path=/; SameSite=Strict';
+                    document.getElementById('loginOverlay').style.display = 'none';
+                    initDashboard();
+                } else {
+                    document.getElementById('loginError').style.display = 'block';
+                    document.getElementById('loginError').textContent = 'Invalid token. Please try again.';
+                    input.value = '';
+                    input.focus();
+                }
+            } catch (e) {
+                document.getElementById('loginError').style.display = 'block';
+                document.getElementById('loginError').textContent = 'Connection error: ' + e.message;
+            }
+        }
+
+        // Auto-login if token is stored
+        (async function checkStoredToken() {
+            if (authToken) {
+                try {
+                    const res = await fetch('/api/auth/check', { headers: { 'Authorization': 'Bearer ' + authToken } });
+                    if (res.ok) {
+                        document.getElementById('loginOverlay').style.display = 'none';
+                        initDashboard();
+                        return;
+                    }
+                } catch (_) { }
+                // Stored token is invalid, clear it
+                authToken = '';
+                localStorage.removeItem('clawedr_token');
+            }
+            document.getElementById('tokenInput').focus();
+        })();
+
+        // ── API ── (all requests include auth token)
+        async function fetchJSON(u) {
+            const res = await fetch(u, { headers: { 'Authorization': 'Bearer ' + authToken } });
+            if (res.status === 401) {
+                // Token expired or invalid — show login
+                document.getElementById('loginOverlay').style.display = 'flex';
+                throw new Error('Unauthorized');
+            }
+            return res.json();
+        }
 
         async function loadStatus() {
             try {
@@ -1838,10 +1490,11 @@
         async function loadSessions() {
             try {
                 const d = await fetchJSON('/api/sessions'), ss = d.sessions || [];
+                activeSessions = ss;  // Cache for alert enrichment
                 document.getElementById('sessionCountBadge').textContent = ss.length;
                 const c = document.getElementById('sessionsListContainer');
                 if (!ss.length) { c.innerHTML = '<div class="sessions-empty">No active sessions</div>'; return; }
-                c.innerHTML = ss.map(s => { const id = s.id || s.session_id || s.sessionId || 'unknown', short = typeof id === 'string' ? id.substring(0, 12) + '…' : id, ch = s.channel || s.reply_channel || ''; return `<div class="session-item"><div class="session-dot"></div><span class="session-id" title="${esc(String(id))}">${esc(String(short))}</span>${ch ? `<span class="session-channel">${esc(ch)}</span>` : ''}</div>`; }).join('');
+                c.innerHTML = ss.map(s => { const id = s.id || s.session_id || s.sessionId || 'unknown', ch = s.channel || s.reply_channel || ''; return `<div class="session-item"><div class="session-dot"></div><span class="session-id" title="${esc(String(id))}" style="word-break: break-all; white-space: normal;">${esc(String(id))}</span>${ch ? `<span class="session-channel">${esc(ch)}</span>` : ''}</div>`; }).join('');
             } catch { document.getElementById('sessionCountBadge').textContent = '?'; }
         }
 
@@ -1906,11 +1559,20 @@
             return d.includes('monitored') || d.includes('observed') || d.includes('action=allow');
         }
 
+        function getInstanceName() {
+            if (activeSessions.length > 0) {
+                const s = activeSessions[0];
+                return s.id || s.session_id || s.sessionId || null;
+            }
+            return null;
+        }
+
         function renderAlerts(alerts) {
             const c = document.getElementById('alertsContainer');
             if (!alerts.length) { c.innerHTML = '<div class="empty-state"><div class="icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg></div><p>No recent alerts</p></div>'; return; }
             const sorted = [...alerts].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
             activeDisplayedAlerts = sorted;
+            const instanceName = getInstanceName();
             c.innerHTML = '<div class="alerts-grid">' + sorted.map((a, idx) => {
                 const sev = (a.severity || 'unknown').toLowerCase();
                 const sevClass = 'severity-' + sev;
@@ -1920,6 +1582,7 @@
                     ? '<span class="badge-monitored"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg> Monitored</span>'
                     : '<span class="badge-blocked"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg> Blocked</span>';
                 const sel = selectedAlertIdx === idx ? ' alert-card-selected' : '';
+                const instanceBadge = instanceName ? `<span class="badge-openclaw" title="Instance">${esc(String(instanceName))}</span>` : '';
                 return `<div class="alert-card ${sev}${sel}" style="cursor:pointer;" onclick='openAlertDetails(${idx})'>
           <div class="alert-card-header">
             <div class="alert-card-meta">
@@ -1927,6 +1590,7 @@
               ${statusBadge}
               <span class="rule-tag danger">${esc(a.rule_id)}</span>
               <span class="rule-tag ${sevClass}">${esc(sev)}</span>
+              ${instanceBadge}
             </div>
             <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); exemptRule(${rid})">Exempt</button>
           </div>
@@ -2030,7 +1694,7 @@
             <span style="font-size:11px;color:var(--text-muted);flex-shrink:0;">${r.type} ${platLabel}</span>
             ${desc}
           </div>
-          <div class="rule-actions" style="display:flex; align-items:center; gap:8px;">
+          <div class="rule-actions" style="display:flex; align-items:center; gap:8px; position:relative; z-index:2;">
             <div class="tri-toggle mode-${mode}"><div class="tri-slider"></div><div class="tri-btn" data-val="disabled" onclick="toggleRuleMode('${r.id}', 'disabled')">🚫 Off</div><div class="tri-btn" data-val="alert" onclick="toggleRuleMode('${r.id}', 'alert')">👀 Alert</div><div class="tri-btn" data-val="enforce" onclick="toggleRuleMode('${r.id}', 'enforce')">🛡️ Enforce</div></div>
             <button class="btn btn-ghost btn-sm" onclick="editCustomRule('${r.id}')">Edit</button>
             <button class="btn btn-danger btn-sm" onclick="deleteCustomRule('${r.id}')">Delete</button>
@@ -2059,12 +1723,23 @@
             return exemptedIds.has(r.id) ? 'disabled' : 'enforce';
         }
 
+        let expandedHeuristicCategories = new Set();
+
         function renderRules() {
             const c = document.getElementById('rulesContainer');
             const curExempts = pendingExemptions ?? exemptedIds;
             const curHeuristics = pendingHeuristics ?? heuristicOverrides;
             const curRuleModes = pendingRuleModes ?? ruleModeOverrides;
             const q = (document.getElementById('ruleSearch')?.value || '').toLowerCase();
+
+            // Preserve which heuristic categories are expanded (before DOM replace)
+            if (activeRuleCategory === 'heuristics') {
+                expandedHeuristicCategories = new Set(
+                    [...document.querySelectorAll('.rule-group-details[open]')]
+                        .map(d => d.getAttribute('data-category'))
+                        .filter(Boolean)
+                );
+            }
 
             const visible = allRuleItems.filter(r => {
                 if (r.type !== activeRuleCategory) return false;
@@ -2102,15 +1777,16 @@
                 } else {
                     // Heuristics
                     const rids = items.map(r => r.id).join(',');
-                    html += `<details class="rule-group-details" style="padding-bottom:12px; margin-bottom: 8px;">
+                    const wasOpen = expandedHeuristicCategories.has(cat);
+                    html += `<details class="rule-group-details" data-category="${esc(cat)}" ${wasOpen ? 'open' : ''} style="padding-bottom:12px; margin-bottom: 8px;">
                         <summary class="rule-group-title" style="display:flex; justify-content:space-between; align-items:center;">
-                            <span><span class="group-arrow">▶</span>${cat} (${items.length})</span>
-                            <div style="display:flex; gap:8px; align-items:center; font-size:12px; font-weight:normal;">
+                            <span style="cursor:pointer; flex:1;"><span class="group-arrow">▶</span>${cat} (${items.length})</span>
+                            <div style="display:flex; gap:8px; align-items:center; font-size:12px; font-weight:normal;" onclick="event.stopPropagation()">
                                 <span style="color:var(--text-muted)">Set all:</span>
                                 <div style="display:flex; gap:4px;">
-                                    <button class="btn btn-ghost btn-sm" style="padding: 2px 8px; font-size: 11px;" onclick="event.preventDefault(); setGroupHeuristic('disabled', '${esc(cat)}', '${esc(rids)}')">🚫 Off</button>
-                                    <button class="btn btn-ghost btn-sm" style="padding: 2px 8px; font-size: 11px; color:var(--warning);" onclick="event.preventDefault(); setGroupHeuristic('alert', '${esc(cat)}', '${esc(rids)}')">👀 Alert</button>
-                                    <button class="btn btn-ghost btn-sm" style="padding: 2px 8px; font-size: 11px; color:var(--danger);" onclick="event.preventDefault(); setGroupHeuristic('enforce', '${esc(cat)}', '${esc(rids)}')">🛡️ Enforce</button>
+                                    <button class="btn btn-ghost btn-sm" style="padding: 2px 8px; font-size: 11px;" onclick="event.preventDefault(); event.stopPropagation(); setGroupHeuristic('disabled', '${esc(cat)}', '${esc(rids)}')">🚫 Off</button>
+                                    <button class="btn btn-ghost btn-sm" style="padding: 2px 8px; font-size: 11px; color:var(--warning);" onclick="event.preventDefault(); event.stopPropagation(); setGroupHeuristic('alert', '${esc(cat)}', '${esc(rids)}')">👀 Alert</button>
+                                    <button class="btn btn-ghost btn-sm" style="padding: 2px 8px; font-size: 11px; color:var(--danger);" onclick="event.preventDefault(); event.stopPropagation(); setGroupHeuristic('enforce', '${esc(cat)}', '${esc(rids)}')">🛡️ Enforce</button>
                                 </div>
                             </div>
                         </summary>
@@ -2171,6 +1847,7 @@
             }
             document.getElementById('saveBanner').classList.add('visible');
             renderRules();
+            if (customRules.some(r => r.id === id)) renderCustomRules();
         }
 
         function toggleHeuristic(id, mode) {
@@ -2210,7 +1887,7 @@
                     pendingHeuristics = null;
                 }
                 if (Object.keys(body).length) {
-                    await fetch('/api/user-rules', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+                    await fetch('/api/user-rules', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + authToken }, body: JSON.stringify(body) });
                 }
                 document.getElementById('saveBanner').classList.remove('visible');
                 renderRules();
@@ -2326,9 +2003,9 @@
                     const body = { type: selectedType, value, platform };
                     if (description) body.description = description;
                     if (severity) body.severity = severity;
-                    res = await fetch('/api/custom-rules', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+                    res = await fetch('/api/custom-rules', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + authToken }, body: JSON.stringify(body) });
                 } else {
-                    res = await fetch(`/api/custom-rules/${editingRuleId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ value, platform, description, severity }) });
+                    res = await fetch(`/api/custom-rules/${editingRuleId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + authToken }, body: JSON.stringify({ value, platform, description, severity }) });
                 }
                 const data = await res.json();
                 if (data.error) { errEl.textContent = data.error; errEl.classList.add('visible'); return; }
@@ -2341,7 +2018,7 @@
         async function deleteCustomRule(id) {
             if (!confirm(`Delete custom rule ${id}?`)) return;
             try {
-                const res = await fetch(`/api/custom-rules/${id}`, { method: 'DELETE' });
+                const res = await fetch(`/api/custom-rules/${id}`, { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + authToken } });
                 const data = await res.json();
                 if (data.error) { alert(data.error); return; }
                 await loadCustomRules();
@@ -2416,7 +2093,7 @@
             const pid = parsed.pid ? parseInt(parsed.pid, 10) : null;
             if (pid && !isNaN(pid)) {
                 try {
-                    const procRes = await fetch(`/api/process/${pid}`);
+                    const procRes = await fetch(`/api/process/${pid}`, { headers: { 'Authorization': 'Bearer ' + authToken } });
                     if (procRes.ok) {
                         const proc = await procRes.json();
                         const enrichEl = document.getElementById('processEnrichment');
@@ -2456,7 +2133,7 @@
             try {
                 await fetch('/api/settings', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + authToken },
                     body: JSON.stringify({ auto_update_rules: on })
                 });
                 showToast(on ? 'Auto-update enabled' : 'Auto-update disabled', 'info');
@@ -2503,7 +2180,7 @@
             btn.disabled = true;
             btn.textContent = 'Applying...';
             try {
-                const res = await fetch('/api/updates/apply', { method: 'POST' });
+                const res = await fetch('/api/updates/apply', { method: 'POST', headers: { 'Authorization': 'Bearer ' + authToken } });
                 const data = await res.json();
                 if (data.error) {
                     showToast(data.error, 'danger');
@@ -2520,22 +2197,26 @@
             loadSettings();
         }
 
-        // ── Init ──
-        loadStatus().then(() => {
-            loadRules().then(() => loadUserRules());
-            loadSettings();
-            checkForUpdates().then(() => { }); // Initial check for banner
-        });
-        loadSessions(); loadAlerts(); loadCustomRules();
-        setInterval(loadAlerts, 30000);
-        setInterval(loadSessions, 15000);
-        setInterval(async () => {
-            try {
-                const r = await fetchJSON('/api/updates/cached');
-                if (r.has_updates) showUpdateBanner(r);
-            } catch (_) { }
-        }, 120000); // Poll for cached updates every 2 min (from background hourly check)
+        function initDashboard() {
+            loadStatus().then(() => {
+                loadRules().then(() => loadUserRules().then(() => loadCustomRules()));
+                loadSettings();
+                checkForUpdates().then(() => { }); // Initial check for banner
+            });
+            loadSessions(); loadAlerts();
+            setInterval(loadAlerts, 30000);
+            setInterval(loadSessions, 15000);
+            setInterval(async () => {
+                try {
+                    const r = await fetchJSON('/api/updates/cached');
+                    if (r.has_updates) showUpdateBanner(r);
+                } catch (_) { }
+            }, 120000); // Poll for cached updates every 2 min (from background hourly check)
+        }
     </script>
+</body>
+
+</html>
 </body>
 
 </html>

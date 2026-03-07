@@ -25,26 +25,77 @@ import sys
 from pathlib import Path
 
 from typing import Optional
-from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi import FastAPI, Request  # pyre-ignore[21]
+from fastapi.responses import HTMLResponse, JSONResponse  # pyre-ignore[21]
+from fastapi.staticfiles import StaticFiles  # pyre-ignore[21]
+from starlette.middleware.base import BaseHTTPMiddleware  # pyre-ignore[21]
 
 # Add parent directory to path so we can import shared modules
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from shared.user_rules import (
+from shared.user_rules import (  # pyre-ignore[21]
     load_user_rules, save_user_rules, USER_RULES_PATH,
     add_custom_rule, update_custom_rule, delete_custom_rule,
     get_custom_rules, get_custom_rule_metadata, CUSTOM_RULE_TYPES,
-    load_settings, save_settings,
+    load_settings, save_settings, get_dashboard_token,
     get_heuristic_overrides, save_heuristic_overrides, set_group_heuristic_mode,
     get_rule_mode_overrides, save_rule_mode_overrides,
     VALID_HEURISTIC_MODES,
 )
-from shared.rule_updater import check_for_updates, download_and_apply
+from shared.rule_updater import check_for_updates, download_and_apply  # pyre-ignore[21]
 
 logger = logging.getLogger("clawedr.dashboard")
 
 app = FastAPI(title="ClawEDR Dashboard", version="1.0.0")
+
+
+# ---------------------------------------------------------------------------
+# Token Authentication Middleware
+# ---------------------------------------------------------------------------
+
+# Paths that don't require authentication (login UI + auth check endpoint)
+_AUTH_EXEMPT_PATHS = {"/", "/api/auth/check", "/api/auth/token", "/favicon.ico"}
+
+
+class TokenAuthMiddleware(BaseHTTPMiddleware):
+    """Require a bearer token for all API requests.
+
+    Token can be provided as:
+      - Authorization: Bearer <token>
+      - Query param: ?token=<token>
+      - Cookie: clawedr_token=<token>
+    """
+
+    async def dispatch(self, request: Request, call_next):
+        path = request.url.path.rstrip("/") or "/"
+
+        # Allow login page and auth endpoints through
+        if path in _AUTH_EXEMPT_PATHS:
+            return await call_next(request)
+
+        # Check token
+        expected = get_dashboard_token()
+        token = None
+
+        # 1. Authorization header
+        auth_header = request.headers.get("authorization", "")
+        if auth_header.lower().startswith("bearer "):
+            token = auth_header[7:].strip()
+
+        # 2. Query param
+        if not token:
+            token = request.query_params.get("token")
+
+        # 3. Cookie
+        if not token:
+            token = request.cookies.get("clawedr_token")
+
+        if token == expected:
+            return await call_next(request)
+
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+
+app.add_middleware(TokenAuthMiddleware)
 
 # Cached result from background update check (macOS banner)
 _pending_updates: dict | None = None
@@ -85,7 +136,7 @@ def _load_rule_metadata() -> dict:
             desc = rule.get("description")
             sev = rule.get("severity")
             if desc or sev:
-                metadata[rid] = {
+                metadata[rid] = {  # pyre-ignore[16]
                     "description": desc or "",
                     "severity": sev or "unknown",
                 }
@@ -115,7 +166,7 @@ def _parse_log_lines(max_lines: int = 1000) -> list[dict]:
         try:
             with open(log_path) as f:
                 lines = f.readlines()
-            for line in lines[-max_lines:]:
+            for line in lines[-max_lines:]:  # pyre-ignore[9]: slice
                 m = _BLOCK_LINE_RE.search(line)
                 if m:
                     kind = m.group(2).upper()  # BLOCKED, ALERT, WARNING
@@ -161,7 +212,7 @@ def _parse_log_lines(max_lines: int = 1000) -> list[dict]:
             seen_norm.add(nkey)
             collapsed.append(a)
     alerts = collapsed
-    return alerts[:100]  # Cap at 100 most recent
+    return alerts[:100]  # pyre-ignore[9]: slice
 
 
 @app.get("/api/alerts")
@@ -189,27 +240,30 @@ async def get_alerts(
 
     # Filter by severity (e.g. ?severity=critical,high)
     if severity:
+        assert isinstance(severity, str)  # pyre narrow
         allowed = {s.strip().lower() for s in severity.split(",")}
         alerts = [a for a in alerts if a.get("severity", "unknown").lower() in allowed]
 
     # Filter by time (e.g. ?since_hours=24)
-    if since_hours is not None and since_hours > 0:
-        try:
-            cutoff = datetime.datetime.now() - datetime.timedelta(hours=since_hours)
-            filtered = []
-            for a in alerts:
-                ts_str = a.get("timestamp", "")
-                # Parse "2024-02-25 12:34:56" or "2024-02-25 12:34:56.123"
-                ts_str = re.sub(r"[,.]\d+$", "", ts_str)
-                try:
-                    ts = datetime.datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S")
-                    if ts >= cutoff:
-                        filtered.append(a)
-                except ValueError:
-                    filtered.append(a)  # Keep if unparseable
-            alerts = filtered
-        except Exception:
-            pass
+    if since_hours is not None:
+        assert isinstance(since_hours, int)  # pyre narrow
+        if since_hours > 0:
+            try:
+                cutoff = datetime.datetime.now() - datetime.timedelta(hours=since_hours)
+                filtered = []
+                for a in alerts:
+                    ts_str = a.get("timestamp", "")
+                    # Parse "2024-02-25 12:34:56" or "2024-02-25 12:34:56.123"
+                    ts_str = re.sub(r"[,.]\d+$", "", ts_str)
+                    try:
+                        ts = datetime.datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S")
+                        if ts >= cutoff:
+                            filtered.append(a)
+                    except ValueError:
+                        filtered.append(a)  # Keep if unparseable
+                alerts = filtered
+            except Exception:
+                pass
 
     return JSONResponse({"alerts": alerts, "count": len(alerts)})
 
@@ -290,6 +344,7 @@ def _trigger_enforcement():
                     break
             
             if apply_script:
+                assert isinstance(apply_script, str)  # pyre
                 try:
                     subprocess.run(["python3", apply_script], check=True, capture_output=True)
                     logger.info("Triggered macOS policy applicator: %s", apply_script)
@@ -335,7 +390,7 @@ def _get_enforcement_message():
 @app.get("/api/custom-rules")
 async def list_custom_rules():
     """Return all user-defined custom blocking rules."""
-    from shared.user_rules import VALID_SEVERITIES
+    from shared.user_rules import VALID_SEVERITIES  # pyre-ignore[21]
     return JSONResponse({
         "custom_rules": get_custom_rules(),
         "supported_types": list(CUSTOM_RULE_TYPES.keys()),
@@ -604,10 +659,39 @@ async def get_status():
 # Settings & Rule Updates
 # ---------------------------------------------------------------------------
 
+@app.get("/api/auth/check")
+async def auth_check(request: Request):
+    """Check if a token is valid. Used by the login page."""
+    token = request.query_params.get("token", "")
+    if not token:
+        auth_header = request.headers.get("authorization", "")
+        if auth_header.lower().startswith("bearer "):
+            token = auth_header[7:].strip()
+    if not token:
+        token = request.cookies.get("clawedr_token", "")
+    expected = get_dashboard_token()
+    if token == expected:
+        return JSONResponse({"authenticated": True})
+    return JSONResponse({"authenticated": False}, status_code=401)
+
+
+@app.get("/api/auth/token")
+async def get_auth_info():
+    """Return info about how to find the token. Does NOT return the token itself."""
+    from shared.user_rules import SETTINGS_PATH  # pyre-ignore[21]
+    return JSONResponse({
+        "message": "Token is stored in your ClawEDR settings file. Check the console output when the dashboard starts.",
+        "settings_path": str(SETTINGS_PATH),
+    })
+
+
 @app.get("/api/settings")
 async def get_settings():
-    """Return dashboard settings (auto-update toggle, etc.)."""
-    return JSONResponse(load_settings())
+    """Return dashboard settings (auto-update toggle, bind addresses, etc.)."""
+    settings = load_settings()
+    # Don't expose the token in the settings API
+    safe = {k: v for k, v in settings.items() if k != "dashboard_token"}
+    return JSONResponse(safe)
 
 
 @app.post("/api/settings")
@@ -618,8 +702,12 @@ async def post_settings(request: Request):
         settings = load_settings()
         if "auto_update_rules" in body:
             settings["auto_update_rules"] = bool(body["auto_update_rules"])
+        if "dashboard_bind_addresses" in body:
+            addrs = body["dashboard_bind_addresses"]
+            if isinstance(addrs, list):
+                settings["dashboard_bind_addresses"] = [str(a).strip() for a in addrs if str(a).strip()]
         save_settings(settings)
-        return JSONResponse({"status": "ok", "settings": settings})
+        return JSONResponse({"status": "ok", "settings": {k: v for k, v in settings.items() if k != "dashboard_token"}})
     except Exception as exc:
         return JSONResponse({"error": str(exc)}, status_code=400)
 
@@ -753,12 +841,30 @@ def _run_update_check():
 
 def main():
     import threading
-    import uvicorn
+    import uvicorn  # pyre-ignore[21]
     t = threading.Thread(target=_run_update_check, daemon=True)
     t.start()
     port = int(os.environ.get("CLAWEDR_DASHBOARD_PORT", "8477"))
-    logger.info("Starting ClawEDR Dashboard on http://localhost:%d", port)
-    uvicorn.run(app, host="127.0.0.1", port=port, log_level="info")
+
+    # Print the dashboard token for the user
+    token = get_dashboard_token()
+    logger.info("Starting ClawEDR Dashboard on http://127.0.0.1:%d", port)
+    logger.info("Dashboard token: %s", token)
+    logger.info("Use this token to log in to the dashboard.")
+    # Also print to stderr for visibility in service logs
+    print(f"\n  ClawEDR Dashboard: http://127.0.0.1:{port}")
+    print(f"  Dashboard Token:  {token}\n", flush=True)
+
+    # Determine bind host: 127.0.0.1 by default, additional addresses from settings
+    settings = load_settings()
+    extra_addrs = settings.get("dashboard_bind_addresses", [])
+    if extra_addrs:
+        # If user added addresses, bind to 0.0.0.0 (let firewall handle)
+        bind_host = "0.0.0.0"
+        logger.info("Additional bind addresses configured: %s — binding to 0.0.0.0", extra_addrs)
+    else:
+        bind_host = "127.0.0.1"
+    uvicorn.run(app, host=bind_host, port=port, log_level="info")
 
 
 if __name__ == "__main__":

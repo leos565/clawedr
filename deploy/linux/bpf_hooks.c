@@ -44,7 +44,7 @@ struct event_t {
              // check), 4 = heuristic_alert, 5 = heuristic_block,
              // 6 = security_alert (match but no kill)
   u32 blocked_ip; // for connect events: IP in host byte order
-  u16 heu_slot;  // for heuristic events: slot index for rule_id lookup
+  u16 heu_slot;   // for heuristic events: slot index for rule_id lookup
 };
 
 /* --- Maps populated by monitor.py --- */
@@ -65,7 +65,7 @@ BPF_HASH(protected_pids, u32, u8, 16);
 
 /* --- Heuristic maps --- */
 struct heu_config_t {
-  u8 enabled;   // 0=disabled, 1=alert, 2=enforce
+  u8 enabled; // 0=disabled, 1=alert, 2=enforce
   u8 num_patterns;
   u16 threshold;
   u16 window_sec;
@@ -76,15 +76,16 @@ struct heu_state_val_t {
   u64 window_start_ns;
 };
 BPF_ARRAY(heu_configs, struct heu_config_t, MAX_HEU_SLOTS);
-BPF_ARRAY(heu_argv_patterns, u64, MAX_HEU_SLOTS * MAX_ARGV_PATTERNS);
-BPF_HASH(heu_binary_to_slots, u64, u64, 128);  // binary_hash -> bitmap of slots
+BPF_ARRAY(heu_argv_patterns, u64, MAX_HEU_SLOTS *MAX_ARGV_PATTERNS);
+BPF_HASH(heu_binary_to_slots, u64, u64, 1024); // binary_hash -> bitmap of slots
 BPF_HASH(heu_state, u64, struct heu_state_val_t, 8192);
 /* Path-based heuristics (openat): path_contains_hash -> bitmap of slots */
 BPF_HASH(heu_path_slots, u64, u64, 256);
 /* Syscall-based: unlinkat, chmod, symlinkat, fork, write */
 BPF_HASH(heu_fork_state, u32, struct heu_state_val_t, 256);
-BPF_HASH(heu_connect_state, u64, struct heu_state_val_t, 1024);  // (tgid<<32|ip)
-/* Syscall type -> heu_slot: 1=fork, 2=unlinkat, 3=chmod, 4=symlinkat, 5=write */
+BPF_HASH(heu_connect_state, u64, struct heu_state_val_t, 1024); // (tgid<<32|ip)
+/* Syscall type -> heu_slot: 1=fork, 2=unlinkat, 3=chmod, 4=symlinkat, 5=write
+ */
 BPF_HASH(heu_syscall_slots, u32, u8, 16);
 
 BPF_PERF_OUTPUT(events);
@@ -151,13 +152,14 @@ static __always_inline u64 hash_argv_slot(const char *ptr) {
   return h;
 }
 
-/* Check if argv matches heuristic slot patterns. Returns 1 if all patterns match. */
+/* Check if argv matches heuristic slot patterns. Returns 1 if all patterns
+ * match. */
 static __always_inline int heu_argv_matches(u8 slot, u64 h0, u64 h1, u64 h2) {
   u32 slot32 = slot;
   struct heu_config_t *cfg = heu_configs.lookup(&slot32);
   if (!cfg || cfg->num_patterns == 0)
     return 1; /* no patterns = match (e.g. binary-only heuristic) */
-  #pragma unroll
+#pragma unroll
   for (int i = 0; i < MAX_ARGV_PATTERNS; i++) {
     if (i >= cfg->num_patterns)
       break;
@@ -174,7 +176,8 @@ static __always_inline int heu_argv_matches(u8 slot, u64 h0, u64 h1, u64 h2) {
 
 /* Update sliding window and check threshold. Returns 1 if should trigger. */
 static __always_inline int heu_sliding_window(u32 pid, u8 slot, u16 threshold,
-                                              u16 window_sec, int *out_do_kill) {
+                                              u16 window_sec,
+                                              int *out_do_kill) {
   if (threshold == 0)
     return 0;
   u64 key = ((u64)pid << 16) | slot;
@@ -298,7 +301,7 @@ TRACEPOINT_PROBE(syscalls, sys_enter_execve) {
         h2 = hash_argv_slot(p2);
     }
     u64 bm = *slots_bm;
-    #pragma unroll
+#pragma unroll
     for (u8 s = 0; s < MAX_HEU_SLOTS; s++) {
       if ((bm & (1ULL << s)) == 0)
         continue;
@@ -387,7 +390,8 @@ TRACEPOINT_PROBE(syscalls, sys_enter_openat) {
     events.perf_submit(args, &evt, sizeof(evt));
 #ifdef CLAWEDR_USE_LSM
     if (*mode == 2)
-      /* LSM file_open will block with -EPERM; don't kill (keeps OpenClaw intact) */
+      /* LSM file_open will block with -EPERM; don't kill (keeps OpenClaw
+       * intact) */
       ;
 #else
     if (*mode == 2 && !protected_pids.lookup(&pid))
@@ -511,6 +515,48 @@ LSM_PROBE(socket_connect, struct socket *sock, struct sockaddr *address,
     return -1; /* -EPERM */
   return 0;
 }
+
+/* ── LSM file_open: block file access at kernel level (return -EPERM) ──
+ * When available, this replaces SIGKILL for openat blocked paths.
+ * The process stays alive but the open() call fails with EPERM.
+ * Requires CONFIG_BPF_LSM=y and lsm=...,bpf in kernel cmdline.
+ */
+LSM_PROBE(file_open, struct file *file) {
+  u64 pid_tgid = bpf_get_current_pid_tgid();
+  u32 pid = pid_tgid >> 32;
+
+  u8 *is_tracked = tracked_pids.lookup(&pid);
+  if (!is_tracked)
+    return 0;
+
+  /* Read the file path from the dentry via bpf_d_path or kernel buffer */
+  char path_buf[MAX_FILENAME_LEN] = {};
+  struct path *fp = &file->f_path;
+  int len = bpf_d_path(fp, path_buf, sizeof(path_buf));
+  if (len < 0)
+    return 0;
+
+  u64 h = hash_path_buf(path_buf, sizeof(path_buf));
+  u8 *mode = blocked_path_hashes.lookup(&h);
+  if (!mode)
+    return 0;
+
+  /* Protected PIDs (gateway) get log-only */
+  u8 *is_protected = protected_pids.lookup(&pid);
+
+  struct event_t evt = {};
+  evt.pid = pid;
+  evt.ns_pid = get_ns_pid();
+  evt.uid = bpf_get_current_uid_gid() & 0xFFFFFFFF;
+  bpf_get_current_comm(&evt.comm, sizeof(evt.comm));
+  __builtin_memcpy(evt.filename, path_buf, sizeof(path_buf));
+  evt.action = (*mode == 2 && !is_protected) ? 1 : 6;
+  events.perf_submit(file, &evt, sizeof(evt));
+
+  if (*mode == 2 && !is_protected)
+    return -1; /* -EPERM: deny the file open */
+  return 0;
+}
 #endif
 
 /* ── connect tracepoint ── */
@@ -604,39 +650,39 @@ TRACEPOINT_PROBE(sched, sched_process_fork) {
     u8 *slot_p = heu_syscall_slots.lookup(&fork_type);
     if (slot_p) {
       u8 slot = *slot_p;
-    u32 slot32 = slot;
-    struct heu_config_t *cfg = heu_configs.lookup(&slot32);
-    if (cfg && cfg->enabled >= 1) {
-      u64 key = (u64)parent_pid;
-      u64 now = bpf_ktime_get_ns();
-      u64 window_ns = (u64)cfg->window_sec * 1000000000ULL;
-      struct heu_state_val_t *st = heu_fork_state.lookup(&key);
-      struct heu_state_val_t newst = {};
-      if (st) {
-        if (now - st->window_start_ns > window_ns) {
+      u32 slot32 = slot;
+      struct heu_config_t *cfg = heu_configs.lookup(&slot32);
+      if (cfg && cfg->enabled >= 1) {
+        u64 key = (u64)parent_pid;
+        u64 now = bpf_ktime_get_ns();
+        u64 window_ns = (u64)cfg->window_sec * 1000000000ULL;
+        struct heu_state_val_t *st = heu_fork_state.lookup(&key);
+        struct heu_state_val_t newst = {};
+        if (st) {
+          if (now - st->window_start_ns > window_ns) {
+            newst.count = 1;
+            newst.window_start_ns = now;
+          } else {
+            newst.count = st->count + 1;
+            newst.window_start_ns = st->window_start_ns;
+          }
+        } else {
           newst.count = 1;
           newst.window_start_ns = now;
-        } else {
-          newst.count = st->count + 1;
-          newst.window_start_ns = st->window_start_ns;
         }
-      } else {
-        newst.count = 1;
-        newst.window_start_ns = now;
+        heu_fork_state.update(&key, &newst);
+        if (newst.count >= cfg->threshold) {
+          struct event_t evt = {};
+          evt.pid = parent_pid;
+          evt.ns_pid = parent_pid;
+          evt.action = (cfg->enabled == 2) ? 5 : 4;
+          evt.heu_slot = slot;
+          __builtin_memcpy(evt.filename, "HEURISTIC", 10);
+          events.perf_submit(args, &evt, sizeof(evt));
+          if (cfg->enabled == 2)
+            bpf_send_signal(SIGKILL);
+        }
       }
-      heu_fork_state.update(&key, &newst);
-      if (newst.count >= cfg->threshold) {
-        struct event_t evt = {};
-        evt.pid = parent_pid;
-        evt.ns_pid = parent_pid;
-        evt.action = (cfg->enabled == 2) ? 5 : 4;
-        evt.heu_slot = slot;
-        __builtin_memcpy(evt.filename, "HEURISTIC", 10);
-        events.perf_submit(args, &evt, sizeof(evt));
-        if (cfg->enabled == 2)
-          bpf_send_signal(SIGKILL);
-      }
-    }
     }
   }
 

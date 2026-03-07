@@ -1,0 +1,10 @@
+# BPF/BCC C code (bpf_hooks.c) is compiled via the BCC stack on Linux,
+# not by the local clang toolchain. Suppress diagnostics for this file
+# since Linux kernel headers are unavailable on macOS.
+#
+# See: https://clangd.llvm.org/config
+---
+If:
+  PathMatch: .*/bpf_hooks\.c
+Diagnostics:
+  Suppress: '*'

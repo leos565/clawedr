@@ -206,11 +206,11 @@ install_macos() {
     mkdir -p "$CLAWEDR_DIR/shared"
     mkdir -p "$CLAWEDR_DIR/dashboard/templates"
     mkdir -p "/etc/clawedr"
-    chmod 777 "/etc/clawedr" || true
+    chmod 755 "/etc/clawedr" || true
     
-    # Initialize persistent log file with wide permissions
+    # Initialize persistent log file — readable by group, not world-writable
     touch "/var/log/clawedr.log"
-    chmod 666 "/var/log/clawedr.log" || true
+    chmod 640 "/var/log/clawedr.log" || true
     
     cp "$tmpdir/clawedr.sb"              "$CLAWEDR_DIR/"
     cp "$tmpdir/log_tailer.py"           "$CLAWEDR_DIR/"
@@ -271,11 +271,11 @@ install_linux() {
     mkdir -p "$CLAWEDR_DIR/shared"
     mkdir -p "$CLAWEDR_DIR/dashboard/templates"
     mkdir -p "/etc/clawedr"
-    chmod 777 "/etc/clawedr" || true
+    chmod 755 "/etc/clawedr" || true
     
-    # Initialize persistent log file with wide permissions
+    # Initialize persistent log file — readable by group, not world-writable
     touch "/var/log/clawedr.log"
-    chmod 666 "/var/log/clawedr.log" || true
+    chmod 640 "/var/log/clawedr.log" || true
     
     cp "$tmpdir/compiled_policy.json" "$CLAWEDR_DIR/"
     cp "$tmpdir/bpf_hooks.c"         "$CLAWEDR_DIR/"
@@ -629,6 +629,44 @@ esac
 log ""
 log "Done. Run 'openclaw <your-agent>' to start with protection enabled."
 log "Dashboard is running at http://localhost:$CLAWEDR_DASHBOARD_PORT"
+
+# Generate and display dashboard token
+DASHBOARD_TOKEN=$(python3 -c "
+import uuid, os, json
+settings_path = '/etc/clawedr/settings.yaml'
+token = str(uuid.uuid4())
+try:
+    import yaml
+    data = {}
+    if os.path.exists(settings_path):
+        with open(settings_path) as f:
+            data = yaml.safe_load(f) or {}
+    if not data.get('dashboard_token'):
+        data['dashboard_token'] = token
+        with open(settings_path, 'w') as f:
+            yaml.dump(data, f, default_flow_style=False, sort_keys=False)
+    else:
+        token = data['dashboard_token']
+except ImportError:
+    data = {}
+    if os.path.exists(settings_path):
+        with open(settings_path) as f:
+            data = json.load(f)
+    if not data.get('dashboard_token'):
+        data['dashboard_token'] = token
+        with open(settings_path, 'w') as f:
+            json.dump(data, f, indent=2)
+    else:
+        token = data['dashboard_token']
+print(token)
+" 2>/dev/null || echo "")
+
+if [ -n "$DASHBOARD_TOKEN" ]; then
+    log ""
+    log "Dashboard Token: $DASHBOARD_TOKEN"
+    log "Use this token to log in to the dashboard."
+fi
+
 if [ "$OS" = "macos" ]; then
     log ""
     log "macOS: Run 'source ~/.zshrc' (or open a new terminal), then restart the"

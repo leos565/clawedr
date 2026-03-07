@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# pyre-unsafe  — This module depends on BCC (Linux-only BPF library) whose
+# types Pyre2 cannot resolve, causing cascading type errors.
 """
 ClawEDR Linux Shield Monitor.
 
@@ -48,8 +50,8 @@ _script_dir = os.path.dirname(os.path.abspath(__file__))
 _parent = os.path.dirname(_script_dir)
 sys.path.insert(0, _parent)
 sys.path.insert(0, _script_dir)
-from shared.user_rules import get_exempted_rule_ids, get_custom_rules, get_heuristic_overrides, get_rule_mode, USER_RULES_PATH
-from shared.alert_dispatcher import dispatch_alert_async
+from shared.user_rules import get_exempted_rule_ids, get_custom_rules, get_heuristic_overrides, get_rule_mode, USER_RULES_PATH  # pyre-ignore[21]
+from shared.alert_dispatcher import dispatch_alert_async  # pyre-ignore[21]
 
 logger = logging.getLogger("clawedr.monitor")
 block_logger = logging.getLogger("clawedr.blocked")
@@ -137,7 +139,7 @@ HEURISTIC_DEFINITIONS: dict[str, dict] = {
 def _djb2_hash(s: str) -> int:
     h = 5381
     # Cap at 256 chars to match BPF simple_hash MAX_FILENAME_LEN
-    for c in s.encode()[:256]:
+    for c in s.encode()[:256]:  # pyre-ignore[9]: slice
         h = ((h << 5) + h) + c
         h &= 0xFFFFFFFFFFFFFFFF
     return h
@@ -280,7 +282,7 @@ def _pidns_defines() -> str:
 
 def load_bpf(source_path: str):
     global _bpf_instance
-    from bcc import BPF
+    from bcc import BPF  # pyre-ignore[21]: Linux-only
 
     logger.info("Compiling BPF program from %s", source_path)
     with open(source_path) as f:
@@ -1055,8 +1057,8 @@ def _apply_blocked_ips(policy: dict, exempted: set[str]) -> None:
             ip_map[ctypes.c_uint32(ip_int)] = ctypes.c_uint8(val)
             _ip_to_rule_id[ip] = rule_id
             loaded += 1
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Skipping blocked IP %s (%s): %s", rule_id, ip, e)
 
     logger.info("Loaded %d blocked IPs to BPF map", loaded)
 
