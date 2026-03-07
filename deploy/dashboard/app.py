@@ -220,7 +220,7 @@ async def get_alerts(
     limit: int = 50,
     severity: Optional[str] = None,
     rule_id: Optional[str] = None,
-    since_hours: Optional[float] = None,
+    since_hours: Optional[int] = None,
 ):
     """Return recent blocked actions, optionally filtered by severity and time."""
     import datetime
@@ -246,7 +246,7 @@ async def get_alerts(
 
     # Filter by time (e.g. ?since_hours=24)
     if since_hours is not None:
-        assert isinstance(since_hours, int)  # pyre narrow
+        assert isinstance(since_hours, int)
         if since_hours > 0:
             try:
                 cutoff = datetime.datetime.now() - datetime.timedelta(hours=since_hours)
