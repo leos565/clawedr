@@ -90,6 +90,12 @@ BPF_HASH(heu_syscall_slots, u32, u8, 16);
 
 BPF_PERF_OUTPUT(events);
 
+/* Per-CPU scratch buffers to avoid BPF stack overflow (512-byte limit).
+ * lsm__file_open needs path_buf (256) + event_t (~291) = 547 bytes.
+ */
+BPF_PERCPU_ARRAY(scratch_path, char, MAX_FILENAME_LEN);
+BPF_PERCPU_ARRAY(scratch_evt, struct event_t, 1);
+
 static __always_inline u64 simple_hash(const char *s, int len) {
   u64 h = 5381;
   for (int i = 0; i < len && i < MAX_FILENAME_LEN; i++) {
@@ -529,14 +535,19 @@ LSM_PROBE(file_open, struct file *file) {
   if (!is_tracked)
     return 0;
 
-  /* Read the file path from the dentry via bpf_d_path or kernel buffer */
-  char path_buf[MAX_FILENAME_LEN] = {};
+  /* Use per-CPU scratch buffers (stack limit 512 bytes; path+evt = 547) */
+  u32 zero = 0;
+  char *path_buf = scratch_path.lookup(&zero);
+  struct event_t *evt = scratch_evt.lookup(&zero);
+  if (!path_buf || !evt)
+    return 0;
+
   struct path *fp = &file->f_path;
-  int len = bpf_d_path(fp, path_buf, sizeof(path_buf));
+  int len = bpf_d_path(fp, path_buf, MAX_FILENAME_LEN);
   if (len < 0)
     return 0;
 
-  u64 h = hash_path_buf(path_buf, sizeof(path_buf));
+  u64 h = hash_path_buf(path_buf, MAX_FILENAME_LEN);
   u8 *mode = blocked_path_hashes.lookup(&h);
   if (!mode)
     return 0;
@@ -544,14 +555,14 @@ LSM_PROBE(file_open, struct file *file) {
   /* Protected PIDs (gateway) get log-only */
   u8 *is_protected = protected_pids.lookup(&pid);
 
-  struct event_t evt = {};
-  evt.pid = pid;
-  evt.ns_pid = get_ns_pid();
-  evt.uid = bpf_get_current_uid_gid() & 0xFFFFFFFF;
-  bpf_get_current_comm(&evt.comm, sizeof(evt.comm));
-  __builtin_memcpy(evt.filename, path_buf, sizeof(path_buf));
-  evt.action = (*mode == 2 && !is_protected) ? 1 : 6;
-  events.perf_submit(file, &evt, sizeof(evt));
+  __builtin_memset(evt, 0, sizeof(*evt));
+  evt->pid = pid;
+  evt->ns_pid = get_ns_pid();
+  evt->uid = bpf_get_current_uid_gid() & 0xFFFFFFFF;
+  bpf_get_current_comm(&evt->comm, sizeof(evt->comm));
+  __builtin_memcpy(evt->filename, path_buf, MAX_FILENAME_LEN);
+  evt->action = (*mode == 2 && !is_protected) ? 1 : 6;
+  events.perf_submit(file, evt, sizeof(*evt));
 
   if (*mode == 2 && !is_protected)
     return -1; /* -EPERM: deny the file open */
