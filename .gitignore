@@ -9,3 +9,4 @@ builder/.merged_rules.json
 dist/
 build/
 .DS_Store
+testing_setup/
