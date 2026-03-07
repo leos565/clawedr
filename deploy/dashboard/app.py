@@ -762,7 +762,7 @@ async def get_sessions():
         # When running as root (systemd/launchd), we need to query the real
         # user's sessions.  Discover who that is via SUDO_USER or by finding
         # the first login user with a home directory.
-        cmd = [openclaw, "sessions", "--active", "1440", "--json"]
+        cmd = [openclaw, "sessions", "--json"]
         env = None
         run_user = None
 
@@ -794,7 +794,8 @@ async def get_sessions():
         except json.JSONDecodeError as exc:
             logger.error("Failed to parse sessions JSON. STDOUT: %r", result.stdout)
             logger.error("STDERR: %r", result.stderr)
-            return JSONResponse({"sessions": [], "error": f"{str(exc)} - {repr(result.stdout[:100])}"})
+            out_str = str(result.stdout) or ""
+            return JSONResponse({"sessions": [], "error": f"{str(exc)} - {repr(out_str[:100])}"})
     except Exception as exc:
         return JSONResponse({"sessions": [], "error": str(exc)})
 
