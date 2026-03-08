@@ -318,6 +318,17 @@ def get_dashboard_token() -> str:
     return token
 
 
+def regenerate_dashboard_token() -> str:
+    """Generate a new dashboard token, save it, and return it."""
+    import uuid
+    token = str(uuid.uuid4())
+    settings = load_settings()
+    settings["dashboard_token"] = token
+    save_settings(settings)
+    logger.info("Regenerated dashboard token")
+    return token
+
+
 def save_settings(settings: dict[str, Any]) -> None:
     """Write dashboard settings to settings.yaml."""
     USER_RULES_DIR.mkdir(parents=True, exist_ok=True)

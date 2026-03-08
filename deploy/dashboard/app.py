@@ -36,7 +36,7 @@ from shared.user_rules import (  # pyre-ignore[21]
     load_user_rules, save_user_rules, USER_RULES_PATH,
     add_custom_rule, update_custom_rule, delete_custom_rule,
     get_custom_rules, get_custom_rule_metadata, CUSTOM_RULE_TYPES,
-    load_settings, save_settings, get_dashboard_token,
+    load_settings, save_settings, get_dashboard_token, regenerate_dashboard_token,
     get_heuristic_overrides, save_heuristic_overrides, set_group_heuristic_mode,
     get_rule_mode_overrides, save_rule_mode_overrides,
     VALID_HEURISTIC_MODES,
@@ -56,6 +56,14 @@ app = FastAPI(title="ClawEDR Dashboard", version="1.0.0")
 _AUTH_EXEMPT_PATHS = {"/", "/api/auth/check", "/api/auth/token", "/favicon.ico"}
 
 
+def _is_auth_exempt(path: str) -> bool:
+    if path in _AUTH_EXEMPT_PATHS:
+        return True
+    if path.startswith("/static/"):
+        return True
+    return False
+
+
 class TokenAuthMiddleware(BaseHTTPMiddleware):
     """Require a bearer token for all API requests.
 
@@ -68,8 +76,8 @@ class TokenAuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         path = request.url.path.rstrip("/") or "/"
 
-        # Allow login page and auth endpoints through
-        if path in _AUTH_EXEMPT_PATHS:
+        # Allow login page, auth endpoints, and static assets through
+        if _is_auth_exempt(path):
             return await call_next(request)
 
         # Check token
@@ -96,6 +104,10 @@ class TokenAuthMiddleware(BaseHTTPMiddleware):
 
 
 app.add_middleware(TokenAuthMiddleware)
+
+# Static assets (logo, etc.)
+_DASHBOARD_DIR = Path(__file__).resolve().parent
+app.mount("/static", StaticFiles(directory=str(_DASHBOARD_DIR / "static")), name="static")
 
 # Cached result from background update check (macOS banner)
 _pending_updates: dict | None = None
@@ -687,11 +699,13 @@ async def get_auth_info():
 
 @app.get("/api/settings")
 async def get_settings():
-    """Return dashboard settings (auto-update toggle, bind addresses, etc.)."""
+    """Return dashboard settings (auto-update toggle, token, bind addresses, etc.)."""
     settings = load_settings()
-    # Don't expose the token in the settings API
-    safe = {k: v for k, v in settings.items() if k != "dashboard_token"}
-    return JSONResponse(safe)
+    # Include token for authenticated users (needed for config/copy)
+    result = dict(settings)
+    if result.get("dashboard_token") is None:
+        result["dashboard_token"] = get_dashboard_token()
+    return JSONResponse(result)
 
 
 @app.post("/api/settings")
@@ -707,9 +721,47 @@ async def post_settings(request: Request):
             if isinstance(addrs, list):
                 settings["dashboard_bind_addresses"] = [str(a).strip() for a in addrs if str(a).strip()]
         save_settings(settings)
-        return JSONResponse({"status": "ok", "settings": {k: v for k, v in settings.items() if k != "dashboard_token"}})
+        return JSONResponse({"status": "ok", "settings": dict(settings)})
     except Exception as exc:
         return JSONResponse({"error": str(exc)}, status_code=400)
+
+
+@app.post("/api/settings/token/regenerate")
+async def regenerate_token():
+    """Generate a new dashboard token. Caller must re-login with the new token."""
+    try:
+        token = regenerate_dashboard_token()
+        return JSONResponse({"status": "ok", "dashboard_token": token})
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+@app.post("/api/settings/restart")
+async def restart_dashboard():
+    """Restart the dashboard service to apply bind address changes. Linux: systemctl; macOS: launchctl."""
+    import platform
+    import subprocess
+    try:
+        system = platform.system()
+        if system == "Linux":
+            subprocess.run(
+                ["systemctl", "restart", "clawedr-dashboard"],
+                capture_output=True,
+                timeout=10,
+            )
+        elif system == "Darwin":
+            # LaunchDaemon in /Library/LaunchDaemons uses system domain
+            subprocess.run(
+                ["launchctl", "kickstart", "-k", "system/com.clawedr.dashboard"],
+                capture_output=True,
+                timeout=10,
+            )
+        else:
+            return JSONResponse({"error": "Restart not supported on this platform"}, status_code=400)
+        return JSONResponse({"status": "ok", "message": "Dashboard restart initiated"})
+    except Exception as exc:
+        logger.exception("Restart failed: %s", exc)
+        return JSONResponse({"error": str(exc)}, status_code=500)
 
 
 @app.get("/api/updates")

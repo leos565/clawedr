@@ -202,9 +202,11 @@ install_macos() {
     # Dashboard
     fetch "$CLAWEDR_BASE_URL/dashboard/app.py"               "$tmpdir/dashboard_app.py"
     fetch "$CLAWEDR_BASE_URL/dashboard/templates/index.html" "$tmpdir/dashboard_index.html"
+    fetch "$CLAWEDR_BASE_URL/dashboard/static/clawedr.png"   "$tmpdir/clawedr.png"
 
     mkdir -p "$CLAWEDR_DIR/shared"
     mkdir -p "$CLAWEDR_DIR/dashboard/templates"
+    mkdir -p "$CLAWEDR_DIR/dashboard/static"
     mkdir -p "/etc/clawedr"
     chmod 755 "/etc/clawedr" || true
     
@@ -221,6 +223,7 @@ install_macos() {
     cp "$tmpdir/rule_updater.py"         "$CLAWEDR_DIR/shared/"
     cp "$tmpdir/dashboard_app.py"        "$CLAWEDR_DIR/dashboard/app.py"
     cp "$tmpdir/dashboard_index.html"    "$CLAWEDR_DIR/dashboard/templates/index.html"
+    cp "$tmpdir/clawedr.png"             "$CLAWEDR_DIR/dashboard/static/clawedr.png"
     touch "$CLAWEDR_DIR/shared/__init__.py"
     touch "$CLAWEDR_DIR/dashboard/__init__.py"
     chmod +x "$tmpdir/shield_mac.sh"
@@ -267,9 +270,11 @@ install_linux() {
     # Dashboard
     fetch "$CLAWEDR_BASE_URL/dashboard/app.py"               "$tmpdir/dashboard_app.py"
     fetch "$CLAWEDR_BASE_URL/dashboard/templates/index.html" "$tmpdir/dashboard_index.html"
+    fetch "$CLAWEDR_BASE_URL/dashboard/static/clawedr.png"   "$tmpdir/clawedr.png"
 
     mkdir -p "$CLAWEDR_DIR/shared"
     mkdir -p "$CLAWEDR_DIR/dashboard/templates"
+    mkdir -p "$CLAWEDR_DIR/dashboard/static"
     mkdir -p "/etc/clawedr"
     chmod 755 "/etc/clawedr" || true
     
@@ -285,6 +290,7 @@ install_linux() {
     cp "$tmpdir/rule_updater.py"     "$CLAWEDR_DIR/shared/"
     cp "$tmpdir/dashboard_app.py"    "$CLAWEDR_DIR/dashboard/app.py"
     cp "$tmpdir/dashboard_index.html" "$CLAWEDR_DIR/dashboard/templates/index.html"
+    cp "$tmpdir/clawedr.png"         "$CLAWEDR_DIR/dashboard/static/clawedr.png"
     touch "$CLAWEDR_DIR/shared/__init__.py"
     touch "$CLAWEDR_DIR/dashboard/__init__.py"
     chmod +x "$tmpdir/shield_linux.sh"

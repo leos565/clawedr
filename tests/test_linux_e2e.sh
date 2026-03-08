@@ -21,8 +21,11 @@ export DEBIAN_FRONTEND=noninteractive
 
 echo '[Linux] Syncing latest ui-revamp code for testing...'
 rm -rf /tmp/clawedr_update 2>/dev/null || true
-git clone -b ui-revamp https://github.com/leos565/clawedr.git /tmp/clawedr_update
+git clone -b ui-revamp --depth 1 https://github.com/leos565/clawedr.git /tmp/clawedr_update
 cp -r /tmp/clawedr_update/deploy/* /usr/local/share/clawedr/
+# Monitor reads bpf_hooks.c and monitor.py from root, not linux/ subdir
+cp /tmp/clawedr_update/deploy/linux/bpf_hooks.c /usr/local/share/clawedr/bpf_hooks.c
+cp /tmp/clawedr_update/deploy/linux/monitor.py /usr/local/share/clawedr/monitor.py
 rm -rf /tmp/clawedr_update
 
 echo '[Linux] Restarting existing openclaw services to pick up changes...'
