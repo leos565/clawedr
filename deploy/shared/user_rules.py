@@ -42,6 +42,7 @@ from __future__ import annotations
 import logging
 import os
 import re
+import secrets
 from pathlib import Path
 from typing import Any
 
@@ -79,6 +80,13 @@ _DOMAIN_RE = re.compile(
 _IP_RE = re.compile(
     r"^(\d{1,3}\.){3}\d{1,3}$"
 )
+
+
+def _is_valid_ipv4(value: str) -> bool:
+    """Return True only if value is a well-formed IPv4 with octets 0–255."""
+    if not _IP_RE.match(value):
+        return False
+    return all(0 <= int(o) <= 255 for o in value.split("."))
 
 # Executables that should never be blocked (footgun protection)
 _PROTECTED_EXECUTABLES = frozenset({
@@ -307,11 +315,10 @@ def load_settings() -> dict[str, Any]:
 
 def get_dashboard_token() -> str:
     """Return the dashboard auth token, generating one if it doesn't exist yet."""
-    import uuid
     settings = load_settings()
     token = settings.get("dashboard_token")
     if not token:
-        token = str(uuid.uuid4())
+        token = secrets.token_urlsafe(32)
         settings["dashboard_token"] = token
         save_settings(settings)
         logger.info("Generated new dashboard token")
@@ -320,8 +327,7 @@ def get_dashboard_token() -> str:
 
 def regenerate_dashboard_token() -> str:
     """Generate a new dashboard token, save it, and return it."""
-    import uuid
-    token = str(uuid.uuid4())
+    token = secrets.token_urlsafe(32)
     settings = load_settings()
     settings["dashboard_token"] = token
     save_settings(settings)
@@ -330,7 +336,7 @@ def regenerate_dashboard_token() -> str:
 
 
 def save_settings(settings: dict[str, Any]) -> None:
-    """Write dashboard settings to settings.yaml."""
+    """Write dashboard settings to settings.yaml with restrictive permissions (0600)."""
     USER_RULES_DIR.mkdir(parents=True, exist_ok=True)
     try:
         import yaml  # pyre-ignore[21]: optional dep
@@ -340,6 +346,7 @@ def save_settings(settings: dict[str, Any]) -> None:
         import json
         with open(SETTINGS_PATH, "w") as f:
             json.dump(settings, f, indent=2)
+    os.chmod(SETTINGS_PATH, 0o600)
     logger.info("Settings saved to %s", SETTINGS_PATH)
 
 
@@ -378,13 +385,13 @@ def validate_custom_rule(
         if not _DOMAIN_RE.match(value):
             if "://" in value:
                 return False, "Enter a domain name, not a URL (e.g. 'evil.com' not 'https://evil.com')"
-            if _IP_RE.match(value):
+            if _is_valid_ipv4(value):
                 return False, "Use the IP rule type for IP addresses, not Domain"
             return False, "Invalid domain format (e.g. evil.com)"
 
     elif rule_type == "ip":
-        if not _IP_RE.match(value):
-            return False, "Invalid IPv4 address format (e.g. 192.168.1.1)"
+        if not _is_valid_ipv4(value):
+            return False, "Invalid IPv4 address format with octets 0–255 (e.g. 192.168.1.1)"
 
     elif rule_type == "executable":
         if "/" in value:
@@ -399,7 +406,13 @@ def validate_custom_rule(
             return False, "Cannot block the root or home directory"
 
     elif rule_type == "argument":
-        # Validate as regex
+        # Validate as regex and guard against catastrophic backtracking (ReDoS).
+        # Reject patterns with nested quantifiers or overly long alternations.
+        if len(value) > 200:
+            return False, "Regex pattern too long (max 200 characters)"
+        _DANGEROUS_RE = re.compile(r"(\(.*[+*]\).*[+*]|\([^)]*\|[^)]*\|[^)]*\|[^)]*\|)")
+        if _DANGEROUS_RE.search(value):
+            return False, "Regex pattern contains nested quantifiers or excessive alternation (ReDoS risk)"
         try:
             re.compile(value)
         except re.error as e:

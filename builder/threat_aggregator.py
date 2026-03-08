@@ -18,6 +18,7 @@ import json
 import logging
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 import requests  # pyre-ignore[21]: third-party
 import yaml  # pyre-ignore[21]: third-party
@@ -25,9 +26,20 @@ import yaml  # pyre-ignore[21]: third-party
 logger = logging.getLogger(__name__)
 
 CLAWSEC_FEED_URL = "https://raw.githubusercontent.com/prompt-security/clawsec/main/advisories/feed.json"
+_ALLOWED_FEED_HOSTS = frozenset({
+    "raw.githubusercontent.com",
+    "clawsec.prompt.security",
+})
 BUILDER_DIR = Path(__file__).resolve().parent
 MASTER_RULES_PATH = BUILDER_DIR / "master_rules.yaml"
 MERGED_RULES_PATH = BUILDER_DIR / ".merged_rules.json"
+
+# Minimum required top-level keys in a valid feed response
+_FEED_REQUIRED_KEYS = {"advisories"}
+_ADVISORY_ALLOWED_KEYS = frozenset({
+    "id", "title", "severity", "affected_skills", "malicious_hashes",
+    "blocked_domains", "blocked_paths", "description", "published",
+})
 
 
 def _thrt_id(prefix: str, value: str) -> str:
@@ -36,15 +48,59 @@ def _thrt_id(prefix: str, value: str) -> str:
     return f"THRT-{prefix}-{h}"
 
 
+def _validate_feed_url(url: str) -> None:
+    """Raise ValueError if the feed URL is not HTTPS and from an allowed host."""
+    parsed = urlparse(url)
+    if parsed.scheme != "https":
+        raise ValueError(f"Feed URL must use HTTPS, got scheme '{parsed.scheme}'")
+    if parsed.hostname not in _ALLOWED_FEED_HOSTS:
+        raise ValueError(
+            f"Feed URL host '{parsed.hostname}' is not in the allowlist "
+            f"({', '.join(sorted(_ALLOWED_FEED_HOSTS))}). "
+            "Override CLAWSEC_FEED_URL or use --feed-url with an approved host."
+        )
+
+
+def _validate_feed_schema(feed: dict[str, Any]) -> None:
+    """Raise ValueError if the feed dict is missing required structure."""
+    if not isinstance(feed, dict):
+        raise ValueError("Feed must be a JSON object")
+    missing = _FEED_REQUIRED_KEYS - feed.keys()
+    if missing:
+        raise ValueError(f"Feed missing required keys: {missing}")
+    advisories = feed.get("advisories", [])
+    if not isinstance(advisories, list):
+        raise ValueError("Feed 'advisories' must be a list")
+    for i, adv in enumerate(advisories):
+        if not isinstance(adv, dict):
+            raise ValueError(f"Advisory[{i}] must be an object")
+        # Reject unexpected top-level keys (could indicate injected structure)
+        unknown = set(adv.keys()) - _ADVISORY_ALLOWED_KEYS
+        if unknown:
+            raise ValueError(f"Advisory[{i}] has unexpected keys: {unknown}")
+        # Validate list fields are actually lists of strings
+        for field in ("affected_skills", "malicious_hashes", "blocked_domains"):
+            val = adv.get(field, [])
+            if not isinstance(val, list):
+                raise ValueError(f"Advisory[{i}].{field} must be a list")
+            if not all(isinstance(x, str) for x in val):
+                raise ValueError(f"Advisory[{i}].{field} must contain only strings")
+
+
 def fetch_feed(url: str = CLAWSEC_FEED_URL, timeout: int = 30) -> dict[str, Any]:
     """Download and return the ClawSec advisory feed as a dict."""
+    _validate_feed_url(url)
     logger.info("Fetching ClawSec feed from %s", url)
     try:
         resp = requests.get(url, timeout=timeout)
         resp.raise_for_status()
         feed = resp.json()
+        _validate_feed_schema(feed)
         logger.info("Feed fetched — %d advisories", len(feed.get("advisories", [])))
         return feed
+    except ValueError as e:
+        logger.error("Feed validation failed: %s. Aborting sync.", e)
+        raise
     except Exception as e:
         logger.warning("Failed to fetch ClawSec feed: %s. Proceeding with local rules only.", e)
         return {"advisories": []}

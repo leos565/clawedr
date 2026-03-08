@@ -68,9 +68,11 @@ class TokenAuthMiddleware(BaseHTTPMiddleware):
     """Require a bearer token for all API requests.
 
     Token can be provided as:
-      - Authorization: Bearer <token>
-      - Query param: ?token=<token>
-      - Cookie: clawedr_token=<token>
+      - Authorization: Bearer <token>   (preferred)
+      - Cookie: clawedr_token=<token>   (set by /api/auth/token on login)
+
+    Query parameter token support has been removed: tokens in URL query strings
+    are visible in server logs, proxy logs, and browser history.
     """
 
     async def dispatch(self, request: Request, call_next):
@@ -89,11 +91,7 @@ class TokenAuthMiddleware(BaseHTTPMiddleware):
         if auth_header.lower().startswith("bearer "):
             token = auth_header[7:].strip()
 
-        # 2. Query param
-        if not token:
-            token = request.query_params.get("token")
-
-        # 3. Cookie
+        # 2. Cookie
         if not token:
             token = request.cookies.get("clawedr_token")
 
@@ -373,9 +371,10 @@ def _trigger_enforcement():
                     capture_output=True, timeout=2,
                 )
                 if r.returncode != 0:
-                    # Fallback: send SIGHUP to monitor.py process
+                    # Fallback: find the ClawEDR monitor process via its known
+                    # install path to avoid matching unrelated monitor.py scripts.
                     pid_out = subprocess.run(
-                        ["pgrep", "-f", "monitor.py"],
+                        ["pgrep", "-f", "/usr/local/share/clawedr/monitor.py"],
                         capture_output=True, text=True, timeout=2,
                     )
                     if pid_out.returncode == 0 and pid_out.stdout.strip():
@@ -673,16 +672,18 @@ async def get_status():
 
 @app.get("/api/auth/check")
 async def auth_check(request: Request):
-    """Check if a token is valid. Used by the login page."""
-    token = request.query_params.get("token", "")
-    if not token:
-        auth_header = request.headers.get("authorization", "")
-        if auth_header.lower().startswith("bearer "):
-            token = auth_header[7:].strip()
+    """Check if a token is valid. Used by the login page.
+
+    Accepts token via Authorization header or cookie only — not query params.
+    """
+    token = None
+    auth_header = request.headers.get("authorization", "")
+    if auth_header.lower().startswith("bearer "):
+        token = auth_header[7:].strip()
     if not token:
         token = request.cookies.get("clawedr_token", "")
     expected = get_dashboard_token()
-    if token == expected:
+    if token and token == expected:
         return JSONResponse({"authenticated": True})
     return JSONResponse({"authenticated": False}, status_code=401)
 
@@ -718,8 +719,23 @@ async def post_settings(request: Request):
             settings["auto_update_rules"] = bool(body["auto_update_rules"])
         if "dashboard_bind_addresses" in body:
             addrs = body["dashboard_bind_addresses"]
-            if isinstance(addrs, list):
-                settings["dashboard_bind_addresses"] = [str(a).strip() for a in addrs if str(a).strip()]
+            if not isinstance(addrs, list):
+                return JSONResponse({"error": "dashboard_bind_addresses must be a list"}, status_code=400)
+            import ipaddress
+            validated = []
+            for a in addrs:
+                a = str(a).strip()
+                if not a:
+                    continue
+                try:
+                    ipaddress.ip_address(a)
+                    validated.append(a)
+                except ValueError:
+                    return JSONResponse(
+                        {"error": f"Invalid bind address: {a!r} — must be a valid IP address"},
+                        status_code=400,
+                    )
+            settings["dashboard_bind_addresses"] = validated
         save_settings(settings)
         return JSONResponse({"status": "ok", "settings": dict(settings)})
     except Exception as exc:
@@ -904,24 +920,23 @@ def main():
     t.start()
     port = int(os.environ.get("CLAWEDR_DASHBOARD_PORT", "8477"))
 
-    # Print the dashboard token for the user
-    token = get_dashboard_token()
-    logger.info("Starting ClawEDR Dashboard on http://127.0.0.1:%d", port)
-    logger.info("Dashboard token: %s", token)
-    logger.info("Use this token to log in to the dashboard.")
-    # Also print to stderr for visibility in service logs
-    print(f"\n  ClawEDR Dashboard: http://127.0.0.1:{port}")
-    print(f"  Dashboard Token:  {token}\n", flush=True)
-
-    # Determine bind host: 127.0.0.1 by default, additional addresses from settings
+    # Determine bind host: 127.0.0.1 by default; first configured address overrides.
+    # Binding to 0.0.0.0 is intentionally avoided — each configured address must
+    # be explicit. Restart the service to apply address changes.
     settings = load_settings()
     extra_addrs = settings.get("dashboard_bind_addresses", [])
     if extra_addrs:
-        # If user added addresses, bind to 0.0.0.0 (let firewall handle)
-        bind_host = "0.0.0.0"
-        logger.info("Additional bind addresses configured: %s — binding to 0.0.0.0", extra_addrs)
+        bind_host = extra_addrs[0]
+        logger.info("Binding dashboard to configured address: %s (from dashboard_bind_addresses)", bind_host)
     else:
         bind_host = "127.0.0.1"
+
+    token = get_dashboard_token()
+    logger.info("Starting ClawEDR Dashboard on http://%s:%d", bind_host, port)
+    # Log token at INFO level only — avoid printing to stderr where it may be
+    # captured by log aggregation systems.
+    logger.info("Dashboard token available in %s", settings.get("settings_path", "/etc/clawedr/settings.yaml"))
+
     uvicorn.run(app, host=bind_host, port=port, log_level="info")
 
 

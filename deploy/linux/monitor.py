@@ -52,6 +52,7 @@ sys.path.insert(0, _parent)
 sys.path.insert(0, _script_dir)
 from shared.user_rules import get_exempted_rule_ids, get_custom_rules, get_heuristic_overrides, get_rule_mode, USER_RULES_PATH  # pyre-ignore[21]
 from shared.alert_dispatcher import dispatch_alert_async  # pyre-ignore[21]
+from shared.policy_verify import verify_policy  # pyre-ignore[21]
 
 logger = logging.getLogger("clawedr.monitor")
 block_logger = logging.getLogger("clawedr.blocked")
@@ -120,15 +121,22 @@ HEURISTIC_DEFINITIONS: dict[str, dict] = {
     "HEU-SYS-003": {"binaries": ["rm", "bash", "sh"], "argv_patterns": ["-rf", "/"], "syscall_type": None},
     "HEU-SYS-004": {"binaries": ["crontab", "bash"], "argv_patterns": ["cron"], "syscall_type": None},
     "HEU-SYS-005": {"binaries": ["export", "bash"], "argv_patterns": ["PATH=", "LD_PRELOAD", "LD_LIBRARY_PATH"], "syscall_type": None},
-    "HEU-NET-002": {"binaries": [], "argv_patterns": [], "syscall_type": None},  # connect - deferred
-    "HEU-NET-003": {"binaries": [], "argv_patterns": [], "syscall_type": None},  # connect - deferred
-    "HEU-NET-004": {"binaries": ["socat", "ngrok", "localtunnel", "lt"], "argv_patterns": [], "syscall_type": None},
+    # HEU-NET-002 / HEU-NET-003: require connect() syscall inspection — not yet implemented.
+    # Excluded from active dict; they will show as unknown in dashboard until implemented.
+    # "HEU-NET-002": deferred (connect-level filtering not implemented)
+    # "HEU-NET-003": deferred (connect-level filtering not implemented)
+    "HEU-NET-004": {
+        "binaries": ["socat", "ngrok", "localtunnel", "lt"],
+        "argv_patterns": ["tcp-connect:", "tcp-listen:", "ngrok http", "ngrok tcp", "--port"],
+        "syscall_type": None,
+    },
     "HEU-CRD-001": {"binaries": ["cat", "grep"], "argv_patterns": ["passwd", "shadow", "credentials"], "syscall_type": None},
     "HEU-CRD-003": {"binaries": ["ssh-add"], "argv_patterns": ["ssh-add"], "syscall_type": None},
-    "HEU-SIA-001": {"binaries": [], "argv_patterns": [], "syscall_type": None},  # write - deferred
+    # HEU-SIA-001 / HEU-PAG-002: require write() syscall inspection — not yet implemented.
+    # "HEU-SIA-001": deferred (write-level filtering not implemented)
+    # "HEU-PAG-002": deferred (write-level filtering not implemented)
     "HEU-SIA-003": {"binaries": ["node", "python"], "argv_patterns": [".learnings"], "syscall_type": None},
     "HEU-SIA-004": {"binaries": ["node", "python"], "argv_patterns": [".learnings"], "syscall_type": None},
-    "HEU-PAG-002": {"binaries": [], "argv_patterns": [], "syscall_type": None},  # write - deferred
 }
 
 
@@ -377,16 +385,22 @@ def load_bpf(source_path: str):
                 pid=ns_pid,
                 comm=comm,
             )
+        elif event.action == 0:
+            # sys_enter_execve: evt.filename IS the real exec path. Check
+            # malicious content hashes here — this is the only point where we
+            # have the path before the process image is replaced.
+            # Use event.pid (host PID) for /proc access, not ns_pid.
+            _check_malicious_hashes(event.pid, comm, filename)
         elif event.action == 2:
             # Post-exec (sys_exit_execve): /proc/cmdline now has the new argv.
-            # Check deny_rules (incl. domains) FIRST — fast, no file I/O
-            matched_rule = _check_deny_rules(ns_pid, comm, filename)
-            if not matched_rule:
-                _check_malicious_hashes(ns_pid, comm, filename)
-            if not matched_rule:
+            # NOTE: evt.filename here is comm (bpf_hooks.c copies comm→filename
+            # at exit), so it cannot be used for file I/O. Malicious hash
+            # checking is done at action=0 where the real path is available.
+            matched_deny = _check_deny_rules(ns_pid, comm, filename)
+            if not matched_deny:
                 logger.debug(
-                    "[observed] pid=%d uid=%d comm=%s file=%s",
-                    ns_pid, event.uid, comm, filename,
+                    "[observed] pid=%d uid=%d comm=%s",
+                    ns_pid, event.uid, comm,
                 )
         elif event.action in (4, 5):
             # Heuristic alert (4) or block (5)
@@ -405,12 +419,13 @@ def load_bpf(source_path: str):
                 comm=comm,
             )
             if event.action == 5:
+                # Use event.pid (host-namespace PID) for os.kill — ns_pid is the
+                # in-container PID and is only valid within the process namespace.
+                # BPF bpf_send_signal already fired; this is belt-and-suspenders.
                 try:
-                    os.kill(ns_pid, 9)
+                    os.kill(event.pid, 9)
                 except OSError:
                     pass
-        # else action=0: sys_enter_execve — cmdline still shows old process.
-        # Skip deny_rules and logging; the exit event (action=2) carries the real argv.
 
     _bpf_instance["events"].open_perf_buffer(_print_event)
     return _bpf_instance
@@ -437,18 +452,30 @@ def _find_rule_id_for_block(filename: str) -> str:
 # Layer 4: malicious_hashes — userspace sha256 matching
 # ---------------------------------------------------------------------------
 
-def _check_malicious_hashes(pid: int, comm: str, filename: str) -> str | None:
+def _check_malicious_hashes(host_pid: int, comm: str, exec_path: str) -> str | None:
+    """Check the SHA-256 of the file being exec'd against the malicious hash list.
+
+    Called at action=0 (sys_enter_execve) where exec_path is the real path and
+    host_pid is the host-namespace PID suitable for /proc access.
+
+    Reads via /proc/{host_pid}/exe when available (resolves symlinks, survives
+    path changes); falls back to exec_path directly.
+    """
     if not _malicious_hashes:
         return None
-    
+
     import hashlib
     try:
-        # Read file via proc to get exact binary loaded
-        # Note: /proc/pid/exe points to the real executable
-        exe_path = f"/proc/{pid}/exe"
+        # /proc/{host_pid}/exe is a symlink to the exact binary the kernel
+        # is loading. Prefer it over exec_path to avoid TOCTOU on the path.
+        exe_path = f"/proc/{host_pid}/exe"
         if not os.path.exists(exe_path):
-            exe_path = filename
-            
+            # Process may not have started yet; fall back to the exec path from
+            # the syscall args (still reliable at sys_enter time).
+            exe_path = exec_path
+        if not exe_path or not os.path.isabs(exe_path):
+            return None
+
         sha256 = hashlib.sha256()
         with open(exe_path, "rb") as f:
             for chunk in iter(lambda: f.read(65536), b""):
@@ -456,29 +483,29 @@ def _check_malicious_hashes(pid: int, comm: str, filename: str) -> str | None:
         file_hash = sha256.hexdigest()
     except OSError:
         return None
-        
+
     for rule_id, target_hash in _malicious_hashes.items():
         if file_hash == target_hash:
             mode = get_rule_mode(rule_id)
             log_msg = "BLOCKED" if mode == "enforce" else "ALERT"
             block_logger.warning(
-                "%s [%s] (malicious_hash=%s) pid=%d comm=%s",
-                log_msg, rule_id, target_hash, pid, comm,
+                "%s [%s] action=exec_hash hash=%s pid=%d comm=%s file=%s",
+                log_msg, rule_id, file_hash, host_pid, comm, exec_path,
             )
             dispatch_alert_async(
                 rule_id=rule_id,
                 action="exec_hash",
-                target=f"{filename} ({file_hash})",
-                pid=pid,
+                target=f"{exec_path} (sha256:{file_hash})",
+                pid=host_pid,
                 comm=comm,
             )
             if mode == "enforce":
                 try:
-                    os.kill(pid, 9)
+                    os.kill(host_pid, 9)
                 except OSError:
                     pass
             return rule_id
-            
+
     return None
 
 # ---------------------------------------------------------------------------
@@ -795,7 +822,12 @@ def populate_protected_pids(target_paths: list[str]) -> None:
 
 def load_policy(path: str) -> dict:
     with open(path) as f:
-        return json.load(f)
+        policy = json.load(f)
+    ok, msg = verify_policy(policy)
+    if not ok:
+        raise RuntimeError(f"Policy verification failed: {msg}")
+    logger.info("Policy verification: %s", msg)
+    return policy
 
 
 def apply_policy(policy: dict) -> None:
@@ -959,16 +991,27 @@ def _apply_blocked_paths(policy: dict, exempted: set[str]) -> None:
     path_map = _bpf_instance["blocked_path_hashes"]
     path_map.clear()
 
+    _BPF_PATH_MAP_CAPACITY = 4096
     loaded = 0
+    truncated = 0
     for rule_id, paths in expanded.items():
         mode = get_rule_mode(rule_id)
         val = 2 if mode == "enforce" else 1  # 1=alert, 2=enforce
         for p in sorted(paths):
+            if loaded >= _BPF_PATH_MAP_CAPACITY:
+                truncated += 1
+                continue
             h = _djb2_hash(p)
             path_map[ctypes.c_uint64(h)] = ctypes.c_uint8(val)
             _hash_to_rule_id[h] = rule_id
             loaded += 1
 
+    if truncated:
+        logger.warning(
+            "blocked_path_hashes BPF map full (%d capacity): %d path entries were NOT loaded. "
+            "Reduce ** glob expansions or increase BPF_HASH size in bpf_hooks.c.",
+            _BPF_PATH_MAP_CAPACITY, truncated,
+        )
     logger.info("Loaded %d entries into blocked_path_hashes BPF map", loaded)
 
 
@@ -1020,13 +1063,23 @@ def _apply_malicious_hashes(policy: dict, exempted: set[str]) -> None:
     raw = policy.get("malicious_hashes", {})
     _malicious_hashes = {}
     skipped = 0
+    invalid = 0
     for rule_id, h in raw.items():
         if rule_id in exempted:
             skipped += 1
             continue
-        _malicious_hashes[rule_id] = h.lower()
-        
-    logger.info("Loaded %d malicious hashes for userspace checking (%d skipped)", len(_malicious_hashes), skipped)
+        # Strip optional "sha256:" prefix so stored hashes match hashlib output
+        h_clean = h.lower().removeprefix("sha256:")
+        if len(h_clean) != 64 or not all(c in "0123456789abcdef" for c in h_clean):
+            logger.warning("Malicious hash rule %s has invalid SHA-256 value — skipping", rule_id)
+            invalid += 1
+            continue
+        _malicious_hashes[rule_id] = h_clean
+
+    logger.info(
+        "Loaded %d malicious hashes for userspace exec checking (%d exempted, %d invalid)",
+        len(_malicious_hashes), skipped, invalid,
+    )
 
 # ---------------------------------------------------------------------------
 # blocked_ips logic

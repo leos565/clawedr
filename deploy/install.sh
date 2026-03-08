@@ -638,9 +638,9 @@ log "Dashboard is running at http://localhost:$CLAWEDR_DASHBOARD_PORT"
 
 # Generate and display dashboard token
 DASHBOARD_TOKEN=$(python3 -c "
-import uuid, os, json
+import secrets, os, json
 settings_path = '/etc/clawedr/settings.yaml'
-token = str(uuid.uuid4())
+token = secrets.token_urlsafe(32)
 try:
     import yaml
     data = {}

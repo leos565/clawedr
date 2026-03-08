@@ -25,6 +25,7 @@ import time
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from shared.alert_dispatcher import dispatch_alert_async
 from shared.user_rules import get_custom_rules, USER_RULES_PATH
+from shared.policy_verify import verify_policy
 
 logger = logging.getLogger("clawedr.log_tailer")
 block_logger = logging.getLogger("clawedr.blocked")
@@ -51,6 +52,11 @@ def _load_policy_rule_index() -> dict:
     try:
         with open(POLICY_PATH) as f:
             policy = json.load(f)
+        ok, msg = verify_policy(policy)
+        if not ok:
+            logger.error("Policy verification failed in rule index load: %s — using empty index", msg)
+            return {}
+        logger.debug("Policy verification: %s", msg)
             
         # Merge in custom user rules to the runtime mapping payload
         custom_rules = get_custom_rules()
@@ -108,9 +114,11 @@ def tail_sandbox_log():
                     continue
                 
                 seen_events.add(line)
-                # Keep the set size manageable
+                # Evict oldest half when set grows too large to prevent unbounded memory use.
                 if len(seen_events) > 5000:
-                    seen_events.clear()
+                    evict = list(seen_events)[:2500]
+                    for e in evict:
+                        seen_events.discard(e)
 
                 logger.debug("SANDBOX EVENT: %s", line)
 
@@ -137,11 +145,28 @@ def tail_sandbox_log():
                                 rule_id = rid
                                 break
                                 
-                    # 3. Check custom deny rules (loose match for fallback custom macros inside strings)
+                    # 3. Check custom deny rules: the sandbox logs the blocked
+                    # target (e.g. a port number or process path). Check whether
+                    # the directive contains the target as a meaningful substring,
+                    # but only after stripping Seatbelt LISP syntax so we match
+                    # on the actual value, not accidentally on punctuation.
                     if not rule_id:
+                        import re as _re
                         for rid, directive in rule_index.get("deny_rules", {}).get("macos", {}).items():
-                            if isinstance(directive, str) and target in directive:
-                                rule_id = rid
+                            if not isinstance(directive, str):
+                                continue
+                            # Extract quoted values from the Seatbelt directive
+                            # e.g. (deny network-outbound (remote tcp "*:4444"))
+                            # → ["*:4444"]
+                            quoted = _re.findall(r'"([^"]+)"', directive)
+                            for qval in quoted:
+                                # Match if the sandbox target ends with or equals
+                                # the directive value (after glob expansion)
+                                qval_plain = qval.lstrip("*")
+                                if qval_plain and target.endswith(qval_plain):
+                                    rule_id = rid
+                                    break
+                            if rule_id:
                                 break
                     
 
@@ -247,6 +272,19 @@ def _configure_logging() -> None:
         pass
 
 
+def _is_private_ip(ip: str) -> bool:
+    """Return True for loopback and RFC-1918 private addresses."""
+    return (
+        ip.startswith("127.")
+        or ip.startswith("0.")
+        or ip.startswith("10.")
+        or ip.startswith("169.254.")  # link-local
+        or ip.startswith("::1")
+        or (ip.startswith("172.") and 16 <= int(ip.split(".")[1]) <= 31)
+        or ip.startswith("192.168.")
+    )
+
+
 def monitor_network_connections() -> None:
     """Poll OpenClaw's network connections via lsof and check against blocked domains/IPs.
 
@@ -258,11 +296,13 @@ def monitor_network_connections() -> None:
     import socket
 
     NET_POLL_INTERVAL = 10  # seconds between network checks
-    rule_index: dict = {}
+    # Max PIDs to pass to a single lsof invocation (prevents unbounded command length)
+    _MAX_LSOF_PIDS = 20
     blocked_domains: dict = {}  # DOM-xxx -> hostname
     blocked_ips: dict = {}      # IP-xxx -> ip string
-    # Also include custom user rules of type "domain"
-    seen_alerts: set = set()    # (rule_id, ip) -> avoid repeated alerts
+    # (rule_id, ip) -> expiry timestamp; avoids repeated alerts for the same connection
+    seen_alerts: dict[tuple, float] = {}
+    _ALERT_TTL = 300.0  # seconds before re-alerting on the same (rule, ip) pair
     last_mtime = 0.0
 
     logger.info("Network connection monitor starting (poll every %ds)", NET_POLL_INTERVAL)
@@ -275,6 +315,11 @@ def monitor_network_connections() -> None:
                 try:
                     with open(POLICY_PATH) as f:
                         policy = json.load(f)
+                    ok, msg = verify_policy(policy)
+                    if not ok:
+                        logger.error("Policy verification failed in network monitor: %s — skipping reload", msg)
+                        time.sleep(NET_POLL_INTERVAL)
+                        continue
                     blocked_domains = policy.get("blocked_domains", {})
                     blocked_ips = policy.get("blocked_ips", {})
                     # Add custom user domain and IP rules
@@ -299,12 +344,23 @@ def monitor_network_connections() -> None:
                 time.sleep(NET_POLL_INTERVAL)
                 continue
 
-            # Discover OpenClaw PIDs
+            # Expire old seen_alerts entries
+            now = time.monotonic()
+            seen_alerts = {k: v for k, v in seen_alerts.items() if v > now}
+
+            # Discover OpenClaw PIDs — match on the full binary path to avoid false
+            # positives from filenames containing "openclaw" (e.g. in editor buffers).
             try:
                 pids_out = subprocess.run(
-                    ["pgrep", "-f", "openclaw"],
+                    ["pgrep", "-x", "OpenClaw"],
                     capture_output=True, text=True,
                 )
+                if not pids_out.stdout.strip():
+                    # Fallback: match process name containing openclaw (case-insensitive)
+                    pids_out = subprocess.run(
+                        ["pgrep", "-fi", "/openclaw"],
+                        capture_output=True, text=True,
+                    )
                 pids = [p.strip() for p in pids_out.stdout.strip().splitlines() if p.strip()]
             except Exception:
                 pids = []
@@ -313,18 +369,23 @@ def monitor_network_connections() -> None:
                 time.sleep(NET_POLL_INTERVAL)
                 continue
 
-            # Get network connections for those PIDs
-            try:
-                lsof_cmd = ["lsof", "-i", "-P", "-n"] + [
-                    arg for pid in pids for arg in ["-p", pid]
-                ]
-                lsof_out = subprocess.run(
-                    lsof_cmd, capture_output=True, text=True, timeout=10,
-                )
-            except Exception as e:
-                logger.debug("lsof failed: %s", e)
-                time.sleep(NET_POLL_INTERVAL)
-                continue
+            # Batch lsof invocations to avoid unbounded command-line length
+            all_lsof_output: list[str] = []
+            for i in range(0, min(len(pids), _MAX_LSOF_PIDS), 20):
+                batch = pids[i:i + 20]
+                try:
+                    lsof_cmd = ["lsof", "-i", "-P", "-n"] + [
+                        arg for pid in batch for arg in ["-p", pid]
+                    ]
+                    lsof_out = subprocess.run(
+                        lsof_cmd, capture_output=True, text=True, timeout=10,
+                    )
+                    all_lsof_output.extend(lsof_out.stdout.splitlines())
+                except Exception as e:
+                    logger.debug("lsof batch failed: %s", e)
+
+            if len(pids) > _MAX_LSOF_PIDS:
+                logger.warning("Found %d OpenClaw PIDs; only checking first %d", len(pids), _MAX_LSOF_PIDS)
 
             # Parse lsof output for TCP connections (any state)
             # Format: COMMAND PID USER FD TYPE DEVICE SIZE/OFF NODE NAME (STATE)
@@ -332,7 +393,7 @@ def monitor_network_connections() -> None:
             # STATE can be: (ESTABLISHED), (SYN_SENT), (CLOSE_WAIT), (LISTEN), etc.
             ip_re = re.compile(r"(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}):(\d+)")
 
-            for line in lsof_out.stdout.splitlines():
+            for line in all_lsof_output:
                 if "TCP" not in line:
                     continue
                 # Skip LISTEN sockets (incoming, not outbound connections)
@@ -354,8 +415,8 @@ def monitor_network_connections() -> None:
                     continue
                 remote_ip = m.group(1)
 
-                # Skip loopback and private
-                if remote_ip.startswith("127.") or remote_ip.startswith("0."):
+                # Skip loopback and all RFC-1918 / link-local private ranges
+                if _is_private_ip(remote_ip):
                     continue
 
                 # 1. Check direct IP match
@@ -363,7 +424,7 @@ def monitor_network_connections() -> None:
                     if remote_ip == blocked_ip:
                         alert_key = (rid, remote_ip)
                         if alert_key not in seen_alerts:
-                            seen_alerts.add(alert_key)
+                            seen_alerts[alert_key] = now + _ALERT_TTL
                             block_logger.warning(
                                 "WARNING [%s] action=network-connect target=%s (IP match, monitoring-only)",
                                 rid, remote_ip,
@@ -386,7 +447,7 @@ def monitor_network_connections() -> None:
                         if hostname == blocked_domain or hostname.endswith("." + blocked_domain):
                             alert_key = (rid, remote_ip)
                             if alert_key not in seen_alerts:
-                                seen_alerts.add(alert_key)
+                                seen_alerts[alert_key] = now + _ALERT_TTL
                                 block_logger.warning(
                                     "WARNING [%s] action=dns-lookup target=%s (resolved from %s, monitoring-only)",
                                     rid, blocked_domain, remote_ip,
@@ -396,10 +457,6 @@ def monitor_network_connections() -> None:
                                     action="dns-lookup",
                                     target=f"{blocked_domain} ({remote_ip})",
                                 )
-
-            # Prevent seen_alerts from growing unbounded
-            if len(seen_alerts) > 2000:
-                seen_alerts.clear()
 
         except Exception as e:
             logger.error("Network monitor error: %s", e)

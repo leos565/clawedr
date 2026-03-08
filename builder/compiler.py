@@ -13,12 +13,15 @@ from __future__ import annotations
 
 import json
 import logging
+import sys
 from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(PROJECT_ROOT / "deploy"))
+from shared.policy_verify import sign_policy_file  # noqa: E402
 DEPLOY_DIR = PROJECT_ROOT / "deploy"
 MERGED_RULES_PATH = PROJECT_ROOT / "builder" / ".merged_rules.json"
 
@@ -124,16 +127,17 @@ def compile_macos_seatbelt(rules: dict[str, Any]) -> str:
     # ── Blocked paths ──
     lines.append(";;; --- Blocked paths ---")
     blocked_paths = rules.get("blocked_paths", {}).get("macos", {})
-    for rule_id, path in blocked_paths.items():
-        sb_path = path.replace("~", "/Users/*")
+    for rule_id, entry in blocked_paths.items():
+        path = entry.get("path", entry) if isinstance(entry, dict) else entry
+        sb_path = str(path).replace("~", "/Users/*")
         lines.append(f";;; [{rule_id}]")
         if "*" in sb_path:
             regex_path = sb_path.replace("*", "[^/]+")
-            lines.append(f'(deny file-read* (with report) (regex #"^{regex_path}"))')
-            lines.append(f'(deny file-write* (with report) (regex #"^{regex_path}"))')
+            lines.append(f'(deny file-read* (regex #"^{regex_path}"))')
+            lines.append(f'(deny file-write* (regex #"^{regex_path}"))')
         else:
-            lines.append(f'(deny file-read* (with report) (subpath "{sb_path}"))')
-            lines.append(f'(deny file-write* (with report) (subpath "{sb_path}"))')
+            lines.append(f'(deny file-read* (subpath "{sb_path}"))')
+            lines.append(f'(deny file-write* (subpath "{sb_path}"))')
 
     # ── Blocked executables ──
     execs = rules.get("blocked_executables", {})
@@ -142,11 +146,11 @@ def compile_macos_seatbelt(rules: dict[str, Any]) -> str:
         for rule_id, name in execs.items():
             lines.append(f";;; [{rule_id}]")
             if "/" in name:
-                lines.append(f'(deny process-exec (with report) (literal "{name}"))')
+                lines.append(f'(deny process-exec (literal "{name}"))')
             else:
                 for prefix in _MACOS_BIN_PREFIXES:
                     lines.append(
-                        f'(deny process-exec (with report) (literal "{prefix}{name}"))'
+                        f'(deny process-exec (literal "{prefix}{name}"))'
                     )
 
     # Seatbelt does not support hostname-based filters; domain blocking is
@@ -198,7 +202,14 @@ def compile_all(merged_path: Path = MERGED_RULES_PATH) -> None:
 
     # Write the universal compiled_policy.json (used by both platforms at runtime)
     universal_policy = compile_universal_policy(rules)
-    write_linux_policy(universal_policy)
+    dest = write_linux_policy(universal_policy)
+
+    # Sign the compiled policy so Shield daemons can verify integrity
+    try:
+        sign_policy_file(str(dest))
+        logger.info("Policy signed at %s", dest)
+    except Exception as exc:
+        logger.warning("Policy signing skipped (no key?): %s", exc)
 
     sb_content = compile_macos_seatbelt(rules)
     write_macos_seatbelt(sb_content)

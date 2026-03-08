@@ -26,6 +26,7 @@ from pathlib import Path
 # Add parent directory to path so we can import shared modules
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from shared.user_rules import get_exempted_rule_ids, get_custom_rules, get_rule_mode
+from shared.policy_verify import verify_policy
 
 logger = logging.getLogger("clawedr.apply_macos_policy")
 
@@ -59,11 +60,12 @@ def generate_seatbelt(policy: dict, exempted: set[str]) -> str:
     blocked_paths = policy.get("blocked_paths", {}).get("macos", {})
     if blocked_paths:
         lines.append(";;; --- Blocked paths ---")
-        for rule_id, path in blocked_paths.items():
+        for rule_id, entry in blocked_paths.items():
+            path = entry.get("path", entry) if isinstance(entry, dict) else entry
             if not should_enforce(rule_id):
                 lines.append(f";;; [{rule_id}] {get_rule_mode(rule_id)}: {path}")
                 continue
-            sb_path = path.replace("~", "/Users/*")
+            sb_path = str(path).replace("~", "/Users/*")
             lines.append(f";;; [{rule_id}]")
             if "*" in sb_path:
                 regex_path = sb_path.replace("*", "[^/]+")
@@ -142,6 +144,13 @@ def main() -> int:
     except (FileNotFoundError, json.JSONDecodeError) as exc:
         logger.error("Failed to load policy from %s: %s", args.policy, exc)
         return 1
+
+    # Verify policy integrity before applying
+    ok, msg = verify_policy(policy)
+    if not ok:
+        logger.error("Policy verification failed: %s — refusing to apply", msg)
+        return 1
+    logger.info("Policy verification: %s", msg)
 
     # Load user exemptions
     exempted = get_exempted_rule_ids()
