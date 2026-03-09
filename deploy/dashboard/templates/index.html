@@ -2645,6 +2645,7 @@
         }
 
         let expandedHeuristicCategories = new Set();
+        let expandedSecurityCategories = new Set();
 
         function renderRules() {
             const c = document.getElementById('rulesContainer');
@@ -2653,13 +2654,14 @@
             const curRuleModes = pendingRuleModes ?? ruleModeOverrides;
             const q = (document.getElementById('ruleSearch')?.value || '').toLowerCase();
 
-            // Preserve which heuristic categories are expanded (before DOM replace)
+            // Preserve which categories are expanded (before DOM replace)
+            const openDetails = [...document.querySelectorAll('.rule-group-details[open]')]
+                .map(d => d.getAttribute('data-category'))
+                .filter(Boolean);
             if (activeRuleCategory === 'heuristics') {
-                expandedHeuristicCategories = new Set(
-                    [...document.querySelectorAll('.rule-group-details[open]')]
-                        .map(d => d.getAttribute('data-category'))
-                        .filter(Boolean)
-                );
+                expandedHeuristicCategories = new Set(openDetails);
+            } else if (activeRuleCategory === 'security') {
+                expandedSecurityCategories = new Set(openDetails);
             }
 
             const visible = allRuleItems.filter(r => {
@@ -2690,18 +2692,38 @@
             let html = '';
             for (const [cat, items] of Object.entries(groups)) {
                 if (activeRuleCategory === 'security') {
-                    html += `<div class="rule-group"><div class="rule-group-title">${cat} (${items.length})</div>`;
+                    const rids = items.map(r => r.id).join(',');
+                    const wasOpen = expandedSecurityCategories.has(cat);
+                    const desc = ruleMetadata[items[0]?.id]?.description || '';
+                    html += `<details class="rule-group-details" data-category="${esc(cat)}" ${wasOpen ? 'open' : ''} style="padding-bottom:12px; margin-bottom:8px;">
+                        <summary class="rule-group-title" style="display:flex; justify-content:space-between; align-items:center;">
+                            <span style="cursor:pointer; flex:1;"><span class="group-arrow">▶</span>${cat} (${items.length})</span>
+                            <div style="display:flex; gap:8px; align-items:center; font-size:12px; font-weight:normal;" onclick="event.stopPropagation()">
+                                <span style="color:var(--text-muted)">Set all:</span>
+                                <div style="display:flex; gap:4px;">
+                                    <button class="btn btn-ghost btn-sm" style="padding:2px 8px; font-size:11px;" onclick="event.preventDefault(); event.stopPropagation(); setGroupSecurityMode('disabled','${esc(rids)}')">🚫 Off</button>
+                                    <button class="btn btn-ghost btn-sm" style="padding:2px 8px; font-size:11px; color:var(--warning);" onclick="event.preventDefault(); event.stopPropagation(); setGroupSecurityMode('alert','${esc(rids)}')">👀 Alert</button>
+                                    <button class="btn btn-ghost btn-sm" style="padding:2px 8px; font-size:11px; color:var(--danger);" onclick="event.preventDefault(); event.stopPropagation(); setGroupSecurityMode('enforce','${esc(rids)}')">🛡️ Enforce</button>
+                                </div>
+                            </div>
+                        </summary>
+                        <div class="rule-group-content" style="padding-top:8px;">`;
                     for (const r of items) {
                         const mode = getSecurityRuleMode(r);
                         const icon = getRuleIcon(r.cat);
+                        const meta = ruleMetadata[r.id];
+                        const descHtml = meta?.description ? `<div class="rule-desc">${esc(meta.description)}</div>` : '';
                         html += `<div class="rule-item" style="${mode === 'disabled' ? 'opacity:0.5;' : ''}">
           <span class="rule-name-pill"><span class="rule-tag ${mode === 'disabled' ? 'exempted' : ''}">${r.id}</span></span>
           <div class="rule-type-icon">${icon}</div>
-          <div class="rule-content"><span class="rule-value" title="${esc(r.val)}">${esc(r.val)}</span></div>
+          <div class="rule-content">
+            <span class="rule-value" title="${esc(r.val)}">${esc(r.val)}</span>
+            ${descHtml}
+          </div>
           <div class="rule-actions"><div class="tri-toggle mode-${mode}" data-rule-id="${esc(r.id)}"><div class="tri-slider"></div><div class="tri-btn" data-val="disabled" onclick="toggleRuleMode('${r.id}', 'disabled')">🚫 Off</div><div class="tri-btn" data-val="alert" onclick="toggleRuleMode('${r.id}', 'alert')">👀 Alert</div><div class="tri-btn" data-val="enforce" onclick="toggleRuleMode('${r.id}', 'enforce')">🛡️ Enforce</div></div></div>
         </div>`;
                     }
-                    html += '</div>';
+                    html += '</div></details>';
                 } else {
                     // Heuristics
                     const rids = items.map(r => r.id).join(',');
@@ -2997,6 +3019,16 @@
             }
             document.getElementById('saveBanner').classList.add('visible');
             setTimeout(renderRules, 420);
+        }
+
+        function setGroupSecurityMode(mode, ruleIdsCsv) {
+            if (!mode) return;
+            if (!pendingRuleModes) pendingRuleModes = { ...ruleModeOverrides };
+            for (const id of ruleIdsCsv.split(',')) {
+                pendingRuleModes[id] = mode;
+            }
+            document.getElementById('saveBanner').classList.add('visible');
+            renderRules();
         }
 
         function setGroupHeuristic(mode, cat, ruleIdsCsv) {
