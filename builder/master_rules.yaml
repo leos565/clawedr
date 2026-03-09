@@ -65,10 +65,18 @@ rule_metadata:
   PATH-LIN-011: { description: "User kubeconfig; enables Kubernetes cluster takeover", severity: critical, category: security }
   PATH-LIN-012: { description: "Docker socket; enables container escape and host takeover", severity: critical, category: security }
   PATH-LIN-013: { description: "ClawEDR config; contains exemptions and custom rules — prevents policy tampering", severity: critical, category: security }
+  PATH-LIN-014: { description: "Netrc credentials; plaintext HTTP/FTP login credentials", severity: high, category: security }
+  PATH-LIN-015: { description: "npm config; may contain registry auth tokens", severity: high, category: security }
+  PATH-LIN-016: { description: "PyPI config; may contain upload credentials", severity: high, category: security }
   PATH-LIN-017: { description: "ClawEDR install dir; compiled policy, monitor, rules — prevents policy tampering", severity: critical, category: security }
+  PATH-LIN-018: { description: "Docker config; may contain registry auth credentials", severity: high, category: security }
 
   PATH-MAC-020: { description: "ClawEDR config; contains exemptions and custom rules — prevents policy tampering", severity: critical, category: security }
+  PATH-MAC-021: { description: "Netrc credentials; plaintext HTTP/FTP login credentials", severity: high, category: security }
+  PATH-MAC-022: { description: "npm config; may contain registry auth tokens", severity: high, category: security }
   PATH-MAC-023: { description: "ClawEDR install dir; compiled policy and rules — prevents policy tampering", severity: critical, category: security }
+  PATH-MAC-024: { description: "PyPI config; may contain upload credentials", severity: high, category: security }
+  PATH-MAC-025: { description: "Docker config; may contain registry auth credentials", severity: high, category: security }
 
   # Blocked domains
   DOM-001: { description: "Monero mining pool; cryptojacking and resource theft", severity: high, category: security }
@@ -127,6 +135,7 @@ rule_metadata:
   BIN-025: { description: "Strace; syscall tracing, can capture secrets and inject", severity: high, category: security }
   BIN-026: { description: "Ltrace; library call tracing", severity: high, category: security }
   BIN-027: { description: "Ptrace; process tracing and injection", severity: high, category: security }
+  BIN-028: { description: "mkfs; filesystem format — can destroy disk partitions", severity: critical, category: security }
 
   # macOS custom deny rules
   MAC-001: { description: "Reverse-shell port 4444; common C2 callback", severity: critical, category: security }
@@ -199,6 +208,17 @@ rule_metadata:
   LIN-047: { description: "Kubelet API; Kubernetes recon / escape", severity: critical, category: security }
   LIN-048: { description: "Find SUID binaries; privilege escalation recon", severity: high, category: security }
   LIN-049: { description: "Getcap recursive; capability recon for priv esc", severity: high, category: security }
+  LIN-050: { description: "dd raw disk write; can overwrite partitions and destroy data", severity: critical, category: security }
+  LIN-051: { description: "Dotenv file access; .env files typically contain secrets and API keys", severity: high, category: security }
+  LIN-051b: { description: "Dotenv file access (absolute path); .env files typically contain secrets and API keys", severity: high, category: security }
+  LIN-052: { description: "PEM certificate/key access; .pem files contain private keys or certificates", severity: high, category: security }
+  LIN-053: { description: "Private key file access; .key files contain cryptographic private keys", severity: high, category: security }
+  LIN-054: { description: "PKCS12 keystore access; .p12/.pfx files contain certificates and private keys", severity: high, category: security }
+  LIN-054b: { description: "PFX keystore access; .pfx files contain certificates and private keys", severity: high, category: security }
+  LIN-055: { description: "Credentials file access; credentials.json commonly contains service account keys", severity: high, category: security }
+  LIN-056: { description: "Secrets config access; secrets.yaml/secrets.json contain application secrets", severity: high, category: security }
+  LIN-056b: { description: "Secrets JSON access; secrets.json contains application secrets", severity: high, category: security }
+  LIN-057: { description: "Token file access; tokens.json commonly contains OAuth/API tokens", severity: high, category: security }
 
   # ── Heuristic rules ─────────────────────────────────────────────────────────
   # Behavioral detection rules for AI agent skill abuse.
@@ -316,7 +336,11 @@ blocked_paths:
     # System
     PATH-MAC-019: "/Library/Preferences/SystemConfiguration"
     PATH-MAC-020: "/etc/clawedr"
+    PATH-MAC-021: "~/.netrc"
+    PATH-MAC-022: "~/.npmrc"
     PATH-MAC-023: "/usr/local/share/clawedr"
+    PATH-MAC-024: "~/.pypirc"
+    PATH-MAC-025: "~/.docker/config.json"
   linux:
     PATH-LIN-001: "/root/.ssh"
     PATH-LIN-002: "/etc/shadow"
@@ -333,7 +357,11 @@ blocked_paths:
     PATH-LIN-011: "/home/*/.kube/config"
     PATH-LIN-012: "/var/run/docker.sock"
     PATH-LIN-013: "/etc/clawedr"
+    PATH-LIN-014: "/home/*/.netrc"
+    PATH-LIN-015: "/home/*/.npmrc"
+    PATH-LIN-016: "/home/*/.pypirc"
     PATH-LIN-017: "/usr/local/share/clawedr"
+    PATH-LIN-018: "/home/*/.docker/config.json"
 
 # ── Blocked domains ───────────────────────────────────────────────────────
 # Known mining pools and C2 infrastructure. The threat feed adds more.
@@ -409,6 +437,8 @@ blocked_executables:
   BIN-025: "strace"
   BIN-026: "ltrace"
   BIN-027: "ptrace"
+  # Disk destruction
+  BIN-028: "mkfs"
 
 malicious_hashes: {}
 
@@ -679,6 +709,58 @@ custom_deny_rules:
       rule: "recon_getcap"
       match: "getcap -r /"
       action: "SIGKILL"
+
+    # ── Disk destruction ──
+    LIN-050:
+      rule: "disk_dd_write"
+      match: "dd if=* of=/dev/*"
+      executable: "dd"
+      action: "SIGKILL"
+
+    # ── Sensitive file access (alert-only) ──
+    # These catch argv-level access to files that cannot be blocked via
+    # eBPF openat (suffix/glob patterns are infeasible with hash lookup).
+    # Two rules for .env: relative (space-anchored) and absolute (slash-anchored).
+    LIN-051:
+      rule: "sensitive_dotenv_relative"
+      match: "* .env*"
+      action: "ALERT"
+    LIN-051b:
+      rule: "sensitive_dotenv_absolute"
+      match: "*/.env*"
+      action: "ALERT"
+    LIN-052:
+      rule: "sensitive_pem_file"
+      match: "*.pem"
+      action: "ALERT"
+    LIN-053:
+      rule: "sensitive_key_file"
+      match: "*.key"
+      action: "ALERT"
+    LIN-054:
+      rule: "sensitive_p12_pfx_file"
+      match: "*.p12"
+      action: "ALERT"
+    LIN-054b:
+      rule: "sensitive_pfx_file"
+      match: "*.pfx"
+      action: "ALERT"
+    LIN-055:
+      rule: "sensitive_credentials_json"
+      match: "*credentials.json*"
+      action: "ALERT"
+    LIN-056:
+      rule: "sensitive_secrets_config"
+      match: "*secrets.yaml*"
+      action: "ALERT"
+    LIN-056b:
+      rule: "sensitive_secrets_json"
+      match: "*secrets.json*"
+      action: "ALERT"
+    LIN-057:
+      rule: "sensitive_tokens_json"
+      match: "*tokens.json*"
+      action: "ALERT"
 
 # ── Heuristics ────────────────────────────────────────────────────────────
 # Behavioral detection rules for AI agent skill abuse.

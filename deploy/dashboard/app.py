@@ -16,6 +16,7 @@ Endpoints:
 
 from __future__ import annotations
 
+import hmac
 import json
 import logging
 import os
@@ -38,6 +39,7 @@ from shared.user_rules import (  # pyre-ignore[21]
     get_custom_rules, get_custom_rule_metadata, CUSTOM_RULE_TYPES,
     load_settings, save_settings, get_dashboard_token, regenerate_dashboard_token,
     get_heuristic_overrides, save_heuristic_overrides, set_group_heuristic_mode,
+    get_heuristic_threshold_overrides, save_heuristic_threshold_overrides,
     get_rule_mode_overrides, save_rule_mode_overrides,
     VALID_HEURISTIC_MODES,
 )
@@ -95,13 +97,24 @@ class TokenAuthMiddleware(BaseHTTPMiddleware):
         if not token:
             token = request.cookies.get("clawedr_token")
 
-        if token == expected:
+        if token and hmac.compare_digest(token, expected):
             return await call_next(request)
 
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
 
 
 app.add_middleware(TokenAuthMiddleware)
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        return response
+
+
+app.add_middleware(SecurityHeadersMiddleware)
 
 # Static assets (logo, etc.)
 _DASHBOARD_DIR = Path(__file__).resolve().parent
@@ -286,7 +299,8 @@ async def get_rules():
             policy = json.load(f)
         return JSONResponse(policy)
     except (FileNotFoundError, json.JSONDecodeError) as exc:
-        return JSONResponse({"error": str(exc)}, status_code=500)
+        logger.error("Failed to load policy: %s", exc)
+        return JSONResponse({"error": "Failed to load compiled policy"}, status_code=500)
 
 
 @app.get("/api/user-rules")
@@ -310,6 +324,10 @@ async def update_user_rules(request: Request):
             body["custom_rules"] = existing["custom_rules"]
         if "heuristic_overrides" not in body and "heuristic_overrides" in existing:
             body["heuristic_overrides"] = existing["heuristic_overrides"]
+        if "heuristic_threshold_overrides" not in body and "heuristic_threshold_overrides" in existing:
+            body["heuristic_threshold_overrides"] = existing["heuristic_threshold_overrides"]
+        if "risk_profile" not in body and "risk_profile" in existing:
+            body["risk_profile"] = existing["risk_profile"]
         if "rule_mode_overrides" not in body and "rule_mode_overrides" in existing:
             body["rule_mode_overrides"] = existing["rule_mode_overrides"]
         # Sync exempted_rule_ids from rule_mode_overrides (disabled = exempted)
@@ -356,7 +374,7 @@ def _trigger_enforcement():
             if apply_script:
                 assert isinstance(apply_script, str)  # pyre
                 try:
-                    subprocess.run(["python3", apply_script], check=True, capture_output=True)
+                    subprocess.run(["python3", apply_script], check=True, capture_output=True, timeout=30)
                     logger.info("Triggered macOS policy applicator: %s", apply_script)
                 except subprocess.CalledProcessError as e:
                     logger.error("Failed to apply macOS policy: %s", e.stderr.decode() if e.stderr else str(e))
@@ -502,6 +520,40 @@ async def save_heuristic_overrides_endpoint(request: Request):
         if not isinstance(overrides, dict):
             return JSONResponse({"error": "overrides must be a dict"}, status_code=400)
         save_heuristic_overrides(overrides)
+        _trigger_enforcement()
+        return JSONResponse({
+            "status": "ok",
+            "count": len(overrides),
+            "message": _get_enforcement_message(),
+        })
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+
+
+@app.get("/api/heuristic-threshold-overrides")
+async def get_heuristic_threshold_overrides_endpoint():
+    """Return user threshold overrides for heuristic rules.
+
+    Response: { "overrides": { "HEU-XXX-NNN": { "threshold": int, "window_seconds": int }, ... } }
+    Partial entries are returned as-is (only the overridden fields are present).
+    """
+    return JSONResponse({"overrides": get_heuristic_threshold_overrides()})
+
+
+@app.post("/api/heuristic-threshold-overrides")
+async def save_heuristic_threshold_overrides_endpoint(request: Request):
+    """Save heuristic threshold overrides (Linux only; hot-reloads into BPF maps).
+
+    Body: { "overrides": { "HEU-XXX-NNN": { "threshold": int, "window_seconds": int }, ... } }
+    Partial entries are allowed. Send an empty dict for a rule to clear its override.
+    Validation: threshold 1–65535, window_seconds 0–65535.
+    """
+    try:
+        body = await request.json()
+        overrides = body.get("overrides", {})
+        if not isinstance(overrides, dict):
+            return JSONResponse({"error": "overrides must be a dict"}, status_code=400)
+        save_heuristic_threshold_overrides(overrides)
         _trigger_enforcement()
         return JSONResponse({
             "status": "ok",
@@ -777,7 +829,7 @@ async def restart_dashboard():
         return JSONResponse({"status": "ok", "message": "Dashboard restart initiated"})
     except Exception as exc:
         logger.exception("Restart failed: %s", exc)
-        return JSONResponse({"error": str(exc)}, status_code=500)
+        return JSONResponse({"error": "Dashboard restart failed"}, status_code=500)
 
 
 @app.get("/api/updates")

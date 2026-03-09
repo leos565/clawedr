@@ -50,7 +50,7 @@ _script_dir = os.path.dirname(os.path.abspath(__file__))
 _parent = os.path.dirname(_script_dir)
 sys.path.insert(0, _parent)
 sys.path.insert(0, _script_dir)
-from shared.user_rules import get_exempted_rule_ids, get_custom_rules, get_heuristic_overrides, get_rule_mode, USER_RULES_PATH  # pyre-ignore[21]
+from shared.user_rules import get_exempted_rule_ids, get_custom_rules, get_heuristic_overrides, get_heuristic_threshold_overrides, get_rule_mode, USER_RULES_PATH  # pyre-ignore[21]
 from shared.alert_dispatcher import dispatch_alert_async  # pyre-ignore[21]
 from shared.policy_verify import verify_policy  # pyre-ignore[21]
 
@@ -224,8 +224,11 @@ def _resolve_openclaw_paths() -> list[str]:
             resolved = os.path.realpath(rb)
             paths.add(resolved)
             # OpenClaw is a Node script: kernel execs node, not openclaw.
-            # Add node so we track the process tree. (All node processes
-            # will be tracked; acceptable on OpenClaw-focused hosts.)
+            # Add node to target_bins so ALL node processes are tracked.
+            # This is necessary because OpenClaw can be invoked from
+            # multiple entry points (gateway, dashboard CLI, agent tasks)
+            # and their parents may not be tracked.  On OpenClaw-focused
+            # hosts this is the correct trade-off.
             if resolved.endswith((".mjs", ".js", ".cjs")):
                 node_bin = shutil.which("node") or "/usr/bin/node"
                 if os.path.exists(node_bin):
@@ -658,7 +661,7 @@ def populate_parent_tracked_bins() -> None:
                 for p in (interp, resolved):
                     h = _djb2_hash(p)
                     parent_map[ctypes.c_uint64(h)] = ctypes.c_uint8(1)
-                logger.info("parent_tracked_bins += %s (agent-spawned shells)", interp)
+                logger.info("parent_tracked_bins += %s", interp)
             except OSError:
                 pass
 
@@ -928,7 +931,16 @@ _CLAWEDR_INSTALL_SUBFILES = ["compiled_policy.json", "bpf_hooks.c", "monitor.py"
 
 
 def _add_subpaths(directory: str, out: set[str]) -> None:
-    """Add well-known sensitive subfiles beneath a directory."""
+    """Add well-known sensitive subfiles beneath a directory.
+
+    Skips leaf files (e.g. .netrc, .npmrc) that are not directories —
+    subpath expansion only makes sense for dirs like ~/.ssh.
+    """
+    # Skip paths that are known to be leaf files (e.g. .netrc, .npmrc) —
+    # subpath expansion only makes sense for directories like ~/.ssh.
+    # Non-existent paths are treated as potential directories.
+    if os.path.exists(directory) and not os.path.isdir(directory):
+        return
     for sub in _SENSITIVE_SUBFILES:
         out.add(os.path.join(directory, sub))
     # ClawEDR install dir: block policy, monitor, BPF source
@@ -962,7 +974,11 @@ def _expand_blocked_paths(raw_paths: dict[str, str]) -> dict[str, set[str]]:
 
 
 def _expand_missing_wildcard(pattern: str, out: set[str]) -> None:
-    """For /home/*/.ssh style patterns, enumerate home dirs and add subpaths."""
+    """For /home/*/.ssh style patterns, enumerate home dirs and add subpaths.
+
+    Also synthesises /root/ paths when the pattern starts with /home/*/,
+    since /root/ is not under /home/ but holds the same dotfiles.
+    """
     parts = pattern.split("*")
     if len(parts) != 2:
         return
@@ -974,6 +990,11 @@ def _expand_missing_wildcard(pattern: str, out: set[str]) -> None:
         synth = d + suffix
         out.add(synth)
         _add_subpaths(synth, out)
+    # /home/*/.foo → also cover /root/.foo
+    if parent_dir == "/home":
+        root_synth = "/root" + suffix
+        out.add(root_synth)
+        _add_subpaths(root_synth, out)
 
 
 def _apply_blocked_paths(policy: dict, exempted: set[str]) -> None:
@@ -1214,8 +1235,10 @@ def _apply_heuristics(policy: dict, exempted: set[str]) -> None:
             continue
 
         defn = HEURISTIC_DEFINITIONS.get(rule_id, {})
-        threshold = hconfig.get("threshold", 1)
-        window_sec = hconfig.get("window_seconds", 0)
+        thresh_overrides = get_heuristic_threshold_overrides()
+        uo = thresh_overrides.get(rule_id, {})
+        threshold = min(max(int(uo.get("threshold", hconfig.get("threshold", 1))), 1), 65535)
+        window_sec = min(max(int(uo.get("window_seconds", hconfig.get("window_seconds", 0))), 0), 65535)
         enabled = 2 if mode == "enforce" else 1
 
         # Config struct: enabled, num_patterns, threshold, window_sec, binary_hash

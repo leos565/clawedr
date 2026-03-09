@@ -27,7 +27,8 @@
     "BIN-024": "gdb",
     "BIN-025": "strace",
     "BIN-026": "ltrace",
-    "BIN-027": "ptrace"
+    "BIN-027": "ptrace",
+    "BIN-028": "mkfs"
   },
   "blocked_domains": {
     "DOM-001": "pool.supportxmr.com",
@@ -74,7 +75,11 @@
       "PATH-LIN-011": "/home/*/.kube/config",
       "PATH-LIN-012": "/var/run/docker.sock",
       "PATH-LIN-013": "/etc/clawedr",
-      "PATH-LIN-017": "/usr/local/share/clawedr"
+      "PATH-LIN-017": "/usr/local/share/clawedr",
+      "PATH-LIN-014": "/home/*/.netrc",
+      "PATH-LIN-015": "/home/*/.npmrc",
+      "PATH-LIN-016": "/home/*/.pypirc",
+      "PATH-LIN-018": "/home/*/.docker/config.json"
     },
     "macos": {
       "PATH-MAC-001": "~/.ssh",
@@ -97,7 +102,11 @@
       "PATH-MAC-018": "~/Library/Suggestions",
       "PATH-MAC-019": "/Library/Preferences/SystemConfiguration",
       "PATH-MAC-020": "/etc/clawedr",
-      "PATH-MAC-023": "/usr/local/share/clawedr"
+      "PATH-MAC-023": "/usr/local/share/clawedr",
+      "PATH-MAC-021": "~/.netrc",
+      "PATH-MAC-022": "~/.npmrc",
+      "PATH-MAC-024": "~/.pypirc",
+      "PATH-MAC-025": "~/.docker/config.json"
     }
   },
   "deny_rules": {
@@ -349,6 +358,62 @@
         "rule": "recon_getcap",
         "match": "getcap -r /",
         "action": "SIGKILL"
+      },
+      "LIN-050": {
+        "rule": "disk_dd_write",
+        "match": "dd if=* of=/dev/*",
+        "executable": "dd",
+        "action": "SIGKILL"
+      },
+      "LIN-051": {
+        "rule": "sensitive_dotenv_relative",
+        "match": "* .env*",
+        "action": "ALERT"
+      },
+      "LIN-051b": {
+        "rule": "sensitive_dotenv_absolute",
+        "match": "*/.env*",
+        "action": "ALERT"
+      },
+      "LIN-052": {
+        "rule": "sensitive_pem_file",
+        "match": "*.pem",
+        "action": "ALERT"
+      },
+      "LIN-053": {
+        "rule": "sensitive_key_file",
+        "match": "*.key",
+        "action": "ALERT"
+      },
+      "LIN-054": {
+        "rule": "sensitive_p12_pfx_file",
+        "match": "*.p12",
+        "action": "ALERT"
+      },
+      "LIN-054b": {
+        "rule": "sensitive_pfx_file",
+        "match": "*.pfx",
+        "action": "ALERT"
+      },
+      "LIN-055": {
+        "rule": "sensitive_credentials_json",
+        "match": "*credentials.json*",
+        "action": "ALERT"
+      },
+      "LIN-056": {
+        "rule": "sensitive_secrets_config",
+        "match": "*secrets.yaml*",
+        "action": "ALERT"
+      },
+      "LIN-056b": {
+        "rule": "sensitive_secrets_json",
+        "match": "*secrets.json*",
+        "action": "ALERT"
+      },
+      "LIN-057": {
+        "rule": "sensitive_tokens_json",
+        "match": "*tokens.json*",
+        "action": "ALERT"
       }
     },
     "macos": {
@@ -1547,6 +1612,106 @@
     "IP-006": {
       "description": "Community threat intelligence",
       "severity": "high"
+    },
+    "PATH-LIN-014": {
+      "description": "Netrc credentials; plaintext HTTP/FTP login credentials",
+      "severity": "high",
+      "category": "security"
+    },
+    "PATH-LIN-015": {
+      "description": "npm config; may contain registry auth tokens",
+      "severity": "high",
+      "category": "security"
+    },
+    "PATH-LIN-016": {
+      "description": "PyPI config; may contain upload credentials",
+      "severity": "high",
+      "category": "security"
+    },
+    "PATH-LIN-018": {
+      "description": "Docker config; may contain registry auth credentials",
+      "severity": "high",
+      "category": "security"
+    },
+    "PATH-MAC-021": {
+      "description": "Netrc credentials; plaintext HTTP/FTP login credentials",
+      "severity": "high",
+      "category": "security"
+    },
+    "PATH-MAC-022": {
+      "description": "npm config; may contain registry auth tokens",
+      "severity": "high",
+      "category": "security"
+    },
+    "PATH-MAC-024": {
+      "description": "PyPI config; may contain upload credentials",
+      "severity": "high",
+      "category": "security"
+    },
+    "PATH-MAC-025": {
+      "description": "Docker config; may contain registry auth credentials",
+      "severity": "high",
+      "category": "security"
+    },
+    "BIN-028": {
+      "description": "mkfs; filesystem format \u2014 can destroy disk partitions",
+      "severity": "critical",
+      "category": "security"
+    },
+    "LIN-050": {
+      "description": "dd raw disk write; can overwrite partitions and destroy data",
+      "severity": "critical",
+      "category": "security"
+    },
+    "LIN-051": {
+      "description": "Dotenv file access; .env files typically contain secrets and API keys",
+      "severity": "high",
+      "category": "security"
+    },
+    "LIN-051b": {
+      "description": "Dotenv file access (absolute path); .env files typically contain secrets and API keys",
+      "severity": "high",
+      "category": "security"
+    },
+    "LIN-052": {
+      "description": "PEM certificate/key access; .pem files contain private keys or certificates",
+      "severity": "high",
+      "category": "security"
+    },
+    "LIN-053": {
+      "description": "Private key file access; .key files contain cryptographic private keys",
+      "severity": "high",
+      "category": "security"
+    },
+    "LIN-054": {
+      "description": "PKCS12 keystore access; .p12/.pfx files contain certificates and private keys",
+      "severity": "high",
+      "category": "security"
+    },
+    "LIN-054b": {
+      "description": "PFX keystore access; .pfx files contain certificates and private keys",
+      "severity": "high",
+      "category": "security"
+    },
+    "LIN-055": {
+      "description": "Credentials file access; credentials.json commonly contains service account keys",
+      "severity": "high",
+      "category": "security"
+    },
+    "LIN-056": {
+      "description": "Secrets config access; secrets.yaml/secrets.json contain application secrets",
+      "severity": "high",
+      "category": "security"
+    },
+    "LIN-056b": {
+      "description": "Secrets JSON access; secrets.json contains application secrets",
+      "severity": "high",
+      "category": "security"
+    },
+    "LIN-057": {
+      "description": "Token file access; tokens.json commonly contains OAuth/API tokens",
+      "severity": "high",
+      "category": "security"
     }
   },
   "heuristics": {
@@ -1830,5 +1995,6 @@
       "threshold": 1,
       "window_seconds": 0
     }
-  }
+  },
+  "_signature": "5e5f87d1d4f8c71c77bf606bb97d02335233a8b0b11094c7838f7b83b0299748"
 }

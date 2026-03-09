@@ -67,6 +67,18 @@
 ;;; [PATH-MAC-023]
 (deny file-read* (subpath "/usr/local/share/clawedr"))
 (deny file-write* (subpath "/usr/local/share/clawedr"))
+;;; [PATH-MAC-021]
+(deny file-read* (regex #"^/Users/[^/]+/.netrc"))
+(deny file-write* (regex #"^/Users/[^/]+/.netrc"))
+;;; [PATH-MAC-022]
+(deny file-read* (regex #"^/Users/[^/]+/.npmrc"))
+(deny file-write* (regex #"^/Users/[^/]+/.npmrc"))
+;;; [PATH-MAC-024]
+(deny file-read* (regex #"^/Users/[^/]+/.pypirc"))
+(deny file-write* (regex #"^/Users/[^/]+/.pypirc"))
+;;; [PATH-MAC-025]
+(deny file-read* (regex #"^/Users/[^/]+/.docker/config.json"))
+(deny file-write* (regex #"^/Users/[^/]+/.docker/config.json"))
 ;;; --- Blocked executables ---
 ;;; [BIN-001]
 (deny process-exec (literal "/usr/bin/nc"))
@@ -230,6 +242,12 @@
 (deny process-exec (literal "/usr/local/bin/ptrace"))
 (deny process-exec (literal "/opt/homebrew/bin/ptrace"))
 (deny process-exec (literal "/opt/local/bin/ptrace"))
+;;; [BIN-028]
+(deny process-exec (literal "/usr/bin/mkfs"))
+(deny process-exec (literal "/usr/sbin/mkfs"))
+(deny process-exec (literal "/usr/local/bin/mkfs"))
+(deny process-exec (literal "/opt/homebrew/bin/mkfs"))
+(deny process-exec (literal "/opt/local/bin/mkfs"))
 ;;; --- Blocked domains (monitoring-only on macOS via log_tailer.py) ---
 ;;;   [DOM-001] pool.supportxmr.com
 ;;;   [DOM-002] pool.minexmr.com

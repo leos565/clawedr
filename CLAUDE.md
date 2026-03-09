@@ -21,6 +21,43 @@ pip install -r requirements-dev.txt
 ./main.py all       # sync → compile → test (skips publish)
 ```
 
+## Applying Changes to the Testing VM
+
+After every editing session, sync the deploy files to the OrbStack Ubuntu VM and restart services:
+
+```bash
+cd /Users/leo/clawedr && orb -m ubuntu -u root bash -c '
+set -e
+CLAWEDR_DIR="/usr/local/share/clawedr"
+SRC="/Users/leo/clawedr/deploy"
+
+echo "[*] Syncing deploy files to $CLAWEDR_DIR..."
+cp "$SRC/compiled_policy.json" "$CLAWEDR_DIR/"
+cp "$SRC/linux/bpf_hooks.c" "$CLAWEDR_DIR/"
+cp "$SRC/linux/monitor.py" "$CLAWEDR_DIR/"
+cp "$SRC/shared/user_rules.py" "$CLAWEDR_DIR/shared/"
+cp "$SRC/shared/alert_dispatcher.py" "$CLAWEDR_DIR/shared/"
+cp "$SRC/shared/rule_updater.py" "$CLAWEDR_DIR/shared/"
+cp "$SRC/shared/policy_verify.py" "$CLAWEDR_DIR/shared/"
+cp "$SRC/dashboard/app.py" "$CLAWEDR_DIR/dashboard/"
+cp "$SRC/dashboard/templates/index.html" "$CLAWEDR_DIR/dashboard/templates/"
+
+echo "[*] Restarting clawedr-monitor..."
+systemctl restart clawedr-monitor 2>/dev/null || true
+
+echo "[*] Restarting clawedr-dashboard..."
+systemctl restart clawedr-dashboard 2>/dev/null || true
+
+sleep 3
+echo "[*] Status:"
+systemctl is-active clawedr-monitor 2>/dev/null && echo "  clawedr-monitor: active" || echo "  clawedr-monitor: failed"
+systemctl is-active clawedr-dashboard 2>/dev/null && echo "  clawedr-dashboard: active" || echo "  clawedr-dashboard: failed"
+echo "[*] Done."
+'
+```
+
+Both `clawedr-monitor` and `clawedr-dashboard` should report `active`. If either reports `failed`, check `journalctl -u clawedr-monitor -n 50` or `journalctl -u clawedr-dashboard -n 50` inside the VM.
+
 ## Testing
 
 ```bash

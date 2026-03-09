@@ -15,6 +15,16 @@ Schema:
       HEU-GOG-001: enforce
       HEU-NET-001: alert
       HEU-FS-002: disabled
+    heuristic_threshold_overrides:
+      HEU-GOG-001:
+        threshold: 50
+        window_seconds: 20
+      HEU-EML-001:
+        threshold: 10
+        window_seconds: 15
+      # Partial overrides allowed: omit threshold or window_seconds to keep default.
+      # Applies only on Linux (eBPF); macOS heuristics are stateless.
+      # threshold: 1–65535, window_seconds: 0–65535
     rule_mode_overrides:
       BIN-001: alert
       DOM-001: enforce
@@ -198,6 +208,69 @@ def save_heuristic_overrides(overrides: dict[str, str]) -> None:
     rules["heuristic_overrides"] = clean
     save_user_rules(rules)
     logger.info("Saved %d heuristic overrides", len(clean))
+
+
+def get_heuristic_threshold_overrides() -> dict[str, dict]:
+    """Return threshold overrides: { 'HEU-XXX-NNN': { 'threshold'?: int, 'window_seconds'?: int } }.
+
+    Only entries with at least one valid field are returned.
+    threshold: 1–65535, window_seconds: 0–65535.
+    """
+    rules = load_user_rules()
+    raw = rules.get("heuristic_threshold_overrides", {})
+    if not isinstance(raw, dict):
+        return {}
+    result: dict[str, dict] = {}
+    for k, v in raw.items():
+        if not isinstance(v, dict):
+            continue
+        entry: dict = {}
+        if "threshold" in v:
+            try:
+                t = int(v["threshold"])
+                if 1 <= t <= 65535:
+                    entry["threshold"] = t
+            except (TypeError, ValueError):
+                pass
+        if "window_seconds" in v:
+            try:
+                w = int(v["window_seconds"])
+                if 0 <= w <= 65535:
+                    entry["window_seconds"] = w
+            except (TypeError, ValueError):
+                pass
+        if entry:
+            result[k] = entry
+    return result
+
+
+def save_heuristic_threshold_overrides(overrides: dict[str, dict]) -> None:
+    """Save heuristic threshold overrides to user_rules.yaml (merges with existing)."""
+    clean: dict[str, dict] = {}
+    for k, v in overrides.items():
+        if not isinstance(v, dict):
+            continue
+        entry: dict = {}
+        if "threshold" in v:
+            try:
+                t = int(v["threshold"])
+                if 1 <= t <= 65535:
+                    entry["threshold"] = t
+            except (TypeError, ValueError):
+                pass
+        if "window_seconds" in v:
+            try:
+                w = int(v["window_seconds"])
+                if 0 <= w <= 65535:
+                    entry["window_seconds"] = w
+            except (TypeError, ValueError):
+                pass
+        if entry:
+            clean[k] = entry
+    rules = load_user_rules()
+    rules["heuristic_threshold_overrides"] = clean
+    save_user_rules(rules)
+    logger.info("Saved %d heuristic threshold overrides", len(clean))
 
 
 def get_rule_mode_overrides() -> dict[str, str]:

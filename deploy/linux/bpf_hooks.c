@@ -651,7 +651,15 @@ TRACEPOINT_PROBE(sched, sched_process_fork) {
   u32 parent_pid = args->parent_pid;
   u32 child_pid = args->child_pid;
 
+  /* Check both the thread PID and the TGID (thread group leader).
+   * tracked_pids is keyed by TGID, but sched_process_fork reports the
+   * thread PID as parent_pid.  When a worker thread (libuv, etc.) forks
+   * a child, parent_pid is the thread PID which may differ from the TGID. */
   u8 *tracked = tracked_pids.lookup(&parent_pid);
+  if (!tracked) {
+    u32 tgid = bpf_get_current_pid_tgid() >> 32;
+    tracked = tracked_pids.lookup(&tgid);
+  }
   if (tracked) {
     u8 one = 1;
     tracked_pids.update(&child_pid, &one);

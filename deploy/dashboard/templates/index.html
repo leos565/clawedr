@@ -1614,6 +1614,105 @@
             outline: 2px solid var(--claw-blue);
             outline-offset: 2px;
         }
+        /* ── Risk Profile Drag Slider ──────────────────────────── */
+        .prof-slider-wrap {
+            padding: 8px 0 12px;
+            user-select: none;
+            max-width: 480px;
+            margin: 0 auto;
+        }
+        .prof-track-wrap {
+            position: relative;
+            height: 56px;
+            display: flex;
+            align-items: center;
+            /* Inset the rail so its endpoints sit at the centers of the first/last labels */
+            padding: 0 calc(100% / 6);
+        }
+        .prof-rail {
+            position: relative;
+            width: 100%;
+            height: 8px;
+            background: rgba(0, 0, 0, 0.08);
+            border-radius: 4px;
+            overflow: visible;
+        }
+        .prof-fill {
+            position: absolute;
+            left: 0; top: 0; bottom: 0;
+            border-radius: 4px;
+            background: #0091CF;
+            pointer-events: none;
+        }
+        .prof-markers {
+            position: absolute;
+            top: 50%; left: 0; right: 0;
+            transform: translateY(-50%);
+            display: flex;
+            justify-content: space-between;
+            pointer-events: none;
+        }
+        .prof-marker {
+            width: 14px; height: 14px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.95);
+            border: 2px solid rgba(0, 0, 0, 0.12);
+            box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+        }
+        .prof-thumb {
+            position: absolute;
+            top: 50%;
+            width: 52px; height: 52px;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            background: #0091CF;
+            box-shadow: 0 4px 20px rgba(0,145,207,0.45);
+            cursor: grab;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            z-index: 10;
+            touch-action: none;
+        }
+        .prof-thumb.dragging {
+            cursor: grabbing;
+            box-shadow: 0 6px 28px rgba(0,145,207,0.55);
+        }
+        .prof-labels {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+        }
+        .prof-label {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            font-family: inherit;
+            padding: 6px 4px;
+            border-radius: 10px;
+            transition: background 0.2s ease;
+        }
+        .prof-label:hover { background: rgba(0, 0, 0, 0.04); }
+        .prof-label-emoji { font-size: 18px; }
+        .prof-label-name {
+            font-size: 12px; font-weight: 700;
+            color: var(--text-primary);
+            transition: color 0.25s ease;
+        }
+        .prof-label-tagline {
+            font-size: 10px;
+            color: var(--text-muted);
+        }
+        .prof-label.active .prof-label-name { color: var(--accent); }
+        @media (prefers-reduced-motion: reduce) {
+            .prof-thumb, .prof-fill { transition: none !important; }
+        }
     </style>
 </head>
 
@@ -1866,6 +1965,19 @@
 
             <!-- Rules Tab — tabbed settings design -->
             <div class="tab-panel" id="tab-rules">
+
+                <!-- Profile Card — sits above Policy Rules, applies to all rule types -->
+                <div class="card" style="margin-bottom:16px;">
+                    <div class="card-header" style="margin-bottom:20px;">
+                        <div>
+                            <span class="card-title">Security Profile</span>
+                            <div style="font-size:12px; color:var(--text-muted); margin-top:4px; font-weight:400;">How aggressively ClawEDR monitors your agent</div>
+                        </div>
+                        <span id="profileCustomBadge" style="display:none; font-size:11px; color:var(--text-muted); background:rgba(0,0,0,0.06); padding:4px 12px; border-radius:20px; font-weight:600;">⚙️ Custom</span>
+                    </div>
+                    <div id="profileSelectorWrap"></div>
+                </div>
+
                 <div class="card policy-rules-card">
                     <div class="card-header">
                         <span class="card-title">Policy Rules</span>
@@ -2395,15 +2507,20 @@
                 const d = await fetchJSON('/api/user-rules');
                 exemptedIds = new Set(d.rules.exempted_rule_ids || []);
                 heuristicOverrides = d.rules.heuristic_overrides || {};
+                heuristicThresholdOverrides = d.rules.heuristic_threshold_overrides || {};
+                riskProfile = d.rules.risk_profile || 'professional';
+                _loadedRiskProfile = riskProfile;
                 ruleModeOverrides = d.rules.rule_mode_overrides || {};
                 pendingExemptions = null;
                 pendingHeuristics = null;
+                pendingThresholdOverrides = null;
                 pendingRuleModes = null;
                 renderRules();
             }
             catch {
                 exemptedIds = new Set();
                 heuristicOverrides = {};
+                heuristicThresholdOverrides = {};
                 ruleModeOverrides = {};
             }
         }
@@ -2437,6 +2554,8 @@
                     platform: 'general',
                     type: 'heuristics',
                     defaultAction: v.action,
+                    threshold: v.threshold ?? 1,
+                    window_seconds: v.window_seconds ?? 0,
                 });
             }
         }
@@ -2554,6 +2673,8 @@
             }).length;
             document.getElementById('exemptionCount').textContent = `${exemptCount} off`;
 
+            renderProfileSelector();
+
             if (!visible.length) {
                 c.innerHTML = '<div class="empty-state"><p>No rules match your search for this category.</p></div>';
                 return;
@@ -2606,6 +2727,32 @@
                         const mode = curHeuristics[r.id] || r.defaultAction || 'alert';
 
                         const icon = getRuleIcon('heuristics');
+
+                        // Threshold controls (Linux only; shown grayed on macOS)
+                        const curThreshOvr = (pendingThresholdOverrides ?? heuristicThresholdOverrides)[r.id] || {};
+                        const isTunable = r.threshold > 1 || r.window_seconds > 0;
+                        const hasThreshOverride = curThreshOvr.threshold !== undefined || curThreshOvr.window_seconds !== undefined;
+                        const threshDisplay = curThreshOvr.threshold ?? r.threshold;
+                        const winDisplay = curThreshOvr.window_seconds ?? r.window_seconds;
+                        const threshControls = isTunable
+                            ? `<div style="display:flex; gap:8px; align-items:center; margin-top:4px; flex-wrap:wrap;">
+                                <label style="font-size:11px; color:var(--text-muted); display:flex; align-items:center; gap:3px;">
+                                    Threshold:&nbsp;<input type="number" min="1" max="65535" value="${threshDisplay}" style="width:58px; font-size:11px; padding:1px 4px; border:1px solid rgba(0,0,0,0.1); border-radius:4px; background:rgba(255,255,255,0.7); color:var(--text-primary);" onchange="setThresholdOverride('${esc(r.id)}', 'threshold', this.value)">
+                                </label>
+                                <label style="font-size:11px; color:var(--text-muted); display:flex; align-items:center; gap:3px;">
+                                    Window (s):&nbsp;<input type="number" min="0" max="65535" value="${winDisplay}" style="width:58px; font-size:11px; padding:1px 4px; border:1px solid rgba(0,0,0,0.1); border-radius:4px; background:rgba(255,255,255,0.7); color:var(--text-primary);" onchange="setThresholdOverride('${esc(r.id)}', 'window_seconds', this.value)">
+                                </label>
+                                ${detectedOS === 'Darwin' ? '<span style="font-size:10px; color:var(--text-muted);">Linux only</span>' : ''}
+                              </div>`
+                            : '<span style="font-size:11px; color:var(--text-muted); margin-top:2px; display:block;">Instant trigger</span>';
+
+                        // Reset button: show when rule has any override vs shipped defaults
+                        const hasModeOverride = (pendingHeuristics ?? heuristicOverrides)[r.id] !== undefined;
+                        const hasAnyOverride = hasModeOverride || hasThreshOverride;
+                        const resetBtn = hasAnyOverride
+                            ? `<button class="rule-action-btn" onclick="event.stopPropagation(); resetHeuristicRule('${esc(r.id)}')" title="Reset to shipped default" aria-label="Reset rule to default" style="font-size:15px; line-height:1;">↩</button>`
+                            : '';
+
                         html += `<div class="rule-item" style="${styleSupp}" ${tooltip}>
           <span class="rule-name-pill"><span class="rule-tag" style="background:rgba(99,102,241,0.1); color:var(--accent);">${r.id}</span></span>
           <div class="rule-type-icon">${icon}</div>
@@ -2613,6 +2760,7 @@
             <span class="rule-value" style="font-weight:600;">${esc(r.val)}</span>
             <div class="rule-desc">${esc(r.desc)}</div>
             ${notFeasible ? '<span style="font-size:11px; color:var(--warning);">⚠️ Unsupported on macOS</span>' : ''}
+            ${threshControls}
           </div>
           <div class="rule-actions">
             <div class="tri-toggle mode-${mode} ${notFeasible ? 'disabled' : ''}" data-rule-id="${esc(r.id)}">
@@ -2621,17 +2769,177 @@
               <div class="tri-btn" data-val="alert" onclick="toggleHeuristic('${r.id}', 'alert')">👀 Alert</div>
               <div class="tri-btn" data-val="enforce" onclick="toggleHeuristic('${r.id}', 'enforce')">🛡️ Enforce</div>
             </div>
+            ${resetBtn}
           </div>
         </div>`;
                     }
                     html += '</div></details>';
                 }
             }
-            c.innerHTML = html || '<div class="empty-state"><p>No rules match your search.</p></div>';
+            c.innerHTML = html || '<div class="empty-state"><p>No rules match your search for this category.</p></div>';
             if (document.getElementById('statusDropdown')?.classList.contains('open')) refreshStatusDropdown();
         }
 
         function filterRules() { renderRules(); }
+
+        const _profileDefs = [
+            { key: 'hobbyist',     emoji: '🧑‍💻', name: 'Hobbyist',     tagline: 'Relaxed monitoring' },
+            { key: 'professional', emoji: '💼',   name: 'Professional', tagline: 'Balanced defaults'  },
+            { key: 'military',     emoji: '🎖️',   name: 'Military',     tagline: 'Maximum security'   },
+        ];
+
+        function renderProfileSelector() {
+            const wrap = document.getElementById('profileSelectorWrap');
+            const badge = document.getElementById('profileCustomBadge');
+            if (!wrap) return;
+
+            if (badge) badge.style.display = riskProfile === 'custom' ? 'inline-flex' : 'none';
+
+            let labelsHtml = '';
+            for (const pd of _profileDefs) {
+                labelsHtml += `<button class="prof-label" onclick="applyProfile('${pd.key}')">
+                    <span class="prof-label-emoji">${pd.emoji}</span>
+                    <span class="prof-label-name">${pd.name}</span>
+                    <span class="prof-label-tagline">${pd.tagline}</span>
+                </button>`;
+            }
+
+            wrap.innerHTML = `
+                <div class="prof-slider-wrap">
+                    <div class="prof-track-wrap">
+                        <div class="prof-rail">
+                            <div class="prof-fill" id="profFill"></div>
+                            <div class="prof-markers">
+                                <div class="prof-marker"></div>
+                                <div class="prof-marker"></div>
+                                <div class="prof-marker"></div>
+                            </div>
+                            <div class="prof-thumb" id="profThumb"><span id="profThumbEmoji"></span></div>
+                        </div>
+                    </div>
+                    <div class="prof-labels" id="profLabels">${labelsHtml}</div>
+                </div>`;
+
+            initProfileSlider();
+        }
+
+        function initProfileSlider() {
+            const rail   = document.querySelector('.prof-rail');
+            const thumb  = document.getElementById('profThumb');
+            const fill   = document.getElementById('profFill');
+            const thumbEmoji = document.getElementById('profThumbEmoji');
+            if (!rail || !thumb) return;
+
+            const stopKeys   = ['hobbyist', 'professional', 'military'];
+            const stopColors = ['#10B981',  '#0091CF',      '#EF4444'];
+            const stopEmojis = _profileDefs.map(p => p.emoji);
+
+            function hexToRgb(hex) {
+                return [parseInt(hex.slice(1,3),16), parseInt(hex.slice(3,5),16), parseInt(hex.slice(5,7),16)];
+            }
+            function lerpColor(c1, c2, t) {
+                const a = hexToRgb(c1), b = hexToRgb(c2);
+                return `rgb(${Math.round(a[0]+(b[0]-a[0])*t)},${Math.round(a[1]+(b[1]-a[1])*t)},${Math.round(a[2]+(b[2]-a[2])*t)})`;
+            }
+            function getColorAt(t) {
+                if (t <= 0.5) return lerpColor(stopColors[0], stopColors[1], t * 2);
+                return lerpColor(stopColors[1], stopColors[2], (t - 0.5) * 2);
+            }
+            function profileKeyToT(key) {
+                const i = stopKeys.indexOf(key);
+                return i < 0 ? _sliderT : i / 2;
+            }
+
+            function applyThumb(t, animated) {
+                const railRect = rail.getBoundingClientRect();
+                const x = t * railRect.width;
+                const color = getColorAt(t);
+                const nearest = Math.round(t * 2);
+                const shadowColor = color.replace('rgb(', 'rgba(').replace(')', ',0.45)');
+
+                if (animated) {
+                    thumb.style.transition = 'left 0.45s cubic-bezier(0.34,1.56,0.64,1), background 0.35s ease, box-shadow 0.35s ease';
+                    fill.style.transition  = 'width 0.45s cubic-bezier(0.34,1.56,0.64,1), background 0.35s ease';
+                } else {
+                    thumb.style.transition = 'none';
+                    fill.style.transition  = 'none';
+                }
+
+                thumb.style.left       = x + 'px';
+                fill.style.width       = x + 'px';
+                thumb.style.background = color;
+                thumb.style.boxShadow  = `0 4px 20px ${shadowColor}`;
+                fill.style.background  = color;
+
+                if (thumbEmoji) thumbEmoji.textContent = stopEmojis[nearest];
+
+                document.querySelectorAll('.prof-label').forEach((el, i) => {
+                    el.classList.toggle('active', i === nearest);
+                });
+            }
+
+            // Animate from previous position to the target
+            // Use rAF so the rail is painted and getBoundingClientRect() returns real width
+            const prevT   = _sliderT;
+            const targetT = profileKeyToT(riskProfile);
+
+            requestAnimationFrame(() => {
+                // Place instantly at prev position (no transition)
+                applyThumb(prevT, false);
+                // Force a reflow so the browser registers the "no-transition" starting state
+                void thumb.offsetWidth;
+                // Then spring-animate to target
+                _sliderT = targetT;
+                applyThumb(targetT, true);
+            });
+
+            // ── Drag Logic ──────────────────────────────────────────
+            let dragging = false;
+            let dragStartX = 0;
+            let dragStartT = 0;
+
+            function getEventX(e) { return e.touches ? e.touches[0].clientX : e.clientX; }
+
+            thumb.addEventListener('mousedown', onDragStart);
+            thumb.addEventListener('touchstart', onDragStart, { passive: false });
+
+            function onDragStart(e) {
+                e.preventDefault();
+                dragging   = true;
+                dragStartX = getEventX(e);
+                dragStartT = _sliderT;
+                thumb.classList.add('dragging');
+                document.addEventListener('mousemove', onDragMove);
+                document.addEventListener('touchmove', onDragMove, { passive: false });
+                document.addEventListener('mouseup',   onDragEnd);
+                document.addEventListener('touchend',  onDragEnd);
+            }
+
+            function onDragMove(e) {
+                if (!dragging) return;
+                e.preventDefault();
+                const railW = rail.getBoundingClientRect().width;
+                const dx = getEventX(e) - dragStartX;
+                _sliderT = Math.max(0, Math.min(1, dragStartT + dx / railW));
+                applyThumb(_sliderT, false);
+            }
+
+            function onDragEnd() {
+                if (!dragging) return;
+                dragging = false;
+                thumb.classList.remove('dragging');
+                document.removeEventListener('mousemove', onDragMove);
+                document.removeEventListener('touchmove', onDragMove);
+                document.removeEventListener('mouseup',   onDragEnd);
+                document.removeEventListener('touchend',  onDragEnd);
+
+                // Snap to nearest stop
+                const nearest = Math.round(_sliderT * 2);
+                _sliderT = nearest / 2;
+                applyThumb(_sliderT, true);
+                applyProfile(stopKeys[nearest]);
+            }
+        }
 
         function togglePolicySearch() {
             const wrap = document.getElementById('policySearchWrap');
@@ -2645,6 +2953,11 @@
         // ── Exemptions & Heuristics ──
         let heuristicOverrides = {};
         let pendingHeuristics = null;
+        let heuristicThresholdOverrides = {};
+        let pendingThresholdOverrides = null;
+        let riskProfile = 'professional';
+        let _loadedRiskProfile = 'professional';
+        let _sliderT = 0.5; // 0=hobbyist, 0.5=professional, 1=military
         let ruleMetadata = {};
 
         function toggleExemption(id, on) {
@@ -2676,6 +2989,7 @@
         function toggleHeuristic(id, mode) {
             if (!pendingHeuristics) pendingHeuristics = { ...heuristicOverrides };
             pendingHeuristics[id] = mode;
+            riskProfile = 'custom';
             const el = document.querySelector(`.tri-toggle[data-rule-id="${id}"]`);
             if (el) {
                 el.classList.remove('mode-disabled', 'mode-alert', 'mode-enforce');
@@ -2692,6 +3006,90 @@
             for (const id of ids) {
                 pendingHeuristics[id] = mode;
             }
+            riskProfile = 'custom';
+            document.getElementById('saveBanner').classList.add('visible');
+            renderRules();
+        }
+
+        function setThresholdOverride(id, field, value) {
+            if (!pendingThresholdOverrides) pendingThresholdOverrides = JSON.parse(JSON.stringify(heuristicThresholdOverrides));
+            if (!pendingThresholdOverrides[id]) pendingThresholdOverrides[id] = {};
+            const v = parseInt(value, 10);
+            if (field === 'threshold' && v >= 1 && v <= 65535) pendingThresholdOverrides[id].threshold = v;
+            if (field === 'window_seconds' && v >= 0 && v <= 65535) pendingThresholdOverrides[id].window_seconds = v;
+            riskProfile = 'custom';
+            document.getElementById('saveBanner').classList.add('visible');
+        }
+
+        function resetThresholdOverride(id) {
+            if (!pendingThresholdOverrides) pendingThresholdOverrides = JSON.parse(JSON.stringify(heuristicThresholdOverrides));
+            delete pendingThresholdOverrides[id];
+            riskProfile = 'custom';
+            document.getElementById('saveBanner').classList.add('visible');
+            renderRules();
+        }
+
+        function resetHeuristicRule(id) {
+            // Remove all overrides for this rule → falls back to shipped defaults
+            if (!pendingHeuristics) pendingHeuristics = { ...heuristicOverrides };
+            if (!pendingThresholdOverrides) pendingThresholdOverrides = JSON.parse(JSON.stringify(heuristicThresholdOverrides));
+            delete pendingHeuristics[id];
+            delete pendingThresholdOverrides[id];
+            riskProfile = 'custom';
+            document.getElementById('saveBanner').classList.add('visible');
+            renderRules();
+        }
+
+        function applyProfile(profileName) {
+            const heuItems = allRuleItems.filter(r => r.type === 'heuristics');
+            const secItems = allRuleItems.filter(r => r.type === 'security');
+            if (!heuItems.length && !secItems.length) return;  // rules not loaded yet
+
+            const newHeuOverrides = {};
+            const newThreshOverrides = {};
+            const newRuleModes = {};
+            // All profiles clear exemptions (no rules fully disabled)
+            const newExempted = new Set();
+
+            if (profileName === 'hobbyist') {
+                // Heuristics: alert mode, doubled thresholds
+                for (const r of heuItems) {
+                    newHeuOverrides[r.id] = 'alert';
+                    if (r.threshold > 1 || r.window_seconds > 0) {
+                        newThreshOverrides[r.id] = {
+                            threshold: Math.min(65535, Math.round(r.threshold * 2)),
+                            window_seconds: Math.min(65535, Math.round(r.window_seconds * 1.5)),
+                        };
+                    }
+                }
+                // Security rules: downgrade to alert (notify, don't block)
+                for (const r of secItems) {
+                    newRuleModes[r.id] = 'alert';
+                }
+            } else if (profileName === 'military') {
+                // Heuristics: enforce mode, halved thresholds
+                for (const r of heuItems) {
+                    newHeuOverrides[r.id] = 'enforce';
+                    if (r.threshold > 1 || r.window_seconds > 0) {
+                        newThreshOverrides[r.id] = {
+                            threshold: Math.max(1, Math.round(r.threshold * 0.5)),
+                            window_seconds: Math.max(0, Math.round(r.window_seconds * 0.5)),
+                        };
+                    }
+                }
+                // Security rules: enforce (explicit, overrides any prior loosening)
+                for (const r of secItems) {
+                    newRuleModes[r.id] = 'enforce';
+                }
+            }
+            // 'professional': all empty dicts → clears all overrides, restores policy defaults
+
+            pendingHeuristics = newHeuOverrides;
+            pendingThresholdOverrides = newThreshOverrides;
+            pendingRuleModes = newRuleModes;
+            pendingExemptions = newExempted;
+            riskProfile = profileName;
+            // _sliderT stays at old position so initProfileSlider() can animate from it
             document.getElementById('saveBanner').classList.add('visible');
             renderRules();
         }
@@ -2705,15 +3103,24 @@
                     pendingExemptions = null;
                 }
                 if (pendingRuleModes) {
-                    body.rule_mode_overrides = { ...ruleModeOverrides, ...pendingRuleModes };
-                    ruleModeOverrides = body.rule_mode_overrides;
+                    // pendingRuleModes is always the full desired state (not a delta)
+                    body.rule_mode_overrides = pendingRuleModes;
+                    ruleModeOverrides = pendingRuleModes;
                     pendingRuleModes = null;
                 }
                 if (pendingHeuristics) {
-                    body.heuristic_overrides = { ...heuristicOverrides, ...pendingHeuristics };
-                    heuristicOverrides = body.heuristic_overrides;
+                    // pendingHeuristics is always the full desired state (not a delta)
+                    body.heuristic_overrides = pendingHeuristics;
+                    heuristicOverrides = pendingHeuristics;
                     pendingHeuristics = null;
                 }
+                if (pendingThresholdOverrides) {
+                    body.heuristic_threshold_overrides = pendingThresholdOverrides;
+                    heuristicThresholdOverrides = pendingThresholdOverrides;
+                    pendingThresholdOverrides = null;
+                }
+                body.risk_profile = riskProfile;
+                _loadedRiskProfile = riskProfile;
                 if (Object.keys(body).length) {
                     await fetch('/api/user-rules', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + authToken }, body: JSON.stringify(body) });
                 }
@@ -2726,7 +3133,9 @@
         function cancelExemptions() {
             pendingExemptions = null;
             pendingHeuristics = null;
+            pendingThresholdOverrides = null;
             pendingRuleModes = null;
+            riskProfile = _loadedRiskProfile;
             document.getElementById('saveBanner').classList.remove('visible');
             renderRules();
         }
