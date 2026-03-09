@@ -28,7 +28,8 @@
     "BIN-025": "strace",
     "BIN-026": "ltrace",
     "BIN-027": "ptrace",
-    "BIN-028": "mkfs"
+    "BIN-028": "mkfs",
+    "BIN-029": "doas"
   },
   "blocked_domains": {
     "DOM-001": "pool.supportxmr.com",
@@ -50,7 +51,16 @@
     "DOM-017": "termbin.com",
     "DOM-018": "transfer.sh",
     "DOM-019": "file.io",
-    "DOM-020": "0x0.st"
+    "DOM-020": "0x0.st",
+    "DOM-021": "webhook.site",
+    "DOM-022": "requestbin.com",
+    "DOM-023": "ngrok.io",
+    "DOM-024": "ngrok-free.app",
+    "DOM-025": "pipedream.net",
+    "DOM-026": "hookbin.com",
+    "DOM-027": "beeceptor.com",
+    "DOM-028": "burpcollaborator.net",
+    "DOM-029": "interactsh.com"
   },
   "blocked_ips": {
     "IP-001": "51.222.161.168",
@@ -58,7 +68,8 @@
     "IP-003": "94.130.12.30",
     "IP-004": "104.22.10.63",
     "IP-005": "144.76.217.73",
-    "IP-006": "8.8.8.8"
+    "IP-006": "8.8.8.8",
+    "IP-007": "91.92.242.30"
   },
   "malicious_hashes": {},
   "blocked_paths": {
@@ -75,11 +86,17 @@
       "PATH-LIN-011": "/home/*/.kube/config",
       "PATH-LIN-012": "/var/run/docker.sock",
       "PATH-LIN-013": "/etc/clawedr",
-      "PATH-LIN-017": "/usr/local/share/clawedr",
       "PATH-LIN-014": "/home/*/.netrc",
       "PATH-LIN-015": "/home/*/.npmrc",
       "PATH-LIN-016": "/home/*/.pypirc",
-      "PATH-LIN-018": "/home/*/.docker/config.json"
+      "PATH-LIN-017": "/usr/local/share/clawedr",
+      "PATH-LIN-018": "/home/*/.docker/config.json",
+      "PATH-LIN-019": "/home/*/.git-credentials",
+      "PATH-LIN-020": "/home/*/.gitconfig",
+      "PATH-LIN-021": "/home/*/.kube",
+      "PATH-LIN-022": "/home/*/.password-store",
+      "PATH-LIN-023": "/home/*/.vault",
+      "PATH-LIN-024": "/var/run/secrets"
     },
     "macos": {
       "PATH-MAC-001": "~/.ssh",
@@ -102,11 +119,16 @@
       "PATH-MAC-018": "~/Library/Suggestions",
       "PATH-MAC-019": "/Library/Preferences/SystemConfiguration",
       "PATH-MAC-020": "/etc/clawedr",
-      "PATH-MAC-023": "/usr/local/share/clawedr",
       "PATH-MAC-021": "~/.netrc",
       "PATH-MAC-022": "~/.npmrc",
+      "PATH-MAC-023": "/usr/local/share/clawedr",
       "PATH-MAC-024": "~/.pypirc",
-      "PATH-MAC-025": "~/.docker/config.json"
+      "PATH-MAC-025": "~/.docker/config.json",
+      "PATH-MAC-026": "~/.git-credentials",
+      "PATH-MAC-027": "~/.gitconfig",
+      "PATH-MAC-028": "~/.kube",
+      "PATH-MAC-029": "~/.password-store",
+      "PATH-MAC-030": "~/.vault"
     }
   },
   "deny_rules": {
@@ -414,6 +436,134 @@
         "rule": "sensitive_tokens_json",
         "match": "*tokens.json*",
         "action": "ALERT"
+      },
+      "LIN-058": {
+        "rule": "rce_python_exec",
+        "match": "python* -c *exec(*",
+        "action": "SIGKILL"
+      },
+      "LIN-059": {
+        "rule": "rce_eval_subshell",
+        "match": "eval $(*",
+        "action": "SIGKILL"
+      },
+      "LIN-060": {
+        "rule": "git_reset_hard",
+        "match": "git reset --hard*",
+        "action": "ALERT"
+      },
+      "LIN-061": {
+        "rule": "git_push_force",
+        "match": "git push --force*",
+        "action": "ALERT"
+      },
+      "LIN-062": {
+        "rule": "git_push_force_short",
+        "match": "git push -f *",
+        "action": "ALERT"
+      },
+      "LIN-063": {
+        "rule": "git_clean_force",
+        "match": "git clean -f*",
+        "action": "ALERT"
+      },
+      "LIN-064": {
+        "rule": "git_branch_force_delete",
+        "match": "git branch -D *",
+        "action": "ALERT"
+      },
+      "LIN-065": {
+        "rule": "fork_bomb",
+        "match": ":(){:|:&};:",
+        "action": "SIGKILL"
+      },
+      "LIN-066": {
+        "rule": "system_shutdown",
+        "match": "shutdown*",
+        "executable": "shutdown",
+        "action": "SIGKILL"
+      },
+      "LIN-067": {
+        "rule": "system_reboot",
+        "match": "reboot*",
+        "executable": "reboot",
+        "action": "SIGKILL"
+      },
+      "LIN-068": {
+        "rule": "system_halt",
+        "match": "halt*",
+        "executable": "halt",
+        "action": "SIGKILL"
+      },
+      "LIN-069": {
+        "rule": "system_poweroff",
+        "match": "poweroff*",
+        "executable": "poweroff",
+        "action": "SIGKILL"
+      },
+      "LIN-070": {
+        "rule": "firewall_iptables",
+        "match": "iptables *",
+        "executable": "iptables",
+        "action": "ALERT"
+      },
+      "LIN-071": {
+        "rule": "firewall_ufw",
+        "match": "ufw *",
+        "executable": "ufw",
+        "action": "ALERT"
+      },
+      "LIN-072": {
+        "rule": "firewall_firewalld",
+        "match": "firewall-cmd *",
+        "executable": "firewall-cmd",
+        "action": "ALERT"
+      },
+      "LIN-073": {
+        "rule": "chmod_777_root",
+        "match": "chmod 777 /*",
+        "executable": "chmod",
+        "action": "SIGKILL"
+      },
+      "LIN-074": {
+        "rule": "chmod_recursive_777",
+        "match": "chmod -R 777*",
+        "executable": "chmod",
+        "action": "SIGKILL"
+      },
+      "LIN-075": {
+        "rule": "overwrite_passwd",
+        "match": "*> */etc/passwd",
+        "action": "SIGKILL"
+      },
+      "LIN-076": {
+        "rule": "overwrite_shadow",
+        "match": "*> */etc/shadow",
+        "action": "SIGKILL"
+      },
+      "LIN-077": {
+        "rule": "find_delete",
+        "match": "find * -delete*",
+        "executable": "find",
+        "action": "ALERT"
+      },
+      "LIN-078": {
+        "rule": "xargs_rm",
+        "match": "xargs rm*",
+        "executable": "xargs",
+        "action": "ALERT"
+      },
+      "LIN-079": {
+        "rule": "pkill_arbitrary",
+        "match": "pkill *",
+        "executable": "pkill",
+        "action": "ALERT"
+      },
+      "LIN-080": {
+        "rule": "killall_arbitrary",
+        "match": "killall *",
+        "executable": "killall",
+        "action": "ALERT"
       }
     },
     "macos": {
@@ -594,9 +744,29 @@
       "severity": "critical",
       "category": "security"
     },
+    "PATH-LIN-014": {
+      "description": "Netrc credentials; plaintext HTTP/FTP login credentials",
+      "severity": "high",
+      "category": "security"
+    },
+    "PATH-LIN-015": {
+      "description": "npm config; may contain registry auth tokens",
+      "severity": "high",
+      "category": "security"
+    },
+    "PATH-LIN-016": {
+      "description": "PyPI config; may contain upload credentials",
+      "severity": "high",
+      "category": "security"
+    },
     "PATH-LIN-017": {
       "description": "ClawEDR install dir; compiled policy, monitor, rules \u2014 prevents policy tampering",
       "severity": "critical",
+      "category": "security"
+    },
+    "PATH-LIN-018": {
+      "description": "Docker config; may contain registry auth credentials",
+      "severity": "high",
       "category": "security"
     },
     "PATH-MAC-020": {
@@ -604,9 +774,254 @@
       "severity": "critical",
       "category": "security"
     },
+    "PATH-MAC-021": {
+      "description": "Netrc credentials; plaintext HTTP/FTP login credentials",
+      "severity": "high",
+      "category": "security"
+    },
+    "PATH-MAC-022": {
+      "description": "npm config; may contain registry auth tokens",
+      "severity": "high",
+      "category": "security"
+    },
     "PATH-MAC-023": {
       "description": "ClawEDR install dir; compiled policy and rules \u2014 prevents policy tampering",
       "severity": "critical",
+      "category": "security"
+    },
+    "PATH-MAC-024": {
+      "description": "PyPI config; may contain upload credentials",
+      "severity": "high",
+      "category": "security"
+    },
+    "PATH-MAC-025": {
+      "description": "Docker config; may contain registry auth credentials",
+      "severity": "high",
+      "category": "security"
+    },
+    "PATH-MAC-026": {
+      "description": "Git credential store; plaintext git credentials cached by git-credential-store",
+      "severity": "critical",
+      "category": "security"
+    },
+    "PATH-MAC-027": {
+      "description": "Global git config; may contain credential helper tokens or signing keys",
+      "severity": "high",
+      "category": "security"
+    },
+    "PATH-MAC-028": {
+      "description": "Full Kubernetes config dir; kubeconfig and cached credentials for cluster access",
+      "severity": "critical",
+      "category": "security"
+    },
+    "PATH-MAC-029": {
+      "description": "pass password manager store; encrypted password vault",
+      "severity": "critical",
+      "category": "security"
+    },
+    "PATH-MAC-030": {
+      "description": "HashiCorp Vault local config; may contain Vault tokens",
+      "severity": "high",
+      "category": "security"
+    },
+    "PATH-LIN-019": {
+      "description": "Git credential store; plaintext git credentials cached by git-credential-store",
+      "severity": "critical",
+      "category": "security"
+    },
+    "PATH-LIN-020": {
+      "description": "Global git config; may contain credential helper tokens or signing keys",
+      "severity": "high",
+      "category": "security"
+    },
+    "PATH-LIN-021": {
+      "description": "Full Kubernetes config dir; kubeconfig and cached credentials for cluster access",
+      "severity": "critical",
+      "category": "security"
+    },
+    "PATH-LIN-022": {
+      "description": "pass password manager store; encrypted password vault",
+      "severity": "critical",
+      "category": "security"
+    },
+    "PATH-LIN-023": {
+      "description": "HashiCorp Vault local config; may contain Vault tokens",
+      "severity": "high",
+      "category": "security"
+    },
+    "PATH-LIN-024": {
+      "description": "Kubernetes in-pod secrets mount; cluster secrets injected at runtime",
+      "severity": "critical",
+      "category": "security"
+    },
+    "DOM-021": {
+      "description": "Webhook receiver; free endpoint commonly used for data exfiltration PoCs",
+      "severity": "high",
+      "category": "security"
+    },
+    "DOM-022": {
+      "description": "Request logging service; used to capture and exfiltrate data",
+      "severity": "high",
+      "category": "security"
+    },
+    "DOM-023": {
+      "description": "ngrok tunneling; creates public URL for local services \u2014 enables reverse shells",
+      "severity": "critical",
+      "category": "security"
+    },
+    "DOM-024": {
+      "description": "ngrok free subdomain; creates public URL for local services",
+      "severity": "critical",
+      "category": "security"
+    },
+    "DOM-025": {
+      "description": "Pipedream automation; webhook receiver and data pipeline \u2014 exfiltration risk",
+      "severity": "high",
+      "category": "security"
+    },
+    "DOM-026": {
+      "description": "Hookbin; webhook request capture \u2014 exfiltration staging",
+      "severity": "high",
+      "category": "security"
+    },
+    "DOM-027": {
+      "description": "Beeceptor; API mock / request intercept \u2014 exfiltration staging",
+      "severity": "high",
+      "category": "security"
+    },
+    "DOM-028": {
+      "description": "Burp Collaborator; OAST callback \u2014 used in exfiltration and SSRF PoCs",
+      "severity": "high",
+      "category": "security"
+    },
+    "DOM-029": {
+      "description": "Interactsh; open-source OAST interaction detection \u2014 exfiltration staging",
+      "severity": "high",
+      "category": "security"
+    },
+    "IP-007": {
+      "description": "Known C2 IP (Adversa AI IOC database)",
+      "severity": "critical",
+      "category": "security"
+    },
+    "BIN-029": {
+      "description": "doas; OpenBSD sudo alternative, privilege escalation",
+      "severity": "critical",
+      "category": "security"
+    },
+    "LIN-058": {
+      "description": "Python exec injection; python -c with exec() call \u2014 arbitrary code execution",
+      "severity": "critical",
+      "category": "security"
+    },
+    "LIN-059": {
+      "description": "Eval command substitution; eval $(...) \u2014 arbitrary deferred code execution",
+      "severity": "critical",
+      "category": "security"
+    },
+    "LIN-060": {
+      "description": "Git hard reset; destructive, discards all local changes",
+      "severity": "high",
+      "category": "security"
+    },
+    "LIN-061": {
+      "description": "Git force push; rewrites remote history, can destroy commits",
+      "severity": "high",
+      "category": "security"
+    },
+    "LIN-062": {
+      "description": "Git force push shorthand; rewrites remote history",
+      "severity": "high",
+      "category": "security"
+    },
+    "LIN-063": {
+      "description": "Git clean force; deletes untracked files \u2014 irreversible",
+      "severity": "high",
+      "category": "security"
+    },
+    "LIN-064": {
+      "description": "Git branch force delete; deletes branch regardless of merge status",
+      "severity": "high",
+      "category": "security"
+    },
+    "LIN-065": {
+      "description": "Fork bomb; recursive process spawn causes DoS / kernel panic",
+      "severity": "critical",
+      "category": "security"
+    },
+    "LIN-066": {
+      "description": "System shutdown; agent-triggered shutdown causes service DoS",
+      "severity": "critical",
+      "category": "security"
+    },
+    "LIN-067": {
+      "description": "System reboot; agent-triggered reboot causes service DoS",
+      "severity": "critical",
+      "category": "security"
+    },
+    "LIN-068": {
+      "description": "System halt; agent-triggered halt causes service DoS",
+      "severity": "critical",
+      "category": "security"
+    },
+    "LIN-069": {
+      "description": "System poweroff; agent-triggered poweroff causes service DoS",
+      "severity": "critical",
+      "category": "security"
+    },
+    "LIN-070": {
+      "description": "iptables modification; disabling or rewriting firewall rules",
+      "severity": "high",
+      "category": "security"
+    },
+    "LIN-071": {
+      "description": "UFW modification; disabling or rewriting firewall rules",
+      "severity": "high",
+      "category": "security"
+    },
+    "LIN-072": {
+      "description": "firewalld modification; disabling or rewriting firewall rules",
+      "severity": "high",
+      "category": "security"
+    },
+    "LIN-073": {
+      "description": "World-writeable chmod on root path; broad permission grant enabling privilege escalation",
+      "severity": "critical",
+      "category": "security"
+    },
+    "LIN-074": {
+      "description": "Recursive world-writeable chmod; broad permission grant enabling privilege escalation",
+      "severity": "critical",
+      "category": "security"
+    },
+    "LIN-075": {
+      "description": "Overwrite /etc/passwd; enables adding arbitrary system users",
+      "severity": "critical",
+      "category": "security"
+    },
+    "LIN-076": {
+      "description": "Overwrite /etc/shadow; enables replacing password hashes",
+      "severity": "critical",
+      "category": "security"
+    },
+    "LIN-077": {
+      "description": "find -delete; recursive file deletion via find \u2014 irreversible",
+      "severity": "high",
+      "category": "security"
+    },
+    "LIN-078": {
+      "description": "xargs rm; bulk file deletion pipeline \u2014 irreversible",
+      "severity": "high",
+      "category": "security"
+    },
+    "LIN-079": {
+      "description": "pkill arbitrary process; agent sending signals to arbitrary processes",
+      "severity": "medium",
+      "category": "security"
+    },
+    "LIN-080": {
+      "description": "killall arbitrary process; agent sending signals to all matching processes",
+      "severity": "medium",
       "category": "security"
     },
     "DOM-001": {
@@ -867,6 +1282,11 @@
     "BIN-027": {
       "description": "Ptrace; process tracing and injection",
       "severity": "high",
+      "category": "security"
+    },
+    "BIN-028": {
+      "description": "mkfs; filesystem format \u2014 can destroy disk partitions",
+      "severity": "critical",
       "category": "security"
     },
     "MAC-001": {
@@ -1206,6 +1626,61 @@
     },
     "LIN-049": {
       "description": "Getcap recursive; capability recon for priv esc",
+      "severity": "high",
+      "category": "security"
+    },
+    "LIN-050": {
+      "description": "dd raw disk write; can overwrite partitions and destroy data",
+      "severity": "critical",
+      "category": "security"
+    },
+    "LIN-051": {
+      "description": "Dotenv file access; .env files typically contain secrets and API keys",
+      "severity": "high",
+      "category": "security"
+    },
+    "LIN-051b": {
+      "description": "Dotenv file access (absolute path); .env files typically contain secrets and API keys",
+      "severity": "high",
+      "category": "security"
+    },
+    "LIN-052": {
+      "description": "PEM certificate/key access; .pem files contain private keys or certificates",
+      "severity": "high",
+      "category": "security"
+    },
+    "LIN-053": {
+      "description": "Private key file access; .key files contain cryptographic private keys",
+      "severity": "high",
+      "category": "security"
+    },
+    "LIN-054": {
+      "description": "PKCS12 keystore access; .p12/.pfx files contain certificates and private keys",
+      "severity": "high",
+      "category": "security"
+    },
+    "LIN-054b": {
+      "description": "PFX keystore access; .pfx files contain certificates and private keys",
+      "severity": "high",
+      "category": "security"
+    },
+    "LIN-055": {
+      "description": "Credentials file access; credentials.json commonly contains service account keys",
+      "severity": "high",
+      "category": "security"
+    },
+    "LIN-056": {
+      "description": "Secrets config access; secrets.yaml/secrets.json contain application secrets",
+      "severity": "high",
+      "category": "security"
+    },
+    "LIN-056b": {
+      "description": "Secrets JSON access; secrets.json contains application secrets",
+      "severity": "high",
+      "category": "security"
+    },
+    "LIN-057": {
+      "description": "Token file access; tokens.json commonly contains OAuth/API tokens",
       "severity": "high",
       "category": "security"
     },
@@ -1608,110 +2083,6 @@
         "linux": "full",
         "macos": "partial"
       }
-    },
-    "IP-006": {
-      "description": "Community threat intelligence",
-      "severity": "high"
-    },
-    "PATH-LIN-014": {
-      "description": "Netrc credentials; plaintext HTTP/FTP login credentials",
-      "severity": "high",
-      "category": "security"
-    },
-    "PATH-LIN-015": {
-      "description": "npm config; may contain registry auth tokens",
-      "severity": "high",
-      "category": "security"
-    },
-    "PATH-LIN-016": {
-      "description": "PyPI config; may contain upload credentials",
-      "severity": "high",
-      "category": "security"
-    },
-    "PATH-LIN-018": {
-      "description": "Docker config; may contain registry auth credentials",
-      "severity": "high",
-      "category": "security"
-    },
-    "PATH-MAC-021": {
-      "description": "Netrc credentials; plaintext HTTP/FTP login credentials",
-      "severity": "high",
-      "category": "security"
-    },
-    "PATH-MAC-022": {
-      "description": "npm config; may contain registry auth tokens",
-      "severity": "high",
-      "category": "security"
-    },
-    "PATH-MAC-024": {
-      "description": "PyPI config; may contain upload credentials",
-      "severity": "high",
-      "category": "security"
-    },
-    "PATH-MAC-025": {
-      "description": "Docker config; may contain registry auth credentials",
-      "severity": "high",
-      "category": "security"
-    },
-    "BIN-028": {
-      "description": "mkfs; filesystem format \u2014 can destroy disk partitions",
-      "severity": "critical",
-      "category": "security"
-    },
-    "LIN-050": {
-      "description": "dd raw disk write; can overwrite partitions and destroy data",
-      "severity": "critical",
-      "category": "security"
-    },
-    "LIN-051": {
-      "description": "Dotenv file access; .env files typically contain secrets and API keys",
-      "severity": "high",
-      "category": "security"
-    },
-    "LIN-051b": {
-      "description": "Dotenv file access (absolute path); .env files typically contain secrets and API keys",
-      "severity": "high",
-      "category": "security"
-    },
-    "LIN-052": {
-      "description": "PEM certificate/key access; .pem files contain private keys or certificates",
-      "severity": "high",
-      "category": "security"
-    },
-    "LIN-053": {
-      "description": "Private key file access; .key files contain cryptographic private keys",
-      "severity": "high",
-      "category": "security"
-    },
-    "LIN-054": {
-      "description": "PKCS12 keystore access; .p12/.pfx files contain certificates and private keys",
-      "severity": "high",
-      "category": "security"
-    },
-    "LIN-054b": {
-      "description": "PFX keystore access; .pfx files contain certificates and private keys",
-      "severity": "high",
-      "category": "security"
-    },
-    "LIN-055": {
-      "description": "Credentials file access; credentials.json commonly contains service account keys",
-      "severity": "high",
-      "category": "security"
-    },
-    "LIN-056": {
-      "description": "Secrets config access; secrets.yaml/secrets.json contain application secrets",
-      "severity": "high",
-      "category": "security"
-    },
-    "LIN-056b": {
-      "description": "Secrets JSON access; secrets.json contains application secrets",
-      "severity": "high",
-      "category": "security"
-    },
-    "LIN-057": {
-      "description": "Token file access; tokens.json commonly contains OAuth/API tokens",
-      "severity": "high",
-      "category": "security"
     }
   },
   "heuristics": {
@@ -1996,5 +2367,5 @@
       "window_seconds": 0
     }
   },
-  "_signature": "5e5f87d1d4f8c71c77bf606bb97d02335233a8b0b11094c7838f7b83b0299748"
+  "_signature": "816d51f65be1525f7d3118e522357ba8d5725b3cf1abda67f4592f98e87a9110"
 }

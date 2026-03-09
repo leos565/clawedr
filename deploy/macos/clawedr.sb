@@ -64,21 +64,36 @@
 ;;; [PATH-MAC-020]
 (deny file-read* (subpath "/etc/clawedr"))
 (deny file-write* (subpath "/etc/clawedr"))
-;;; [PATH-MAC-023]
-(deny file-read* (subpath "/usr/local/share/clawedr"))
-(deny file-write* (subpath "/usr/local/share/clawedr"))
 ;;; [PATH-MAC-021]
 (deny file-read* (regex #"^/Users/[^/]+/.netrc"))
 (deny file-write* (regex #"^/Users/[^/]+/.netrc"))
 ;;; [PATH-MAC-022]
 (deny file-read* (regex #"^/Users/[^/]+/.npmrc"))
 (deny file-write* (regex #"^/Users/[^/]+/.npmrc"))
+;;; [PATH-MAC-023]
+(deny file-read* (subpath "/usr/local/share/clawedr"))
+(deny file-write* (subpath "/usr/local/share/clawedr"))
 ;;; [PATH-MAC-024]
 (deny file-read* (regex #"^/Users/[^/]+/.pypirc"))
 (deny file-write* (regex #"^/Users/[^/]+/.pypirc"))
 ;;; [PATH-MAC-025]
 (deny file-read* (regex #"^/Users/[^/]+/.docker/config.json"))
 (deny file-write* (regex #"^/Users/[^/]+/.docker/config.json"))
+;;; [PATH-MAC-026]
+(deny file-read* (regex #"^/Users/[^/]+/.git-credentials"))
+(deny file-write* (regex #"^/Users/[^/]+/.git-credentials"))
+;;; [PATH-MAC-027]
+(deny file-read* (regex #"^/Users/[^/]+/.gitconfig"))
+(deny file-write* (regex #"^/Users/[^/]+/.gitconfig"))
+;;; [PATH-MAC-028]
+(deny file-read* (regex #"^/Users/[^/]+/.kube"))
+(deny file-write* (regex #"^/Users/[^/]+/.kube"))
+;;; [PATH-MAC-029]
+(deny file-read* (regex #"^/Users/[^/]+/.password-store"))
+(deny file-write* (regex #"^/Users/[^/]+/.password-store"))
+;;; [PATH-MAC-030]
+(deny file-read* (regex #"^/Users/[^/]+/.vault"))
+(deny file-write* (regex #"^/Users/[^/]+/.vault"))
 ;;; --- Blocked executables ---
 ;;; [BIN-001]
 (deny process-exec (literal "/usr/bin/nc"))
@@ -248,6 +263,12 @@
 (deny process-exec (literal "/usr/local/bin/mkfs"))
 (deny process-exec (literal "/opt/homebrew/bin/mkfs"))
 (deny process-exec (literal "/opt/local/bin/mkfs"))
+;;; [BIN-029]
+(deny process-exec (literal "/usr/bin/doas"))
+(deny process-exec (literal "/usr/sbin/doas"))
+(deny process-exec (literal "/usr/local/bin/doas"))
+(deny process-exec (literal "/opt/homebrew/bin/doas"))
+(deny process-exec (literal "/opt/local/bin/doas"))
 ;;; --- Blocked domains (monitoring-only on macOS via log_tailer.py) ---
 ;;;   [DOM-001] pool.supportxmr.com
 ;;;   [DOM-002] pool.minexmr.com
@@ -269,6 +290,15 @@
 ;;;   [DOM-018] transfer.sh
 ;;;   [DOM-019] file.io
 ;;;   [DOM-020] 0x0.st
+;;;   [DOM-021] webhook.site
+;;;   [DOM-022] requestbin.com
+;;;   [DOM-023] ngrok.io
+;;;   [DOM-024] ngrok-free.app
+;;;   [DOM-025] pipedream.net
+;;;   [DOM-026] hookbin.com
+;;;   [DOM-027] beeceptor.com
+;;;   [DOM-028] burpcollaborator.net
+;;;   [DOM-029] interactsh.com
 ;;; --- Blocked IPs (monitoring-only on macOS via log_tailer.py) ---
 ;;;   [IP-001] 51.222.161.168
 ;;;   [IP-002] 178.128.242.134
@@ -276,6 +306,7 @@
 ;;;   [IP-004] 104.22.10.63
 ;;;   [IP-005] 144.76.217.73
 ;;;   [IP-006] 8.8.8.8
+;;;   [IP-007] 91.92.242.30
 ;;; --- Custom deny rules ---
 ;;; [MAC-001]
 (deny network-outbound (remote tcp "*:4444"))

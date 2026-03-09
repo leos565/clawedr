@@ -77,6 +77,60 @@ rule_metadata:
   PATH-MAC-023: { description: "ClawEDR install dir; compiled policy and rules — prevents policy tampering", severity: critical, category: security }
   PATH-MAC-024: { description: "PyPI config; may contain upload credentials", severity: high, category: security }
   PATH-MAC-025: { description: "Docker config; may contain registry auth credentials", severity: high, category: security }
+  PATH-MAC-026: { description: "Git credential store; plaintext git credentials cached by git-credential-store", severity: critical, category: security }
+  PATH-MAC-027: { description: "Global git config; may contain credential helper tokens or signing keys", severity: high, category: security }
+  PATH-MAC-028: { description: "Full Kubernetes config dir; kubeconfig and cached credentials for cluster access", severity: critical, category: security }
+  PATH-MAC-029: { description: "pass password manager store; encrypted password vault", severity: critical, category: security }
+  PATH-MAC-030: { description: "HashiCorp Vault local config; may contain Vault tokens", severity: high, category: security }
+
+  PATH-LIN-019: { description: "Git credential store; plaintext git credentials cached by git-credential-store", severity: critical, category: security }
+  PATH-LIN-020: { description: "Global git config; may contain credential helper tokens or signing keys", severity: high, category: security }
+  PATH-LIN-021: { description: "Full Kubernetes config dir; kubeconfig and cached credentials for cluster access", severity: critical, category: security }
+  PATH-LIN-022: { description: "pass password manager store; encrypted password vault", severity: critical, category: security }
+  PATH-LIN-023: { description: "HashiCorp Vault local config; may contain Vault tokens", severity: high, category: security }
+  PATH-LIN-024: { description: "Kubernetes in-pod secrets mount; cluster secrets injected at runtime", severity: critical, category: security }
+
+  # Blocked domains (exfiltration staging / tunneling)
+  DOM-021: { description: "Webhook receiver; free endpoint commonly used for data exfiltration PoCs", severity: high, category: security }
+  DOM-022: { description: "Request logging service; used to capture and exfiltrate data", severity: high, category: security }
+  DOM-023: { description: "ngrok tunneling; creates public URL for local services — enables reverse shells", severity: critical, category: security }
+  DOM-024: { description: "ngrok free subdomain; creates public URL for local services", severity: critical, category: security }
+  DOM-025: { description: "Pipedream automation; webhook receiver and data pipeline — exfiltration risk", severity: high, category: security }
+  DOM-026: { description: "Hookbin; webhook request capture — exfiltration staging", severity: high, category: security }
+  DOM-027: { description: "Beeceptor; API mock / request intercept — exfiltration staging", severity: high, category: security }
+  DOM-028: { description: "Burp Collaborator; OAST callback — used in exfiltration and SSRF PoCs", severity: high, category: security }
+  DOM-029: { description: "Interactsh; open-source OAST interaction detection — exfiltration staging", severity: high, category: security }
+
+  # Blocked IPs (C2)
+  IP-007: { description: "Known C2 IP (Adversa AI IOC database)", severity: critical, category: security }
+
+  # Blocked executables
+  BIN-029: { description: "doas; OpenBSD sudo alternative, privilege escalation", severity: critical, category: security }
+
+  # Linux deny rules — new
+  LIN-058: { description: "Python exec injection; python -c with exec() call — arbitrary code execution", severity: critical, category: security }
+  LIN-059: { description: "Eval command substitution; eval $(...) — arbitrary deferred code execution", severity: critical, category: security }
+  LIN-060: { description: "Git hard reset; destructive, discards all local changes", severity: high, category: security }
+  LIN-061: { description: "Git force push; rewrites remote history, can destroy commits", severity: high, category: security }
+  LIN-062: { description: "Git force push shorthand; rewrites remote history", severity: high, category: security }
+  LIN-063: { description: "Git clean force; deletes untracked files — irreversible", severity: high, category: security }
+  LIN-064: { description: "Git branch force delete; deletes branch regardless of merge status", severity: high, category: security }
+  LIN-065: { description: "Fork bomb; recursive process spawn causes DoS / kernel panic", severity: critical, category: security }
+  LIN-066: { description: "System shutdown; agent-triggered shutdown causes service DoS", severity: critical, category: security }
+  LIN-067: { description: "System reboot; agent-triggered reboot causes service DoS", severity: critical, category: security }
+  LIN-068: { description: "System halt; agent-triggered halt causes service DoS", severity: critical, category: security }
+  LIN-069: { description: "System poweroff; agent-triggered poweroff causes service DoS", severity: critical, category: security }
+  LIN-070: { description: "iptables modification; disabling or rewriting firewall rules", severity: high, category: security }
+  LIN-071: { description: "UFW modification; disabling or rewriting firewall rules", severity: high, category: security }
+  LIN-072: { description: "firewalld modification; disabling or rewriting firewall rules", severity: high, category: security }
+  LIN-073: { description: "World-writeable chmod on root path; broad permission grant enabling privilege escalation", severity: critical, category: security }
+  LIN-074: { description: "Recursive world-writeable chmod; broad permission grant enabling privilege escalation", severity: critical, category: security }
+  LIN-075: { description: "Overwrite /etc/passwd; enables adding arbitrary system users", severity: critical, category: security }
+  LIN-076: { description: "Overwrite /etc/shadow; enables replacing password hashes", severity: critical, category: security }
+  LIN-077: { description: "find -delete; recursive file deletion via find — irreversible", severity: high, category: security }
+  LIN-078: { description: "xargs rm; bulk file deletion pipeline — irreversible", severity: high, category: security }
+  LIN-079: { description: "pkill arbitrary process; agent sending signals to arbitrary processes", severity: medium, category: security }
+  LIN-080: { description: "killall arbitrary process; agent sending signals to all matching processes", severity: medium, category: security }
 
   # Blocked domains
   DOM-001: { description: "Monero mining pool; cryptojacking and resource theft", severity: high, category: security }
@@ -341,6 +395,11 @@ blocked_paths:
     PATH-MAC-023: "/usr/local/share/clawedr"
     PATH-MAC-024: "~/.pypirc"
     PATH-MAC-025: "~/.docker/config.json"
+    PATH-MAC-026: "~/.git-credentials"
+    PATH-MAC-027: "~/.gitconfig"
+    PATH-MAC-028: "~/.kube"
+    PATH-MAC-029: "~/.password-store"
+    PATH-MAC-030: "~/.vault"
   linux:
     PATH-LIN-001: "/root/.ssh"
     PATH-LIN-002: "/etc/shadow"
@@ -362,6 +421,12 @@ blocked_paths:
     PATH-LIN-016: "/home/*/.pypirc"
     PATH-LIN-017: "/usr/local/share/clawedr"
     PATH-LIN-018: "/home/*/.docker/config.json"
+    PATH-LIN-019: "/home/*/.git-credentials"
+    PATH-LIN-020: "/home/*/.gitconfig"
+    PATH-LIN-021: "/home/*/.kube"
+    PATH-LIN-022: "/home/*/.password-store"
+    PATH-LIN-023: "/home/*/.vault"
+    PATH-LIN-024: "/var/run/secrets"
 
 # ── Blocked domains ───────────────────────────────────────────────────────
 # Known mining pools and C2 infrastructure. The threat feed adds more.
@@ -389,6 +454,16 @@ blocked_domains:
   DOM-018: "transfer.sh"
   DOM-019: "file.io"
   DOM-020: "0x0.st"
+  # Exfiltration staging / tunneling endpoints
+  DOM-021: "webhook.site"
+  DOM-022: "requestbin.com"
+  DOM-023: "ngrok.io"
+  DOM-024: "ngrok-free.app"
+  DOM-025: "pipedream.net"
+  DOM-026: "hookbin.com"
+  DOM-027: "beeceptor.com"
+  DOM-028: "burpcollaborator.net"
+  DOM-029: "interactsh.com"
 
 # ── Blocked IPs ───────────────────────────────────────────────────────────
 # Known malicious IP addresses. Monitored on macOS, blocked via eBPF on Linux.
@@ -400,6 +475,7 @@ blocked_ips:
   IP-004: "104.22.10.63"      # pastebin.com (Cloudflare)
   IP-005: "144.76.217.73"     # 0x0.st file host
   IP-006: "8.8.8.8"           # Google DNS — test IP for E2E
+  IP-007: "91.92.242.30"      # Known C2 IP (Adversa AI IOC database)
 
 # ── Blocked executables ───────────────────────────────────────────────────
 # Binaries an agent has no legitimate reason to run.
@@ -439,6 +515,8 @@ blocked_executables:
   BIN-027: "ptrace"
   # Disk destruction
   BIN-028: "mkfs"
+  # Privilege escalation alternatives
+  BIN-029: "doas"
 
 malicious_hashes: {}
 
@@ -760,6 +838,129 @@ custom_deny_rules:
     LIN-057:
       rule: "sensitive_tokens_json"
       match: "*tokens.json*"
+      action: "ALERT"
+
+    # ── Remote code execution (additional) ──
+    LIN-058:
+      rule: "rce_python_exec"
+      match: "python* -c *exec(*"
+      action: "SIGKILL"
+    LIN-059:
+      rule: "rce_eval_subshell"
+      match: "eval $(*"
+      action: "SIGKILL"
+
+    # ── Destructive git operations ──
+    LIN-060:
+      rule: "git_reset_hard"
+      match: "git reset --hard*"
+      action: "ALERT"
+    LIN-061:
+      rule: "git_push_force"
+      match: "git push --force*"
+      action: "ALERT"
+    LIN-062:
+      rule: "git_push_force_short"
+      match: "git push -f *"
+      action: "ALERT"
+    LIN-063:
+      rule: "git_clean_force"
+      match: "git clean -f*"
+      action: "ALERT"
+    LIN-064:
+      rule: "git_branch_force_delete"
+      match: "git branch -D *"
+      action: "ALERT"
+
+    # ── Fork bomb ──
+    LIN-065:
+      rule: "fork_bomb"
+      match: ":(){:|:&};:"
+      action: "SIGKILL"
+
+    # ── System power / DoS ──
+    LIN-066:
+      rule: "system_shutdown"
+      match: "shutdown*"
+      executable: "shutdown"
+      action: "SIGKILL"
+    LIN-067:
+      rule: "system_reboot"
+      match: "reboot*"
+      executable: "reboot"
+      action: "SIGKILL"
+    LIN-068:
+      rule: "system_halt"
+      match: "halt*"
+      executable: "halt"
+      action: "SIGKILL"
+    LIN-069:
+      rule: "system_poweroff"
+      match: "poweroff*"
+      executable: "poweroff"
+      action: "SIGKILL"
+
+    # ── Firewall modification ──
+    LIN-070:
+      rule: "firewall_iptables"
+      match: "iptables *"
+      executable: "iptables"
+      action: "ALERT"
+    LIN-071:
+      rule: "firewall_ufw"
+      match: "ufw *"
+      executable: "ufw"
+      action: "ALERT"
+    LIN-072:
+      rule: "firewall_firewalld"
+      match: "firewall-cmd *"
+      executable: "firewall-cmd"
+      action: "ALERT"
+
+    # ── Dangerous chmod ──
+    LIN-073:
+      rule: "chmod_777_root"
+      match: "chmod 777 /*"
+      executable: "chmod"
+      action: "SIGKILL"
+    LIN-074:
+      rule: "chmod_recursive_777"
+      match: "chmod -R 777*"
+      executable: "chmod"
+      action: "SIGKILL"
+
+    # ── Overwrite system files ──
+    LIN-075:
+      rule: "overwrite_passwd"
+      match: "*> */etc/passwd"
+      action: "SIGKILL"
+    LIN-076:
+      rule: "overwrite_shadow"
+      match: "*> */etc/shadow"
+      action: "SIGKILL"
+
+    # ── Dangerous find / xargs ──
+    LIN-077:
+      rule: "find_delete"
+      match: "find * -delete*"
+      executable: "find"
+      action: "ALERT"
+    LIN-078:
+      rule: "xargs_rm"
+      match: "xargs rm*"
+      executable: "xargs"
+      action: "ALERT"
+
+    # ── Arbitrary process kill ──
+    LIN-079:
+      rule: "pkill_arbitrary"
+      match: "pkill *"
+      executable: "pkill"
+      action: "ALERT"
+    LIN-080:
+      rule: "killall_arbitrary"
+      match: "killall *"
+      executable: "killall"
       action: "ALERT"
 
 # ── Heuristics ────────────────────────────────────────────────────────────
