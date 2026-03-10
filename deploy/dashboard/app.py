@@ -160,6 +160,7 @@ def _save_dismissed(dismissed: set) -> None:
 
 BLOCK_LOG_PATHS = [
     "/var/log/clawedr.log",
+    "/var/log/clawedr.log.1",  # rotated backup — ensures alerts aren't lost after rotation
     os.path.expanduser("~/Library/Logs/clawedr.log"),
     "/tmp/clawedr_log_tailer.log",
 ]
@@ -231,7 +232,7 @@ def _parse_ancestry(details: str) -> list[dict] | None:
     return chain if chain else None
 
 
-def _parse_log_lines(max_lines: int = 1000) -> list[dict]:
+def _parse_log_lines(max_lines: int = 5000) -> list[dict]:
     """Parse recent BLOCKED entries from the log files."""
     import datetime
     alerts: list[dict] = []
@@ -249,9 +250,17 @@ def _parse_log_lines(max_lines: int = 1000) -> list[dict]:
                     ancestry = _parse_ancestry(raw_details)
                     # Strip ancestry from the displayed details string
                     clean_details = _ANCESTRY_RE.sub("", raw_details).strip()
+                    rule_id = m.group(3)
+                    # Suppress monitor self-noise: PATH-LIN-015 blocks for libuv-worker
+                    # uid=0 processes are spawned by the monitor's own npm subprocess,
+                    # not by the agent. These flood the log and are not agent actions.
+                    if (rule_id == "PATH-LIN-015"
+                            and "comm=libuv-worker" in clean_details
+                            and "uid=0" in clean_details):
+                        continue
                     entry: dict = {
                         "timestamp": m.group(1),
-                        "rule_id": m.group(3),
+                        "rule_id": rule_id,
                         "details": clean_details,
                         "blocked": kind != "ALERT",
                     }

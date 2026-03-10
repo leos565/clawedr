@@ -65,6 +65,10 @@ BPF_ARRAY(egress_mode, u8, 1);
 /* Shell interpreters: only track when parent is tracked (agent-spawned shells)
  */
 BPF_HASH(parent_tracked_bins, u64, u8, 16);
+/* Comm-name hashes of openclaw worker processes (e.g. "openclaw-gatewa").
+ * When a process with a matching comm forks, it and its child are auto-tracked
+ * even if the process predates the monitor (e.g. long-lived gateway workers). */
+BPF_HASH(tracked_comms, u64, u8, 16);
 /* OpenClaw gateway PIDs: never SIGKILL these (openat/statx log-only) */
 BPF_HASH(protected_pids, u32, u8, 16);
 
@@ -117,6 +121,19 @@ static __always_inline u64 simple_hash(const char *s, int len) {
   for (int i = 0; i < len && i < MAX_FILENAME_LEN; i++) {
     char c = 0;
     bpf_probe_read_user(&c, 1, &s[i]);
+    if (c == 0)
+      break;
+    h = ((h << 5) + h) + (u64)c;
+  }
+  return h;
+}
+
+/* Hash comm string from a local stack buffer (bpf_get_current_comm output). */
+static __always_inline u64 hash_comm_buf(const char *buf) {
+  u64 h = 5381;
+#pragma unroll
+  for (int i = 0; i < 16; i++) {
+    char c = buf[i];
     if (c == 0)
       break;
     h = ((h << 5) + h) + (u64)c;
@@ -732,9 +749,24 @@ TRACEPOINT_PROBE(sched, sched_process_fork) {
    * thread PID as parent_pid.  When a worker thread (libuv, etc.) forks
    * a child, parent_pid is the thread PID which may differ from the TGID. */
   u8 *tracked = tracked_pids.lookup(&parent_pid);
+  u32 tgid = bpf_get_current_pid_tgid() >> 32;
   if (!tracked) {
-    u32 tgid = bpf_get_current_pid_tgid() >> 32;
     tracked = tracked_pids.lookup(&tgid);
+  }
+  if (!tracked) {
+    /* Comm-based fallback: auto-track openclaw worker processes that predate
+     * the monitor.  When a process whose comm matches a known openclaw worker
+     * (e.g. "openclaw-gatewa") forks, backfill it into tracked_pids so that
+     * its child—and all future descendants—are correctly tracked. */
+    char cur_comm[16] = {};
+    bpf_get_current_comm(&cur_comm, sizeof(cur_comm));
+    u64 comm_h = hash_comm_buf(cur_comm);
+    u8 *comm_tracked = tracked_comms.lookup(&comm_h);
+    if (comm_tracked) {
+      u8 one = 1;
+      tracked_pids.update(&tgid, &one);
+      tracked = comm_tracked;
+    }
   }
   if (tracked) {
     u8 one = 1;
@@ -998,10 +1030,17 @@ TRACEPOINT_PROBE(syscalls, sys_enter_write) {
 /* ── exit: clean up tracked set + heuristic state ── */
 TRACEPOINT_PROBE(sched, sched_process_exit) {
   u64 pid_tgid = bpf_get_current_pid_tgid();
-  u32 pid = pid_tgid >> 32;
+  u32 tgid = pid_tgid >> 32;  /* userspace PID = thread group leader */
+  u32 tid  = (u32)pid_tgid;   /* kernel thread ID */
 
-  tracked_pids.delete(&pid);
-  heu_fork_state.delete(&pid);
+  /* Only remove from tracked_pids when the thread group leader (main thread)
+   * exits.  Worker threads (libuv-worker, pthread pool, etc.) share the same
+   * TGID as their parent process.  Deleting on every thread exit would wipe
+   * the parent process from tracking, causing intermittent enforcement gaps. */
+  if (tgid == tid) {
+    tracked_pids.delete(&tgid);
+    heu_fork_state.delete(&tgid);
+  }
   /* heu_state and heu_connect_state keys include pid; they'll age out or we
    * could delete by prefix — skip for now to avoid iteration */
 

@@ -271,6 +271,7 @@ def _resolve_openclaw_paths() -> list[str]:
             except OSError:
                 pass
 
+    node_added = False
     for rb in all_bins:
         paths.add(rb)
         try:
@@ -282,7 +283,20 @@ def _resolve_openclaw_paths() -> list[str]:
             # multiple entry points (gateway, dashboard CLI, agent tasks)
             # and their parents may not be tracked.  On OpenClaw-focused
             # hosts this is the correct trade-off.
-            if resolved.endswith((".mjs", ".js", ".cjs")):
+            #
+            # Detection: .mjs/.js/.cjs extension, OR a shebang containing
+            # "node" (covers the common npm install pattern where the bin
+            # wrapper is a shell script with #!/usr/bin/env node).
+            is_node_script = resolved.endswith((".mjs", ".js", ".cjs"))
+            if not is_node_script and not node_added:
+                try:
+                    with open(resolved, "rb") as _f:
+                        shebang = _f.read(128)
+                    if shebang.startswith(b"#!") and b"node" in shebang:
+                        is_node_script = True
+                except OSError:
+                    pass
+            if is_node_script and not node_added:
                 node_bin = shutil.which("node") or "/usr/bin/node"
                 if os.path.exists(node_bin):
                     paths.add(node_bin)
@@ -290,9 +304,24 @@ def _resolve_openclaw_paths() -> list[str]:
                         paths.add(os.path.realpath(node_bin))
                     except OSError:
                         pass
+                    node_added = True
                     logger.info("target_bins: adding node interpreter for OpenClaw script")
         except OSError:
             pass
+
+    # Also check the explicitly-found .mjs files for node addition
+    if not node_added:
+        for p in list(paths):
+            if p.endswith((".mjs", ".js", ".cjs")) and os.path.exists(p):
+                node_bin = shutil.which("node") or "/usr/bin/node"
+                if os.path.exists(node_bin):
+                    paths.add(node_bin)
+                    try:
+                        paths.add(os.path.realpath(node_bin))
+                    except OSError:
+                        pass
+                    logger.info("target_bins: adding node interpreter for .mjs file")
+                break
 
     return sorted(paths)
 
@@ -426,13 +455,19 @@ def load_bpf(source_path: str):
                 "ALERT [%s] pid=%d uid=%d comm=%s file=%s ancestry=%s",
                 rule_id, ns_pid, event.uid, comm, filename, _format_ancestry(ns_pid),
             )
-            dispatch_alert_async(
-                rule_id=rule_id,
-                action="observed",
-                target=filename,
-                pid=ns_pid,
-                comm=comm,
+            _is_monitor_noise = (
+                event.uid == 0
+                and comm == "libuv-worker"
+                and rule_id.startswith("PATH-")
             )
+            if not _is_monitor_noise:
+                dispatch_alert_async(
+                    rule_id=rule_id,
+                    action="observed",
+                    target=filename,
+                    pid=ns_pid,
+                    comm=comm,
+                )
         elif event.action == 3 and filename == "CONNECT_ATTEMPT":
             # Connect not in blocked_ips: check cmdline for blocked domains (argv-based)
             ip_int = getattr(event, "blocked_ip", 0)
@@ -445,13 +480,23 @@ def load_bpf(source_path: str):
                 "BLOCKED [%s] pid=%d uid=%d comm=%s file=%s ancestry=%s",
                 rule_id, ns_pid, event.uid, comm, filename, _format_ancestry(ns_pid),
             )
-            dispatch_alert_async(
-                rule_id=rule_id,
-                action="execve",
-                target=filename,
-                pid=ns_pid,
-                comm=comm,
+            # Suppress cascade dispatch: the alert dispatcher spawns openclaw as root,
+            # which spawns node (tracked via target_bins), which reads /root/.npmrc.
+            # These are monitor-internal processes, not agent actions.  Skip dispatch
+            # when: uid=0 + comm=libuv-worker (root node thread) reading a path rule.
+            _is_monitor_noise = (
+                event.uid == 0
+                and comm == "libuv-worker"
+                and rule_id.startswith("PATH-")
             )
+            if not _is_monitor_noise:
+                dispatch_alert_async(
+                    rule_id=rule_id,
+                    action="execve",
+                    target=filename,
+                    pid=ns_pid,
+                    comm=comm,
+                )
         elif event.action == 0:
             # sys_enter_execve: evt.filename IS the real exec path. Check
             # malicious content hashes here — this is the only point where we
@@ -807,6 +852,63 @@ def populate_parent_tracked_bins() -> None:
                 pass
 
 
+def populate_tracked_comms(target_paths: list[str]) -> None:
+    """Populate tracked_comms: comm-name hashes of openclaw worker processes.
+
+    The kernel truncates process names to 15 chars (TASK_COMM_LEN-1).  We hash
+    the truncated comm so the BPF fork hook can auto-track workers that predate
+    the monitor — e.g. a long-lived openclaw-gateway worker process created
+    before BPF programs were loaded.
+
+    Two sources:
+    1. Basenames of target_paths (covers openclaw, node, etc.)
+    2. /proc scan for any already-running process whose exe or cmdline
+       matches openclaw — covers openclaw-gateway and similar workers.
+    """
+    if _bpf_instance is None:
+        return
+    comm_map = _bpf_instance["tracked_comms"]
+    seen: set[str] = set()
+
+    def _register(comm: str) -> None:
+        comm15 = comm[:15]
+        if comm15 in seen:
+            return
+        seen.add(comm15)
+        h = _djb2_hash(comm15)
+        comm_map[ctypes.c_uint64(h)] = ctypes.c_uint8(1)
+        logger.info("tracked_comms += %r (hash %016x)", comm15, h)
+
+    # Source 1: basenames of known target paths
+    for p in target_paths:
+        _register(os.path.basename(p))
+
+    # Source 2: comms of already-running openclaw-related processes in /proc
+    try:
+        for entry in os.listdir("/proc"):
+            if not entry.isdigit():
+                continue
+            pid = int(entry)
+            exe = _read_exe(pid)
+            cmdline = _read_cmdline(pid)
+            is_openclaw = (
+                (exe and ("openclaw" in exe or "node" in exe))
+                or "openclaw" in cmdline
+                or "openclaw-gateway" in cmdline
+            )
+            if not is_openclaw:
+                continue
+            try:
+                with open(f"/proc/{pid}/comm") as f:
+                    proc_comm = f.read().strip()
+                if proc_comm:
+                    _register(proc_comm)
+            except OSError:
+                pass
+    except OSError:
+        pass
+
+
 # ---------------------------------------------------------------------------
 # Bootstrap: seed tracked_pids for already-running OpenClaw processes
 # ---------------------------------------------------------------------------
@@ -866,38 +968,42 @@ def bootstrap_tracked_pids(target_paths: list[str], quiet: bool = False) -> None
             continue
         pid = int(entry)
         exe = _read_exe(pid)
-        if exe is None:
-            continue
 
-        try:
-            exe_real = os.path.realpath(exe)
-        except OSError:
-            exe_real = exe
+        if exe is not None:
+            try:
+                exe_real = os.path.realpath(exe)
+            except OSError:
+                exe_real = exe
 
-        # Match by exe path (node, openclaw.mjs, etc.)
-        if exe_real in real_paths or exe in real_paths:
-            tracked_map[ctypes.c_uint32(pid)] = ctypes.c_uint8(1)
-            seeded += 1
-            if not quiet:
-                logger.info("Bootstrap: tracking PID %d (%s)", pid, exe)
-            for child in _get_descendants(pid):
-                tracked_map[ctypes.c_uint32(child)] = ctypes.c_uint8(1)
+            # Match by exe path (node, openclaw.mjs, etc.)
+            if exe_real in real_paths or exe in real_paths:
+                tracked_map[ctypes.c_uint32(pid)] = ctypes.c_uint8(1)
                 seeded += 1
                 if not quiet:
-                    logger.info("Bootstrap: tracking descendant PID %d", child)
-            continue
+                    logger.info("Bootstrap: tracking PID %d (%s)", pid, exe)
+                for child in _get_descendants(pid):
+                    tracked_map[ctypes.c_uint32(child)] = ctypes.c_uint8(1)
+                    seeded += 1
+                    if not quiet:
+                        logger.info("Bootstrap: tracking descendant PID %d", child)
+                continue
+
+            is_node_or_openclaw_exe = "node" in exe or "openclaw" in exe
+        else:
+            # exe symlink unreadable (race condition or permission issue) — still
+            # try cmdline. Treat as potentially a node/openclaw process.
+            is_node_or_openclaw_exe = True
 
         # Fallback: match by cmdline (gateway runs as node with openclaw.mjs in argv)
         cmdline = _read_cmdline(pid)
         is_openclaw_cmdline = (
             "openclaw" in cmdline or "openclaw.mjs" in cmdline or "openclaw-gateway" in cmdline
         )
-        is_node_or_openclaw_exe = "node" in exe or "openclaw" in exe
         if is_openclaw_cmdline and is_node_or_openclaw_exe:
             tracked_map[ctypes.c_uint32(pid)] = ctypes.c_uint8(1)
             seeded += 1
             if not quiet:
-                logger.info("Bootstrap: tracking PID %d (cmdline match: %s)", pid, exe)
+                logger.info("Bootstrap: tracking PID %d (cmdline match: exe=%s)", pid, exe or "unreadable")
             for child in _get_descendants(pid):
                 tracked_map[ctypes.c_uint32(child)] = ctypes.c_uint8(1)
                 seeded += 1
@@ -933,26 +1039,28 @@ def populate_protected_pids(target_paths: list[str]) -> None:
             continue
         pid = int(entry)
         exe = _read_exe(pid)
-        if exe is None:
-            continue
 
-        try:
-            exe_real = os.path.realpath(exe)
-        except OSError:
-            exe_real = exe
+        if exe is not None:
+            try:
+                exe_real = os.path.realpath(exe)
+            except OSError:
+                exe_real = exe
 
-        # Match OpenClaw gateway/agent processes (not their children)
-        if exe_real in real_paths or exe in real_paths:
-            protected_map[ctypes.c_uint32(pid)] = ctypes.c_uint8(1)
-            count += 1
-            continue
+            # Match OpenClaw gateway/agent processes (not their children)
+            if exe_real in real_paths or exe in real_paths:
+                protected_map[ctypes.c_uint32(pid)] = ctypes.c_uint8(1)
+                count += 1
+                continue
+
+            is_node_or_openclaw_exe = "node" in exe or "openclaw" in exe
+        else:
+            is_node_or_openclaw_exe = True
 
         # Fallback: cmdline match for node-based gateway
         cmdline = _read_cmdline(pid)
         is_openclaw_cmdline = (
             "openclaw" in cmdline or "openclaw.mjs" in cmdline or "openclaw-gateway" in cmdline
         )
-        is_node_or_openclaw_exe = "node" in exe or "openclaw" in exe
         if is_openclaw_cmdline and is_node_or_openclaw_exe:
             protected_map[ctypes.c_uint32(pid)] = ctypes.c_uint8(1)
             count += 1
@@ -1554,13 +1662,28 @@ def watch_and_reload(path: str, interval: int = POLL_INTERVAL) -> None:
     next_bootstrap = 0.0
     BOOTSTRAP_INTERVAL = 15  # Re-scan for openclaw processes (e.g. gateway started after monitor)
 
+    # Cache target_paths: resolved once at startup, refreshed every 5 minutes.
+    # _resolve_openclaw_paths() calls `npm config get prefix` via subprocess; running it
+    # every 15 s spawns a tracked node process that triggers PATH-LIN-015 blocks.
+    _cached_target_paths: list[str] = []
+    _next_path_refresh = 0.0
+    PATH_REFRESH_INTERVAL = 300  # refresh paths every 5 minutes
+
     while running:
         now = time.monotonic()
+
+        # Refresh target_paths infrequently (subprocess-heavy, spawns node)
+        if now >= _next_path_refresh:
+            try:
+                _cached_target_paths = _resolve_openclaw_paths()
+            except Exception:
+                logger.exception("Path refresh failed")
+            _next_path_refresh = now + PATH_REFRESH_INTERVAL
+
         if now >= next_bootstrap:
             try:
-                target_paths = _resolve_openclaw_paths()
-                bootstrap_tracked_pids(target_paths, quiet=True)
-                populate_protected_pids(target_paths)
+                bootstrap_tracked_pids(_cached_target_paths, quiet=True)
+                populate_protected_pids(_cached_target_paths)
             except Exception:
                 logger.exception("Periodic bootstrap failed")
             next_bootstrap = now + BOOTSTRAP_INTERVAL
@@ -1707,6 +1830,7 @@ def main() -> int:
     logger.info("OpenClaw binary paths: %s", target_paths)
     populate_target_bins(target_paths)
     populate_parent_tracked_bins()
+    populate_tracked_comms(target_paths)
     bootstrap_tracked_pids(target_paths)
     populate_protected_pids(target_paths)
 
