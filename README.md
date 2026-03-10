@@ -4,7 +4,7 @@
 [![eBPF](https://img.shields.io/badge/eBPF-Linux-FF6F00?logo=linux&logoColor=white)](https://ebpf.io/)
 [![Seatbelt](https://img.shields.io/badge/Seatbelt-macOS-000000?logo=apple&logoColor=white)](https://developer.apple.com/library/archive/documentation/Security/Conceptual/AppSandboxDesignGuide/)
 
-Kernel-level endpoint detection and response for AI coding agents. ClawEDR enforces security policies via **eBPF** (Linux) and **Apple Seatbelt** (macOS) so that compromised or malicious tool-use never reaches sensitive files, networks, or processes.
+Kernel-level endpoint detection and response for OpenClaw. ClawEDR enforces security policies via **eBPF** (Linux) and **Apple Seatbelt** (macOS) so that compromised or malicious tool-use never reaches sensitive files, networks, or processes.
 
 ## Install
 
