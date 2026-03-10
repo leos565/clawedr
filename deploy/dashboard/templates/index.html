@@ -726,18 +726,30 @@
         }
 
         .filter-select {
-            padding: 8px 16px;
-            background: rgba(255, 255, 255, 0.7);
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            padding: 7px 32px 7px 14px;
+            background-color: rgba(255, 255, 255, 0.92);
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%230091CF' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 11px center;
+            background-size: 12px 12px;
             backdrop-filter: blur(10px);
-            border: 1px solid var(--glass-border);
-            border-radius: var(--radius-sm);
-            font-family: inherit;
-            font-size: 13px;
+            border: 1.5px solid rgba(0, 145, 207, 0.22);
+            border-radius: 20px;
+            font-family: 'Montserrat', -apple-system, sans-serif;
+            font-size: 12px;
+            font-weight: 600;
             color: var(--text-primary);
-            font-weight: 500;
             cursor: pointer;
             outline: none;
-            transition: 0.2s;
+            transition: border-color 0.18s, box-shadow 0.18s, background-color 0.18s;
+        }
+
+        .filter-select:hover {
+            border-color: rgba(0, 145, 207, 0.5);
+            background-color: #fff;
         }
 
         .filter-select:focus {
