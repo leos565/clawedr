@@ -82,6 +82,7 @@ rule_metadata:
   PATH-MAC-028: { description: "Full Kubernetes config dir; kubeconfig and cached credentials for cluster access", severity: critical, category: security }
   PATH-MAC-029: { description: "pass password manager store; encrypted password vault", severity: critical, category: security }
   PATH-MAC-030: { description: "HashiCorp Vault local config; may contain Vault tokens", severity: high, category: security }
+  PATH-MAC-031: { description: "VS Code global storage; contains extension secrets, tokens, and auth data", severity: high, category: security }
 
   PATH-LIN-019: { description: "Git credential store; plaintext git credentials cached by git-credential-store", severity: critical, category: security }
   PATH-LIN-020: { description: "Global git config; may contain credential helper tokens or signing keys", severity: high, category: security }
@@ -89,6 +90,8 @@ rule_metadata:
   PATH-LIN-022: { description: "pass password manager store; encrypted password vault", severity: critical, category: security }
   PATH-LIN-023: { description: "HashiCorp Vault local config; may contain Vault tokens", severity: high, category: security }
   PATH-LIN-024: { description: "Kubernetes in-pod secrets mount; cluster secrets injected at runtime", severity: critical, category: security }
+  PATH-LIN-025: { description: "/proc/[pid]/mem; direct process memory read/write, bypasses file permissions and enables credential extraction", severity: critical, category: security }
+  PATH-LIN-026: { description: "/sys/kernel/debug; kernel debug filesystem, implies CAP_SYS_ADMIN and enables kernel memory inspection", severity: critical, category: security }
 
   # Blocked domains (exfiltration staging / tunneling)
   DOM-021: { description: "Webhook receiver; free endpoint commonly used for data exfiltration PoCs", severity: high, category: security }
@@ -100,12 +103,19 @@ rule_metadata:
   DOM-027: { description: "Beeceptor; API mock / request intercept — exfiltration staging", severity: high, category: security }
   DOM-028: { description: "Burp Collaborator; OAST callback — used in exfiltration and SSRF PoCs", severity: high, category: security }
   DOM-029: { description: "Interactsh; open-source OAST interaction detection — exfiltration staging", severity: high, category: security }
+  DOM-030: { description: "Cloudflare quick tunnels; ephemeral public URLs for local services — exfiltration and reverse shell delivery", severity: critical, category: security }
+  DOM-031: { description: "bin.sh; pastebin-style code execution site, payload staging and exfiltration", severity: high, category: security }
+  DOM-032: { description: "bashupload.com; anonymous file upload service, exfiltration endpoint with no authentication", severity: high, category: security }
 
   # Blocked IPs (C2)
   IP-007: { description: "Known C2 IP (Adversa AI IOC database)", severity: critical, category: security }
 
   # Blocked executables
   BIN-029: { description: "doas; OpenBSD sudo alternative, privilege escalation", severity: critical, category: security }
+  BIN-030: { description: "tmate; terminal sharing over SSH, covert remote access vector", severity: critical, category: security }
+  BIN-031: { description: "ngrok; tunnel creation executable, enables reverse shells and covert C2 channels", severity: critical, category: security }
+  BIN-032: { description: "bore; modern tunnel alternative to ngrok for exposing local ports", severity: critical, category: security }
+  BIN-033: { description: "cloudflared; Cloudflare tunnel client, creates persistent outbound tunnels for covert access", severity: critical, category: security }
 
   # Linux deny rules — new
   LIN-058: { description: "Python exec injection; python -c with exec() call — arbitrary code execution", severity: critical, category: security }
@@ -360,6 +370,7 @@ rule_metadata:
   # HEU-CRD-001: deferred (path-based openat)
   # HEU-CRD-002: deferred (env var reads require ptrace; not feasible in eBPF)
   HEU-CRD-003: { description: "SSH Agent Hijack — agent accesses SSH_AUTH_SOCK or calls ssh-add with foreign keys", severity: critical, category: heuristics, subcategory: credential, platform_support: { linux: full, macos: partial } }
+  HEU-CRD-004: { description: "Credential File Sweep — agent opens .env, .aws/credentials, .npmrc, .pypirc, or .netrc files >5 times in 30s (multi-source credential harvesting)", severity: critical, category: heuristics, subcategory: credential, platform_support: { linux: full, macos: none } }
 
 # ── Blocked paths ──────────────────────────────────────────────────────────
 # Sensitive credential stores and system files an AI agent should never touch.
@@ -400,6 +411,7 @@ blocked_paths:
     PATH-MAC-028: "~/.kube"
     PATH-MAC-029: "~/.password-store"
     PATH-MAC-030: "~/.vault"
+    PATH-MAC-031: "~/Library/Application Support/Code/User/globalStorage"
   linux:
     PATH-LIN-001: "/root/.ssh"
     PATH-LIN-002: "/etc/shadow"
@@ -427,6 +439,8 @@ blocked_paths:
     PATH-LIN-022: "/home/*/.password-store"
     PATH-LIN-023: "/home/*/.vault"
     PATH-LIN-024: "/var/run/secrets"
+    PATH-LIN-025: "/proc/[0-9]*/mem"
+    PATH-LIN-026: "/sys/kernel/debug"
 
 # ── Blocked domains ───────────────────────────────────────────────────────
 # Known mining pools and C2 infrastructure. The threat feed adds more.
@@ -464,6 +478,9 @@ blocked_domains:
   DOM-027: "beeceptor.com"
   DOM-028: "burpcollaborator.net"
   DOM-029: "interactsh.com"
+  DOM-030: "*.trycloudflare.com"
+  DOM-031: "bin.sh"
+  DOM-032: "bashupload.com"
 
 # ── Blocked IPs ───────────────────────────────────────────────────────────
 # Known malicious IP addresses. Monitored on macOS, blocked via eBPF on Linux.
@@ -517,6 +534,11 @@ blocked_executables:
   BIN-028: "mkfs"
   # Privilege escalation alternatives
   BIN-029: "doas"
+  # Tunneling / covert remote access
+  BIN-030: "tmate"
+  BIN-031: "ngrok"
+  BIN-032: "bore"
+  BIN-033: "cloudflared"
 
 malicious_hashes: {}
 
@@ -1339,3 +1361,9 @@ heuristics:
     action: "enforce"
     threshold: 1
     window_seconds: 0
+  HEU-CRD-004:
+    name: "Credential File Sweep"
+    description: "Agent opens .env, .aws/credentials, .npmrc, .pypirc, or .netrc files >5 times in 30s (multi-source credential harvesting)."
+    action: "enforce"
+    threshold: 5
+    window_seconds: 30

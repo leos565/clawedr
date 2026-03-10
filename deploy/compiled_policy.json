@@ -29,7 +29,11 @@
     "BIN-026": "ltrace",
     "BIN-027": "ptrace",
     "BIN-028": "mkfs",
-    "BIN-029": "doas"
+    "BIN-029": "doas",
+    "BIN-030": "tmate",
+    "BIN-031": "ngrok",
+    "BIN-032": "bore",
+    "BIN-033": "cloudflared"
   },
   "blocked_domains": {
     "DOM-001": "pool.supportxmr.com",
@@ -60,7 +64,10 @@
     "DOM-026": "hookbin.com",
     "DOM-027": "beeceptor.com",
     "DOM-028": "burpcollaborator.net",
-    "DOM-029": "interactsh.com"
+    "DOM-029": "interactsh.com",
+    "DOM-030": "*.trycloudflare.com",
+    "DOM-031": "bin.sh",
+    "DOM-032": "bashupload.com"
   },
   "blocked_ips": {
     "IP-001": "51.222.161.168",
@@ -96,7 +103,9 @@
       "PATH-LIN-021": "/home/*/.kube",
       "PATH-LIN-022": "/home/*/.password-store",
       "PATH-LIN-023": "/home/*/.vault",
-      "PATH-LIN-024": "/var/run/secrets"
+      "PATH-LIN-024": "/var/run/secrets",
+      "PATH-LIN-025": "/proc/[0-9]*/mem",
+      "PATH-LIN-026": "/sys/kernel/debug"
     },
     "macos": {
       "PATH-MAC-001": "~/.ssh",
@@ -128,7 +137,8 @@
       "PATH-MAC-027": "~/.gitconfig",
       "PATH-MAC-028": "~/.kube",
       "PATH-MAC-029": "~/.password-store",
-      "PATH-MAC-030": "~/.vault"
+      "PATH-MAC-030": "~/.vault",
+      "PATH-MAC-031": "~/Library/Application Support/Code/User/globalStorage"
     }
   },
   "deny_rules": {
@@ -824,6 +834,11 @@
       "severity": "high",
       "category": "security"
     },
+    "PATH-MAC-031": {
+      "description": "VS Code global storage; contains extension secrets, tokens, and auth data",
+      "severity": "high",
+      "category": "security"
+    },
     "PATH-LIN-019": {
       "description": "Git credential store; plaintext git credentials cached by git-credential-store",
       "severity": "critical",
@@ -851,6 +866,16 @@
     },
     "PATH-LIN-024": {
       "description": "Kubernetes in-pod secrets mount; cluster secrets injected at runtime",
+      "severity": "critical",
+      "category": "security"
+    },
+    "PATH-LIN-025": {
+      "description": "/proc/[pid]/mem; direct process memory read/write, bypasses file permissions and enables credential extraction",
+      "severity": "critical",
+      "category": "security"
+    },
+    "PATH-LIN-026": {
+      "description": "/sys/kernel/debug; kernel debug filesystem, implies CAP_SYS_ADMIN and enables kernel memory inspection",
       "severity": "critical",
       "category": "security"
     },
@@ -899,6 +924,21 @@
       "severity": "high",
       "category": "security"
     },
+    "DOM-030": {
+      "description": "Cloudflare quick tunnels; ephemeral public URLs for local services \u2014 exfiltration and reverse shell delivery",
+      "severity": "critical",
+      "category": "security"
+    },
+    "DOM-031": {
+      "description": "bin.sh; pastebin-style code execution site, payload staging and exfiltration",
+      "severity": "high",
+      "category": "security"
+    },
+    "DOM-032": {
+      "description": "bashupload.com; anonymous file upload service, exfiltration endpoint with no authentication",
+      "severity": "high",
+      "category": "security"
+    },
     "IP-007": {
       "description": "Known C2 IP (Adversa AI IOC database)",
       "severity": "critical",
@@ -906,6 +946,26 @@
     },
     "BIN-029": {
       "description": "doas; OpenBSD sudo alternative, privilege escalation",
+      "severity": "critical",
+      "category": "security"
+    },
+    "BIN-030": {
+      "description": "tmate; terminal sharing over SSH, covert remote access vector",
+      "severity": "critical",
+      "category": "security"
+    },
+    "BIN-031": {
+      "description": "ngrok; tunnel creation executable, enables reverse shells and covert C2 channels",
+      "severity": "critical",
+      "category": "security"
+    },
+    "BIN-032": {
+      "description": "bore; modern tunnel alternative to ngrok for exposing local ports",
+      "severity": "critical",
+      "category": "security"
+    },
+    "BIN-033": {
+      "description": "cloudflared; Cloudflare tunnel client, creates persistent outbound tunnels for covert access",
       "severity": "critical",
       "category": "security"
     },
@@ -2083,6 +2143,20 @@
         "linux": "full",
         "macos": "partial"
       }
+    },
+    "HEU-CRD-004": {
+      "description": "Credential File Sweep \u2014 agent opens .env, .aws/credentials, .npmrc, .pypirc, or .netrc files >5 times in 30s (multi-source credential harvesting)",
+      "severity": "critical",
+      "category": "heuristics",
+      "subcategory": "credential",
+      "platform_support": {
+        "linux": "full",
+        "macos": "none"
+      }
+    },
+    "IP-006": {
+      "description": "Community threat intelligence",
+      "severity": "high"
     }
   },
   "heuristics": {
@@ -2365,7 +2439,14 @@
       "action": "enforce",
       "threshold": 1,
       "window_seconds": 0
+    },
+    "HEU-CRD-004": {
+      "name": "Credential File Sweep",
+      "description": "Agent opens .env, .aws/credentials, .npmrc, .pypirc, or .netrc files >5 times in 30s (multi-source credential harvesting).",
+      "action": "enforce",
+      "threshold": 5,
+      "window_seconds": 30
     }
   },
-  "_signature": "816d51f65be1525f7d3118e522357ba8d5725b3cf1abda67f4592f98e87a9110"
+  "_signature": "3110b9b7c143e59c0c746006f368d10b97e592f3a6c78c59ebf0025b70657589"
 }

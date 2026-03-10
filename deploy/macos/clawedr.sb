@@ -94,6 +94,9 @@
 ;;; [PATH-MAC-030]
 (deny file-read* (regex #"^/Users/[^/]+/.vault"))
 (deny file-write* (regex #"^/Users/[^/]+/.vault"))
+;;; [PATH-MAC-031]
+(deny file-read* (regex #"^/Users/[^/]+/Library/Application Support/Code/User/globalStorage"))
+(deny file-write* (regex #"^/Users/[^/]+/Library/Application Support/Code/User/globalStorage"))
 ;;; --- Blocked executables ---
 ;;; [BIN-001]
 (deny process-exec (literal "/usr/bin/nc"))
@@ -269,6 +272,30 @@
 (deny process-exec (literal "/usr/local/bin/doas"))
 (deny process-exec (literal "/opt/homebrew/bin/doas"))
 (deny process-exec (literal "/opt/local/bin/doas"))
+;;; [BIN-030]
+(deny process-exec (literal "/usr/bin/tmate"))
+(deny process-exec (literal "/usr/sbin/tmate"))
+(deny process-exec (literal "/usr/local/bin/tmate"))
+(deny process-exec (literal "/opt/homebrew/bin/tmate"))
+(deny process-exec (literal "/opt/local/bin/tmate"))
+;;; [BIN-031]
+(deny process-exec (literal "/usr/bin/ngrok"))
+(deny process-exec (literal "/usr/sbin/ngrok"))
+(deny process-exec (literal "/usr/local/bin/ngrok"))
+(deny process-exec (literal "/opt/homebrew/bin/ngrok"))
+(deny process-exec (literal "/opt/local/bin/ngrok"))
+;;; [BIN-032]
+(deny process-exec (literal "/usr/bin/bore"))
+(deny process-exec (literal "/usr/sbin/bore"))
+(deny process-exec (literal "/usr/local/bin/bore"))
+(deny process-exec (literal "/opt/homebrew/bin/bore"))
+(deny process-exec (literal "/opt/local/bin/bore"))
+;;; [BIN-033]
+(deny process-exec (literal "/usr/bin/cloudflared"))
+(deny process-exec (literal "/usr/sbin/cloudflared"))
+(deny process-exec (literal "/usr/local/bin/cloudflared"))
+(deny process-exec (literal "/opt/homebrew/bin/cloudflared"))
+(deny process-exec (literal "/opt/local/bin/cloudflared"))
 ;;; --- Blocked domains (monitoring-only on macOS via log_tailer.py) ---
 ;;;   [DOM-001] pool.supportxmr.com
 ;;;   [DOM-002] pool.minexmr.com
@@ -299,6 +326,9 @@
 ;;;   [DOM-027] beeceptor.com
 ;;;   [DOM-028] burpcollaborator.net
 ;;;   [DOM-029] interactsh.com
+;;;   [DOM-030] *.trycloudflare.com
+;;;   [DOM-031] bin.sh
+;;;   [DOM-032] bashupload.com
 ;;; --- Blocked IPs (monitoring-only on macOS via log_tailer.py) ---
 ;;;   [IP-001] 51.222.161.168
 ;;;   [IP-002] 178.128.242.134
