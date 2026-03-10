@@ -10,6 +10,7 @@ dist/
 build/
 .DS_Store
 testing_setup/
+tests/
 docs/
 comparison-report.md
 competitor-analysis.md
