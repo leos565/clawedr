@@ -50,9 +50,11 @@ _script_dir = os.path.dirname(os.path.abspath(__file__))
 _parent = os.path.dirname(_script_dir)
 sys.path.insert(0, _parent)
 sys.path.insert(0, _script_dir)
-from shared.user_rules import get_exempted_rule_ids, get_custom_rules, get_heuristic_overrides, get_heuristic_threshold_overrides, get_rule_mode, USER_RULES_PATH  # pyre-ignore[21]
+from shared.user_rules import get_exempted_rule_ids, get_custom_rules, get_heuristic_overrides, get_heuristic_threshold_overrides, get_rule_mode, USER_RULES_PATH, load_settings  # pyre-ignore[21]
 from shared.alert_dispatcher import dispatch_alert_async  # pyre-ignore[21]
 from shared.policy_verify import verify_policy  # pyre-ignore[21]
+from shared.output_scanner import scan_output, scan_for_injection  # pyre-ignore[21]
+from shared.integrity_monitor import check_integrity, initialize_baseline, get_status as get_integrity_status, MONITORED_FILES  # pyre-ignore[21]
 
 logger = logging.getLogger("clawedr.monitor")
 block_logger = logging.getLogger("clawedr.blocked")
@@ -74,6 +76,15 @@ _malicious_hashes: dict[str, str] = {}
 _hash_to_rule_id: dict[int, str] = {}
 _ip_to_rule_id: dict[str, str] = {}
 _heu_slot_to_rule_id: dict[int, str] = {}
+
+# Content scanner / injection detection findings ring buffers (capped at 200 each)
+_output_findings: list[dict] = []
+_injection_findings: list[dict] = []
+_OUTPUT_FINDINGS_CAP = 200
+_INJECTION_FINDINGS_CAP = 200
+
+# Egress allowlist
+_egress_allowed_ips: dict[str, str] = {}  # domain -> ip (resolved)
 
 PATH_PREFIXES = ("/usr/bin/", "/usr/sbin/", "/bin/", "/sbin/", "/usr/local/bin/")
 
@@ -300,8 +311,19 @@ def load_bpf(source_path: str):
         src = f.read()
     src = _pidns_defines() + src
 
+    # Enable content scanning if output_scanner or injection_detection is on
+    settings = load_settings()
+    content_scan = (
+        settings.get("output_scanner_enabled", True) or
+        settings.get("injection_detection_enabled", True)
+    )
+    content_flag = ["-DCLAWEDR_CONTENT_SCAN"] if content_scan else []
+    if content_scan:
+        logger.info("Content scanning enabled (output scanner + injection detection)")
+
     # Try BPF LSM first (kernel-level block); fallback to tracepoint+SIGKILL
-    for use_lsm, cflags in [(True, ["-DCLAWEDR_USE_LSM"]), (False, [])]:
+    for use_lsm, extra in [(True, ["-DCLAWEDR_USE_LSM"]), (False, [])]:
+        cflags = extra + content_flag
         try:
             _bpf_instance = BPF(text=src, cflags=cflags)
             logger.info(
@@ -431,6 +453,83 @@ def load_bpf(source_path: str):
                     pass
 
     _bpf_instance["events"].open_perf_buffer(_print_event)
+
+    # Content scanner perf buffer (only if CLAWEDR_CONTENT_SCAN was compiled in)
+    try:
+        def _print_content_event(cpu, data, size):
+            settings = load_settings()
+            scanner_on = settings.get("output_scanner_enabled", True)
+            injection_on = settings.get("injection_detection_enabled", True)
+            if not scanner_on and not injection_on:
+                return
+            evt = _bpf_instance["content_events"].event(data)
+            raw_bytes = bytes(evt.content[:evt.data_len])
+            if not raw_bytes:
+                return
+            pid = evt.ns_pid if evt.ns_pid else evt.pid
+            content_type = evt.content_type  # 0=LLM output, 1=tool result
+            import datetime
+            ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            if content_type == 0 and scanner_on:
+                enabled_cats = set(settings.get("output_scanner_categories", [])) or None
+                matches = scan_output(raw_bytes, enabled_cats)
+                for m in matches:
+                    finding = {
+                        "timestamp": ts,
+                        "rule_id": m.rule_id,
+                        "category": m.category,
+                        "description": m.description,
+                        "matched_value": m.matched_value,
+                        "pid": pid,
+                        "type": "output",
+                    }
+                    _output_findings.append(finding)
+                    if len(_output_findings) > _OUTPUT_FINDINGS_CAP:
+                        _output_findings.pop(0)
+                    block_logger.warning(
+                        "ALERT [%s] output_scan pid=%d match=%s value=%s",
+                        m.rule_id, pid, m.description, m.matched_value,
+                    )
+                    dispatch_alert_async(
+                        rule_id=m.rule_id,
+                        action="output_scan",
+                        target=f"{m.description}: {m.matched_value}",
+                        pid=pid,
+                        comm="openclaw",
+                    )
+            elif content_type == 1 and injection_on:
+                enabled_cats = set(settings.get("injection_categories", [])) or None
+                matches = scan_for_injection(raw_bytes, enabled_cats)
+                for m in matches:
+                    finding = {
+                        "timestamp": ts,
+                        "rule_id": m.rule_id,
+                        "category": m.category,
+                        "description": m.description,
+                        "matched_value": m.matched_value,
+                        "pid": pid,
+                        "type": "injection",
+                    }
+                    _injection_findings.append(finding)
+                    if len(_injection_findings) > _INJECTION_FINDINGS_CAP:
+                        _injection_findings.pop(0)
+                    block_logger.warning(
+                        "ALERT [%s] injection_detected pid=%d match=%s value=%s",
+                        m.rule_id, pid, m.description, m.matched_value,
+                    )
+                    dispatch_alert_async(
+                        rule_id=m.rule_id,
+                        action="injection_detected",
+                        target=f"{m.description}: {m.matched_value}",
+                        pid=pid,
+                        comm="tool",
+                    )
+
+        _bpf_instance["content_events"].open_perf_buffer(_print_content_event)
+        logger.info("Content scanner perf buffer opened")
+    except (KeyError, Exception) as e:
+        logger.info("Content scanner perf buffer not available (CLAWEDR_CONTENT_SCAN not compiled): %s", e)
+
     return _bpf_instance
 
 
@@ -881,6 +980,7 @@ def apply_policy(policy: dict) -> None:
     _apply_deny_rules(policy, exempted)
     _apply_malicious_hashes(policy, exempted)
     _apply_blocked_ips(policy, exempted)
+    _apply_egress_allowlist()
     _apply_pipe_heuristic()
     _apply_heuristics(policy, exempted)
 
@@ -1135,6 +1235,86 @@ def _apply_blocked_ips(policy: dict, exempted: set[str]) -> None:
             logger.warning("Skipping blocked IP %s (%s): %s", rule_id, ip, e)
 
     logger.info("Loaded %d blocked IPs to BPF map", loaded)
+
+
+# ---------------------------------------------------------------------------
+# Egress allowlist — populate allowed_ips BPF map + set egress_mode
+# ---------------------------------------------------------------------------
+
+# Default allowed domains for OpenClaw operation (always included in allowlist mode)
+_DEFAULT_ALLOWED_DOMAINS = [
+    "api.anthropic.com",
+    "api.openai.com",
+    "api.github.com",
+    "raw.githubusercontent.com",
+    "registry.npmjs.org",
+    "pypi.org",
+    "files.pythonhosted.org",
+    "127.0.0.1",
+    "localhost",
+]
+
+
+def _apply_egress_allowlist() -> None:
+    """Load egress allowlist settings and configure BPF maps.
+
+    In allowlist mode: populate allowed_ips with resolved IPs, set egress_mode[0]=1.
+    In blocklist mode: clear allowed_ips, set egress_mode[0]=0.
+    """
+    global _egress_allowed_ips
+    if _bpf_instance is None:
+        return
+
+    import socket as _socket
+    import struct as _struct
+
+    settings = load_settings()
+    mode_str = settings.get("egress_mode", "blocklist")
+    egress_mode_map = _bpf_instance["egress_mode"]
+    allowed_map = _bpf_instance["allowed_ips"]
+    allowed_map.clear()
+
+    if mode_str != "allowlist":
+        egress_mode_map[ctypes.c_uint32(0)] = ctypes.c_uint8(0)
+        logger.info("Egress mode: blocklist (default)")
+        return
+
+    # Allowlist mode
+    egress_mode_map[ctypes.c_uint32(0)] = ctypes.c_uint8(1)
+    user_domains = list(settings.get("allowed_domains", []))
+    all_domains = list(_DEFAULT_ALLOWED_DOMAINS) + [
+        d for d in user_domains if d not in _DEFAULT_ALLOWED_DOMAINS
+    ]
+
+    _egress_allowed_ips = {}
+    loaded = 0
+    for domain in all_domains:
+        try:
+            infos = _socket.getaddrinfo(domain, None, _socket.AF_INET)
+            for info in infos:
+                ip_str = info[4][0]
+                if ip_str in ("127.0.0.1", "0.0.0.0"):
+                    # Always allow loopback
+                    ip_int = _struct.unpack("=I", _socket.inet_aton(ip_str))[0]
+                    allowed_map[ctypes.c_uint32(ip_int)] = ctypes.c_uint8(1)
+                    loaded += 1
+                    continue
+                ip_int = _struct.unpack("=I", _socket.inet_aton(ip_str))[0]
+                allowed_map[ctypes.c_uint32(ip_int)] = ctypes.c_uint8(1)
+                _egress_allowed_ips[domain] = ip_str
+                loaded += 1
+                logger.debug("Egress allowlist: %s → %s", domain, ip_str)
+        except (_socket.gaierror, OSError) as e:
+            logger.debug("Cannot resolve allowlist domain %s: %s", domain, e)
+
+    # Always allow loopback explicitly (127.0.0.1)
+    try:
+        lo_int = _struct.unpack("=I", _socket.inet_aton("127.0.0.1"))[0]
+        allowed_map[ctypes.c_uint32(lo_int)] = ctypes.c_uint8(1)
+    except Exception:
+        pass
+
+    logger.info("Egress mode: allowlist — %d IPs resolved from %d domains", loaded, len(all_domains))
 
 
 # ---------------------------------------------------------------------------
@@ -1415,7 +1595,53 @@ def setup_logging() -> None:
 # Entry point
 # ---------------------------------------------------------------------------
 
+def _run_integrity_monitor() -> None:
+    """Background thread: periodically check OpenClaw config file integrity."""
+    import threading
+    settings = load_settings()
+    if not settings.get("integrity_monitor_enabled", True):
+        logger.info("Integrity monitor disabled in settings")
+        return
+
+    interval_minutes = int(settings.get("integrity_check_interval", 720))
+    interval_secs = max(60, interval_minutes * 60)
+
+    # Initialize baseline on first run if absent
+    from shared.integrity_monitor import load_baseline  # pyre-ignore[21]
+    if load_baseline() is None:
+        logger.info("Integrity: no baseline found, initializing now")
+        try:
+            initialize_baseline()
+        except Exception as exc:
+            logger.warning("Integrity baseline init failed: %s", exc)
+
+    logger.info("Integrity monitor started (check every %dm)", interval_minutes)
+    while True:
+        time.sleep(interval_secs)
+        try:
+            settings = load_settings()
+            if not settings.get("integrity_monitor_enabled", True):
+                continue
+            events = check_integrity()
+            for ev in events:
+                block_logger.warning(
+                    "ALERT [%s] integrity_%s path=%s hash=%s",
+                    ev["rule_id"], ev["event"], ev["path"],
+                    (ev.get("current_hash") or "")[:16],
+                )
+                dispatch_alert_async(
+                    rule_id=ev["rule_id"],
+                    action=f"integrity_{ev['event']}",
+                    target=ev["path"],
+                    pid=0,
+                    comm="integrity_monitor",
+                )
+        except Exception:
+            logger.exception("Integrity check failed")
+
+
 def main() -> int:
+    import threading
     setup_logging()
     logger.info("ClawEDR Linux Shield Monitor starting")
 
@@ -1443,6 +1669,11 @@ def main() -> int:
 
     policy = load_policy(POLICY_PATH)
     apply_policy(policy)
+
+    # Start integrity monitor background thread
+    t = threading.Thread(target=_run_integrity_monitor, daemon=True, name="integrity-monitor")
+    t.start()
+
     watch_and_reload(POLICY_PATH)
     return 0
 

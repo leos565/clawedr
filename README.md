@@ -32,6 +32,19 @@ Alerts → Dashboard (localhost:8477)
 
 **Dashboard:** Web UI on port 8477 for viewing alerts, managing rule exemptions, and adding custom blocking rules. Auto-installed as a system service.
 
+## Protection Modules
+
+Beyond core policy enforcement, ClawEDR includes four additional protection layers:
+
+| Module | Rule Prefix | What It Does |
+|--------|-------------|--------------|
+| **Output Scanner** | `OUT-*` | Scans agent stdout via eBPF tracepoint for secrets and PII (AWS keys, GitHub tokens, credit cards, SSNs, private keys, and more) before they reach the user |
+| **Prompt Injection Detection** | `INJ-*` | Inspects content flowing into the agent for instruction-override, persona-hijack, steganography, and data-exfiltration patterns |
+| **Egress Allowlist** | — | Restricts outbound network connections to an explicit domain allowlist enforced at the eBPF socket layer |
+| **Cognitive Integrity Monitor** | `INT-*` | Tracks SHA-256 baselines of OpenClaw config files and alerts on unexpected modifications |
+
+All modules are configurable from the dashboard and can be enabled/disabled independently.
+
 ## Rule System
 
 Every rule has a stable ID for traceability and user overrides:
@@ -43,8 +56,10 @@ Every rule has a stable ID for traceability and user overrides:
 | `PATH-LIN-*` / `PATH-MAC-*` | Blocked paths | `PATH-LIN-002` → `/etc/shadow` |
 | `LIN-*` / `MAC-*` | OS-specific deny rules | `LIN-050` → `dd` disk writes |
 | `HEU-*` | Heuristic detections | `HEU-NET-001` → DNS exfil pattern |
-| `THRT-*` | Threat feed entries | Auto-generated |
+| `THRT-*` | Threat feed entries | Auto-generated from ClawSec feed |
 | `USR-*` | User custom rules | `USR-DOM-001` → `evil.com` |
+| `OUT-*` | Output scanner patterns | `OUT-001` → AWS Access Key ID |
+| `INJ-*` | Injection detection patterns | `INJ-006` → Zero-width unicode steganography |
 
 ## User Customization
 
@@ -62,9 +77,30 @@ custom_rules:
     type: path
     value: /var/secrets
     platform: linux
+
+# Module settings
+output_scanner_enabled: true
+injection_detection_enabled: true
+egress_mode: allowlist
+allowed_domains:
+  - api.openai.com
+  - api.anthropic.com
+integrity_monitor_enabled: true
 ```
 
 Supported custom rule types: `executable`, `domain`, `hash`, `path`, `argument`. Rules can also be managed from the dashboard UI.
+
+## Dashboard
+
+The web UI at `localhost:8477` provides:
+
+- **Alerts** — filterable by time, severity, and module (Policy Rules / Threat Feed / Heuristics / Output Scanner / Prompt Injection / Custom). Per-alert dismiss and bulk clear.
+- **Policy Rules** — toggle enforcement mode per rule, configure the security profile (Hobbyist → Professional → Military slider), add custom rules.
+- **Output Scanner** — enable/disable categories, view pattern library with technical examples, inspect recent findings.
+- **Prompt Injection** — configure injection detection categories, view triggered patterns.
+- **Egress Control** — manage the outbound domain allowlist, switch between allowlist and monitor-only mode.
+- **Integrity** — baseline management, per-file status, tamper alerts.
+- **Settings** — API token, bind address, notification settings.
 
 ## Development
 

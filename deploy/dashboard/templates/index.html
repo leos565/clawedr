@@ -201,6 +201,62 @@
             display: flex;
             flex-direction: column;
             min-width: 0;
+            gap: 2px;
+        }
+
+        /* Sidebar nav group (collapsible section) */
+        .sidebar-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar-group-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 16px 6px;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: rgba(255,255,255,0.45);
+            cursor: pointer;
+            background: none;
+            border: none;
+            width: 100%;
+            transition: color 0.15s;
+            user-select: none;
+            margin-top: 6px;
+        }
+
+        .sidebar-group-header:hover { color: rgba(255,255,255,0.7); }
+
+        .sidebar-group-header .group-chevron {
+            transition: transform 0.2s ease;
+            flex-shrink: 0;
+            opacity: 0.5;
+        }
+
+        .sidebar-group.collapsed .group-chevron {
+            transform: rotate(-90deg);
+        }
+
+        .sidebar-group-children {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transition: max-height 0.2s ease;
+            max-height: 400px;
+        }
+
+        .sidebar-group.collapsed .sidebar-group-children {
+            max-height: 0;
+        }
+
+        /* Child nav items are slightly indented */
+        .sidebar-child-link {
+            padding-left: 36px !important;
+            font-size: 13px !important;
         }
 
         .logo {
@@ -418,15 +474,16 @@
             position: absolute;
             top: calc(100% + 10px);
             right: 0;
-            min-width: 280px;
+            min-width: 260px;
             background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(24px);
             -webkit-backdrop-filter: blur(24px);
             border: 1px solid var(--glass-border);
             border-radius: 14px;
             box-shadow: 0 12px 40px rgba(0, 45, 98, 0.12), 0 0 0 1px rgba(0, 45, 98, 0.06);
-            padding: 20px;
+            padding: 16px 18px;
             z-index: 100;
+            font-family: 'Montserrat', -apple-system, sans-serif;
         }
 
         .status-dropdown.open {
@@ -444,30 +501,41 @@
         }
 
         .status-dropdown-title {
-            font-size: 12px;
-            font-weight: 600;
+            font-size: 10px;
+            font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.06em;
             color: var(--text-muted);
-            margin-bottom: 14px;
+            margin-bottom: 8px;
         }
 
         .status-dropdown-row {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 8px 0;
-            font-size: 14px;
+            gap: 16px;
+            padding: 7px 0;
+            font-size: 12px;
             border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+            width: 100%;
+            box-sizing: border-box;
         }
 
         .status-dropdown-row:last-child {
             border-bottom: none;
         }
 
+        .status-dropdown-row > span:first-child {
+            flex: 1;
+            min-width: 0;
+        }
+
         .status-dropdown-row .count {
-            font-weight: 600;
+            flex-shrink: 0;
+            font-weight: 700;
+            font-size: 12px;
             font-variant-numeric: tabular-nums;
+            text-align: right;
         }
 
         .status-dropdown-row.enforce .count { color: var(--claw-blue); }
@@ -669,24 +737,77 @@
             font-family: 'Montserrat', sans-serif;
         }
 
-        .filter-select {
-            padding: 8px 16px;
-            background: rgba(255, 255, 255, 0.7);
-            backdrop-filter: blur(10px);
-            border: 1px solid var(--glass-border);
-            border-radius: var(--radius-sm);
-            font-family: inherit;
-            font-size: 13px;
+        /* ── Custom Select (replaces native <select> on alert filters) ── */
+        .custom-select { position: relative; display: inline-block; }
+
+        .custom-select-trigger {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 12px 7px 14px;
+            background: rgba(255, 255, 255, 0.92);
+            border: 1.5px solid rgba(0, 145, 207, 0.22);
+            border-radius: 20px;
+            font-family: 'Montserrat', -apple-system, sans-serif;
+            font-size: 12px;
+            font-weight: 600;
             color: var(--text-primary);
-            font-weight: 500;
             cursor: pointer;
             outline: none;
-            transition: 0.2s;
+            white-space: nowrap;
+            transition: border-color 0.18s, box-shadow 0.18s, background 0.18s;
         }
-
-        .filter-select:focus {
+        .custom-select-trigger:hover {
+            border-color: rgba(0, 145, 207, 0.5);
+            background: #fff;
+        }
+        .custom-select.open .custom-select-trigger {
             border-color: var(--accent);
             box-shadow: 0 0 0 3px rgba(0, 145, 207, 0.15);
+        }
+        .custom-select-chevron {
+            flex-shrink: 0;
+            color: var(--accent);
+            transition: transform 0.18s ease;
+        }
+        .custom-select.open .custom-select-chevron { transform: rotate(180deg); }
+
+        .custom-select-menu {
+            position: absolute;
+            top: calc(100% + 6px);
+            left: 0;
+            min-width: 100%;
+            background: #fff;
+            border: 1px solid rgba(0, 145, 207, 0.18);
+            border-radius: 14px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+            z-index: 300;
+            overflow: hidden;
+            opacity: 0;
+            transform: translateY(-6px);
+            pointer-events: none;
+            transition: opacity 0.15s ease, transform 0.15s ease;
+        }
+        .custom-select.open .custom-select-menu {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+        .custom-select-option {
+            padding: 9px 16px;
+            font-family: 'Montserrat', -apple-system, sans-serif;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: background 0.1s;
+            white-space: nowrap;
+        }
+        .custom-select-option:hover { background: rgba(0, 145, 207, 0.07); }
+        .custom-select-option.selected {
+            color: var(--accent);
+            font-weight: 700;
+            background: rgba(0, 145, 207, 0.05);
         }
 
         .alerts-layout {
@@ -1790,31 +1911,51 @@
             </div>
 
             <nav class="sidebar-nav">
+                <!-- Alerts -->
                 <button class="sidebar-link active" data-tab="alerts">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path
-                            d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z">
-                        </path>
+                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
                         <line x1="12" y1="9" x2="12" y2="13"></line>
                         <line x1="12" y1="17" x2="12.01" y2="17"></line>
                     </svg>
                     Alerts Dashboard
                 </button>
-                <button class="sidebar-link" data-tab="rules">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-                        <line x1="16" y1="2" x2="16" y2="6"></line>
-                        <line x1="8" y1="2" x2="8" y2="6"></line>
-                        <line x1="3" y1="10" x2="21" y2="10"></line>
-                    </svg>
-                    Policy Rules
-                </button>
+
+                <!-- Policy group (collapsible) -->
+                <div class="sidebar-group" id="policyGroup">
+                    <button class="sidebar-group-header" onclick="togglePolicyGroup()" aria-expanded="true" aria-controls="policyGroupChildren">
+                        <span>Policy</span>
+                        <svg class="group-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <div class="sidebar-group-children" id="policyGroupChildren">
+                        <button class="sidebar-link sidebar-child-link" data-tab="rules">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                            Policy Rules
+                        </button>
+                        <button class="sidebar-link sidebar-child-link" data-tab="output-scanner">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                            Output Scanner
+                        </button>
+                        <button class="sidebar-link sidebar-child-link" data-tab="injection">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                            Prompt Injection
+                        </button>
+                        <button class="sidebar-link sidebar-child-link" data-tab="egress">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                            Egress Control
+                        </button>
+                        <button class="sidebar-link sidebar-child-link" data-tab="integrity">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                            Integrity
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Settings -->
                 <button class="sidebar-link" data-tab="settings">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <circle cx="12" cy="12" r="3"></circle>
-                        <path
-                            d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
-                        </path>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
                     </svg>
                     Settings
                 </button>
@@ -1871,7 +2012,7 @@
                         <span>Connected</span>
                     </div>
                     <div class="status-dropdown" id="statusDropdown" role="menu" aria-label="Policy summary">
-                        <div class="status-dropdown-title">Policy Summary</div>
+                        <div class="status-dropdown-title">Policy Rules</div>
                         <div class="status-dropdown-row enforce">
                             <span>🛡️ Enforced</span>
                             <span class="count" id="statusEnforcedCount">—</span>
@@ -1887,6 +2028,23 @@
                         <div class="status-dropdown-row" style="padding-top:12px; margin-top:8px; border-top:1px solid rgba(0,0,0,0.08);">
                             <span>Total active</span>
                             <span class="count" id="statusTotalCount">—</span>
+                        </div>
+                        <div class="status-dropdown-title" style="margin-top:12px;">Protection Modules</div>
+                        <div class="status-dropdown-row" id="statusModuleOutput">
+                            <span>🔍 Output Scanner</span>
+                            <span class="count" id="statusOutputVal">—</span>
+                        </div>
+                        <div class="status-dropdown-row" id="statusModuleInjection">
+                            <span>🛡 Injection Detection</span>
+                            <span class="count" id="statusInjectionVal">—</span>
+                        </div>
+                        <div class="status-dropdown-row" id="statusModuleEgress">
+                            <span>🌐 Egress Mode</span>
+                            <span class="count" id="statusEgressVal">—</span>
+                        </div>
+                        <div class="status-dropdown-row" id="statusModuleIntegrity">
+                            <span>✅ Integrity</span>
+                            <span class="count" id="statusIntegrityVal">—</span>
                         </div>
                     </div>
                 </div>
@@ -1914,24 +2072,57 @@
                     <div class="filters-bar">
                         <div class="filter-group">
                             <span class="filter-label">Time</span>
-                            <select class="filter-select" id="timeFilter" onchange="applyFilters()">
-                                <option value="">All time</option>
-                                <option value="1">Last hour</option>
-                                <option value="6">Last 6 hours</option>
-                                <option value="24" selected>Last 24 hours</option>
-                                <option value="168">Last 7 days</option>
-                            </select>
+                            <div class="custom-select" id="timeFilter" data-value="24">
+                                <button class="custom-select-trigger" onclick="toggleCustomSelect('timeFilter')">
+                                    <span class="custom-select-label">Last 24 hours</span>
+                                    <svg class="custom-select-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                                </button>
+                                <div class="custom-select-menu">
+                                    <div class="custom-select-option" data-value="" onclick="selectCustomOption('timeFilter','','All time',applyFilters)">All time</div>
+                                    <div class="custom-select-option" data-value="1" onclick="selectCustomOption('timeFilter','1','Last hour',applyFilters)">Last hour</div>
+                                    <div class="custom-select-option" data-value="6" onclick="selectCustomOption('timeFilter','6','Last 6 hours',applyFilters)">Last 6 hours</div>
+                                    <div class="custom-select-option selected" data-value="24" onclick="selectCustomOption('timeFilter','24','Last 24 hours',applyFilters)">Last 24 hours</div>
+                                    <div class="custom-select-option" data-value="168" onclick="selectCustomOption('timeFilter','168','Last 7 days',applyFilters)">Last 7 days</div>
+                                </div>
+                            </div>
                         </div>
                         <div class="filter-group">
                             <span class="filter-label">Severity</span>
-                            <select class="filter-select" id="severityFilter" onchange="applyFilters()">
-                                <option value="">All severities</option>
-                                <option value="critical">Critical</option>
-                                <option value="high">High</option>
-                                <option value="medium">Medium</option>
-                                <option value="low">Low</option>
-                                <option value="info">Info</option>
-                            </select>
+                            <div class="custom-select" id="severityFilter" data-value="">
+                                <button class="custom-select-trigger" onclick="toggleCustomSelect('severityFilter')">
+                                    <span class="custom-select-label">All severities</span>
+                                    <svg class="custom-select-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                                </button>
+                                <div class="custom-select-menu">
+                                    <div class="custom-select-option selected" data-value="" onclick="selectCustomOption('severityFilter','','All severities',applyFilters)">All severities</div>
+                                    <div class="custom-select-option" data-value="critical" onclick="selectCustomOption('severityFilter','critical','Critical',applyFilters)">Critical</div>
+                                    <div class="custom-select-option" data-value="high" onclick="selectCustomOption('severityFilter','high','High',applyFilters)">High</div>
+                                    <div class="custom-select-option" data-value="medium" onclick="selectCustomOption('severityFilter','medium','Medium',applyFilters)">Medium</div>
+                                    <div class="custom-select-option" data-value="low" onclick="selectCustomOption('severityFilter','low','Low',applyFilters)">Low</div>
+                                    <div class="custom-select-option" data-value="info" onclick="selectCustomOption('severityFilter','info','Info',applyFilters)">Info</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="filter-group">
+                            <span class="filter-label">Module</span>
+                            <div class="custom-select" id="moduleFilter" data-value="">
+                                <button class="custom-select-trigger" onclick="toggleCustomSelect('moduleFilter')">
+                                    <span class="custom-select-label">All modules</span>
+                                    <svg class="custom-select-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                                </button>
+                                <div class="custom-select-menu">
+                                    <div class="custom-select-option selected" data-value="" onclick="selectCustomOption('moduleFilter','','All modules',applyModuleFilter)">All modules</div>
+                                    <div class="custom-select-option" data-value="core" onclick="selectCustomOption('moduleFilter','core','Policy Rules',applyModuleFilter)">Policy Rules</div>
+                                    <div class="custom-select-option" data-value="thrt" onclick="selectCustomOption('moduleFilter','thrt','Threat Feed',applyModuleFilter)">Threat Feed</div>
+                                    <div class="custom-select-option" data-value="heu" onclick="selectCustomOption('moduleFilter','heu','Heuristics',applyModuleFilter)">Heuristics</div>
+                                    <div class="custom-select-option" data-value="out" onclick="selectCustomOption('moduleFilter','out','Output Scanner',applyModuleFilter)">Output Scanner</div>
+                                    <div class="custom-select-option" data-value="inj" onclick="selectCustomOption('moduleFilter','inj','Prompt Injection',applyModuleFilter)">Prompt Injection</div>
+                                    <div class="custom-select-option" data-value="usr" onclick="selectCustomOption('moduleFilter','usr','Custom Rules',applyModuleFilter)">Custom Rules</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="filter-group" style="margin-left:auto;">
+                            <button class="btn btn-ghost btn-sm" onclick="clearAllAlerts()" style="color:var(--text-muted);font-size:12px;" title="Dismiss all currently visible alerts">Clear all</button>
                         </div>
                     </div>
                     <div class="alerts-layout">
@@ -2018,6 +2209,203 @@
                     </div>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            <!-- Output Scanner Tab -->
+            <div class="tab-panel" id="tab-output-scanner">
+                <div class="card" style="margin-bottom:16px;">
+                    <div class="card-header">
+                        <div>
+                            <span class="card-title">Output Scanner</span>
+                            <div style="font-size:12px;color:var(--text-muted);margin-top:4px;font-weight:400;">Scans OpenClaw's stdout for secrets and PII before they reach you</div>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:12px;">
+                            <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;cursor:pointer;">
+                                <input type="checkbox" id="outputScannerEnabled" onchange="saveOutputScannerConfig()" style="width:16px;height:16px;cursor:pointer;accent-color:var(--accent);">
+                                Enabled
+                            </label>
+                            <button class="btn btn-ghost btn-sm" onclick="loadOutputScanner()">↻ Refresh</button>
+                        </div>
+                    </div>
+                    <div style="margin-bottom:20px;">
+                        <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">
+                            Captures writes to OpenClaw's stdout via eBPF tracepoint and scans for secrets using regex patterns.
+                            Matches are logged and dispatched as alerts. <strong>Linux only.</strong>
+                        </p>
+                        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;" id="outputCategoriesGrid"></div>
+                    </div>
+                    <div style="border-top:1px solid var(--glass-border);padding-top:20px;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                            <h3 style="font-size:14px;font-weight:600;">Pattern Library</h3>
+                            <span id="outputPatternCount" style="font-size:12px;color:var(--text-muted);"></span>
+                        </div>
+                        <div id="outputPatternsTable"></div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">Recent Findings</span>
+                        <div style="display:flex;gap:8px;">
+                            <span id="outputFindingsCount" class="card-count">0</span>
+                            <button class="btn btn-ghost btn-sm" onclick="loadOutputFindings()">↻ Refresh</button>
+                        </div>
+                    </div>
+                    <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">Secrets or PII detected in agent output (OUT-* rule IDs). Each finding is also visible in the Alerts tab.</p>
+                    <div id="outputFindingsContainer"><div class="empty-state"><p>No output scanner findings yet.</p></div></div>
+                </div>
+            </div>
+
+            <!-- Prompt Injection Tab -->
+            <div class="tab-panel" id="tab-injection">
+                <div class="card" style="margin-bottom:16px;">
+                    <div class="card-header">
+                        <div>
+                            <span class="card-title">Prompt Injection Detection</span>
+                            <div style="font-size:12px;color:var(--text-muted);margin-top:4px;font-weight:400;">Detects injection payloads in content flowing into OpenClaw from tool results</div>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:12px;">
+                            <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;cursor:pointer;">
+                                <input type="checkbox" id="injectionEnabled" onchange="saveInjectionConfig()" style="width:16px;height:16px;cursor:pointer;accent-color:var(--accent);">
+                                Enabled
+                            </label>
+                            <button class="btn btn-ghost btn-sm" onclick="loadInjection()">↻ Refresh</button>
+                        </div>
+                    </div>
+                    <div style="margin-bottom:20px;">
+                        <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">
+                            Monitors writes from child tool subprocesses (bash, curl, etc.) to their stdout. Matches are alert-only — never blocking — because false-positive risk is high for content scanning.
+                            <strong>Linux only.</strong>
+                        </p>
+                        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;" id="injectionCategoriesGrid"></div>
+                    </div>
+                    <div style="border-top:1px solid var(--glass-border);padding-top:20px;">
+                        <h3 style="font-size:14px;font-weight:600;margin-bottom:12px;">Detection Patterns</h3>
+                        <div id="injectionPatternsTable"></div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">Recent Detections</span>
+                        <div style="display:flex;gap:8px;">
+                            <span id="injectionFindingsCount" class="card-count">0</span>
+                            <button class="btn btn-ghost btn-sm" onclick="loadInjectionFindings()">↻ Refresh</button>
+                        </div>
+                    </div>
+                    <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">Injection patterns detected in tool outputs (INJ-* rule IDs).</p>
+                    <div id="injectionFindingsContainer"><div class="empty-state"><p>No injection detections yet.</p></div></div>
+                </div>
+            </div>
+
+            <!-- Egress Control Tab -->
+            <div class="tab-panel" id="tab-egress">
+                <div class="card" style="margin-bottom:16px;">
+                    <div class="card-header">
+                        <span class="card-title">Egress Mode</span>
+                        <div style="display:flex;gap:8px;">
+                            <button class="btn btn-ghost btn-sm" onclick="loadEgressAllowlist()">↻ Refresh</button>
+                        </div>
+                    </div>
+                    <p style="font-size:13px;color:var(--text-muted);margin-bottom:20px;">
+                        <strong>Blocklist mode</strong> (default): block specific known-bad destinations. <strong>Allowlist mode</strong>: block <em>everything</em> except explicitly approved destinations — stronger for high-security deployments.
+                    </p>
+                    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:24px;">
+                        <button class="btn" id="egressBlocklistBtn" onclick="setEgressMode('blocklist')"
+                            style="padding:12px 24px;border-radius:12px;font-weight:600;border:2px solid transparent;">
+                            🛡️ Blocklist Mode
+                        </button>
+                        <button class="btn" id="egressAllowlistBtn" onclick="setEgressMode('allowlist')"
+                            style="padding:12px 24px;border-radius:12px;font-weight:600;border:2px solid transparent;">
+                            ✅ Allowlist Mode
+                        </button>
+                    </div>
+                    <div id="egressModeInfo" style="background:rgba(0,145,207,0.06);border:1px solid rgba(0,145,207,0.15);border-radius:12px;padding:16px;font-size:13px;"></div>
+                </div>
+
+                <div class="card" id="egressAllowlistCard">
+                    <div class="card-header">
+                        <span class="card-title">Allowed Destinations</span>
+                        <span id="egressDomainsCount" class="card-count">0 domains</span>
+                    </div>
+                    <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">In allowlist mode, only these destinations are permitted. ClawEDR resolves domain names to IPs at policy load time.</p>
+
+                    <div style="margin-bottom:20px;">
+                        <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);margin-bottom:8px;">Built-in defaults (always included)</div>
+                        <div id="egressDefaultDomains" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+                    </div>
+
+                    <div style="margin-bottom:16px;border-top:1px solid var(--glass-border);padding-top:20px;">
+                        <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);margin-bottom:12px;">Your allowed domains</div>
+                        <div id="egressUserDomainsList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;"></div>
+                        <div style="display:flex;gap:8px;align-items:center;">
+                            <input type="text" id="egressDomainInput" class="form-input" placeholder="api.example.com"
+                                style="flex:1;max-width:320px;" onkeydown="if(event.key==='Enter')addEgressDomain()">
+                            <button class="btn btn-primary btn-sm btn-modal-submit" onclick="addEgressDomain()">+ Add</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Integrity Monitor Tab -->
+            <div class="tab-panel" id="tab-integrity">
+                <div class="card" style="margin-bottom:16px;">
+                    <div class="card-header">
+                        <div>
+                            <span class="card-title">Cognitive Integrity Monitor</span>
+                            <div style="font-size:12px;color:var(--text-muted);margin-top:4px;font-weight:400;">SHA-256 checksums of OpenClaw config files — detects prompt-injection-driven tampering</div>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:12px;">
+                            <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;cursor:pointer;">
+                                <input type="checkbox" id="integrityEnabled" onchange="saveIntegrityConfig()" style="width:16px;height:16px;cursor:pointer;accent-color:var(--accent);">
+                                Enabled
+                            </label>
+                            <button class="btn btn-ghost btn-sm" onclick="loadIntegrity()">↻ Refresh</button>
+                        </div>
+                    </div>
+                    <p style="font-size:13px;color:var(--text-muted);margin-bottom:20px;">
+                        If an agent is compromised via prompt injection and instructed to modify its SOUL.md or configuration, ClawEDR detects the change and alerts.
+                    </p>
+
+                    <div style="display:flex;flex-wrap:wrap;gap:24px;margin-bottom:24px;" id="integrityStatsRow"></div>
+
+                    <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end;margin-bottom:20px;padding-top:16px;border-top:1px solid var(--glass-border);">
+                        <div>
+                            <label style="font-size:12px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:6px;">Check Interval</label>
+                            <div style="display:flex;gap:8px;align-items:center;">
+                                <input type="number" id="integrityIntervalInput" class="form-input" style="width:80px;"
+                                    min="5" max="10080" placeholder="720" onchange="saveIntegrityConfig()">
+                                <span style="font-size:13px;color:var(--text-muted);">minutes</span>
+                            </div>
+                        </div>
+                        <div>
+                            <label style="font-size:12px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:6px;">Baseline</label>
+                            <div style="display:flex;gap:8px;">
+                                <div id="integrityBaselineStatus" style="font-size:13px;padding:8px 12px;border-radius:8px;"></div>
+                                <button class="btn btn-primary btn-sm btn-modal-submit" onclick="updateIntegrityBaseline()" id="integrityBaselineBtn">
+                                    Update Baseline
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h3 style="font-size:14px;font-weight:600;margin-bottom:12px;">Monitored Files</h3>
+                        <div id="integrityFilesTable"></div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">Tamper History</span>
+                        <div style="display:flex;gap:8px;">
+                            <span id="integrityFindingsCount" class="card-count">0</span>
+                            <button class="btn btn-ghost btn-sm" onclick="loadIntegrityFindings()">↻ Refresh</button>
+                        </div>
+                    </div>
+                    <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">Configuration file tamper events detected by the integrity monitor (INT-* rule IDs).</p>
+                    <div id="integrityFindingsContainer"><div class="empty-state"><p>No integrity events recorded.</p></div></div>
                 </div>
             </div>
 
@@ -2194,6 +2582,10 @@
                 if (tab.dataset.tab) {
                     document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
                     if (tab.dataset.tab === 'settings') loadSettings();
+                if (tab.dataset.tab === 'output-scanner') { loadOutputScanner(); loadOutputFindings(); }
+                if (tab.dataset.tab === 'injection') { loadInjection(); loadInjectionFindings(); }
+                if (tab.dataset.tab === 'egress') loadEgressAllowlist();
+                if (tab.dataset.tab === 'integrity') { loadIntegrity(); loadIntegrityFindings(); }
                 }
 
                 // Update page title without destroying inner HTML elements (like animations) if present
@@ -2244,12 +2636,68 @@
             const total = stats.enforce + stats.alert + stats.disabled;
             return { ...stats, total };
         }
-        function refreshStatusDropdown() {
+        function togglePolicyGroup() {
+            const group = document.getElementById('policyGroup');
+            const header = group.querySelector('.sidebar-group-header');
+            const collapsed = group.classList.toggle('collapsed');
+            header.setAttribute('aria-expanded', String(!collapsed));
+        }
+
+        async function refreshStatusDropdown() {
             const s = getRuleStats();
             document.getElementById('statusEnforcedCount').textContent = s.enforce;
             document.getElementById('statusAlertCount').textContent = s.alert;
             document.getElementById('statusDisabledCount').textContent = s.disabled;
             document.getElementById('statusTotalCount').textContent = s.total;
+
+            // Module statuses
+            function setModuleVal(id, text, ok) {
+                const el = document.getElementById(id);
+                if (!el) return;
+                el.textContent = text;
+                el.style.color = ok ? '#22c55e' : '#94a3b8';
+                el.style.fontWeight = ok ? '600' : '400';
+            }
+
+            try {
+                const [outRes, injRes, egrRes, intRes] = await Promise.allSettled([
+                    fetch('/api/output-scanner/config').then(r => r.json()),
+                    fetch('/api/injection/config').then(r => r.json()),
+                    fetch('/api/egress-allowlist').then(r => r.json()),
+                    fetch('/api/integrity').then(r => r.json()),
+                ]);
+
+                if (outRes.status === 'fulfilled') {
+                    const d = outRes.value;
+                    const on = d.enabled !== false;
+                    const cnt = d.rule_count ?? (d.patterns?.length ?? '—');
+                    setModuleVal('statusOutputVal', on ? `On · ${cnt} rules` : 'Off', on);
+                } else { setModuleVal('statusOutputVal', 'unavailable', false); }
+
+                if (injRes.status === 'fulfilled') {
+                    const d = injRes.value;
+                    const on = d.enabled !== false;
+                    const cnt = d.rule_count ?? (d.patterns?.length ?? '—');
+                    setModuleVal('statusInjectionVal', on ? `On · ${cnt} rules` : 'Off', on);
+                } else { setModuleVal('statusInjectionVal', 'unavailable', false); }
+
+                if (egrRes.status === 'fulfilled') {
+                    const d = egrRes.value;
+                    const mode = d.mode ?? 'allowlist';
+                    const cnt = d.domains?.length ?? 0;
+                    setModuleVal('statusEgressVal', `${mode} · ${cnt} domains`, true);
+                } else { setModuleVal('statusEgressVal', 'unavailable', false); }
+
+                if (intRes.status === 'fulfilled') {
+                    const d = intRes.value;
+                    const on = d.enabled !== false;
+                    const ok = d.ok_count ?? 0;
+                    const total = d.files?.length ?? '—';
+                    const files = typeof total === 'number' ? `${ok}/${total} ok` : total;
+                    setModuleVal('statusIntegrityVal', on ? `On · ${files}` : 'Off', on);
+                } else { setModuleVal('statusIntegrityVal', 'unavailable', false); }
+
+            } catch (_) { /* best-effort */ }
         }
         function toggleStatusDropdown(e) {
             if (e) e.stopPropagation();
@@ -2391,8 +2839,8 @@
 
         async function loadAlerts() {
             try {
-                const timeVal = document.getElementById('timeFilter')?.value || '';
-                const sevVal = document.getElementById('severityFilter')?.value || '';
+                const timeVal = document.getElementById('timeFilter')?.dataset.value || '';
+                const sevVal = document.getElementById('severityFilter')?.dataset.value || '';
                 let url = '/api/alerts';
                 const params = [];
                 if (timeVal) params.push('since_hours=' + encodeURIComponent(timeVal));
@@ -2419,6 +2867,32 @@
         }
 
         function applyFilters() { loadAlerts(); }
+
+        // ── Custom select helpers ──
+        function toggleCustomSelect(id) {
+            const wrap = document.getElementById(id);
+            const isOpen = wrap.classList.toggle('open');
+            if (isOpen) {
+                document.querySelectorAll('.custom-select.open').forEach(el => {
+                    if (el.id !== id) el.classList.remove('open');
+                });
+            }
+        }
+        function selectCustomOption(id, value, label, callback) {
+            const wrap = document.getElementById(id);
+            wrap.dataset.value = value;
+            wrap.querySelector('.custom-select-label').textContent = label;
+            wrap.classList.remove('open');
+            wrap.querySelectorAll('.custom-select-option').forEach(o => {
+                o.classList.toggle('selected', o.dataset.value === value);
+            });
+            if (callback) callback();
+        }
+        document.addEventListener('click', e => {
+            if (!e.target.closest('.custom-select')) {
+                document.querySelectorAll('.custom-select.open').forEach(el => el.classList.remove('open'));
+            }
+        });
 
         let activeDisplayedAlerts = [];
         let selectedAlertIdx = null;
@@ -2456,16 +2930,42 @@
             return null;
         }
 
+        const MODULE_PREFIXES = {
+            core: ['BIN-', 'DOM-', 'PATH-', 'LIN-', 'MAC-'],
+            thrt: ['THRT-'],
+            heu:  ['HEU-'],
+            out:  ['OUT-'],
+            inj:  ['INJ-'],
+            usr:  ['USR-'],
+        };
+
+        function applyModuleFilter() { renderAlerts(cachedAlerts); }
+
         function renderAlerts(alerts) {
             const c = document.getElementById('alertsContainer');
-            if (!alerts.length) { c.innerHTML = '<div class="empty-state"><div class="icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg></div><p>No recent alerts</p></div>'; return; }
-            const sorted = [...alerts].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+            // Apply module filter client-side
+            const mod = document.getElementById('moduleFilter')?.dataset.value || '';
+            let filtered = alerts;
+            if (mod && MODULE_PREFIXES[mod]) {
+                const prefixes = MODULE_PREFIXES[mod];
+                filtered = alerts.filter(a => prefixes.some(p => (a.rule_id || '').startsWith(p)));
+            }
+
+            if (!filtered.length) {
+                c.innerHTML = '<div class="empty-state"><div class="icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg></div><p>No alerts match current filters</p></div>';
+                activeDisplayedAlerts = [];
+                return;
+            }
+
+            const sorted = [...filtered].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
             activeDisplayedAlerts = sorted;
             const instanceName = getInstanceName();
             c.innerHTML = '<div class="alerts-grid">' + sorted.map((a, idx) => {
                 const sev = (a.severity || 'unknown').toLowerCase();
                 const sevClass = 'severity-' + sev;
                 const rid = JSON.stringify(a.rule_id);
+                const fp = JSON.stringify(a.fp || '');
                 const isMon = isMonitoredAlert(a);
                 const statusBadge = isMon
                     ? '<span class="badge-monitored"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg> Monitored</span>'
@@ -2481,7 +2981,10 @@
               <span class="rule-tag ${sevClass}">${esc(sev)}</span>
               ${instanceBadge}
             </div>
-            <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); exemptRule(${rid})">Exempt</button>
+            <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
+              <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); exemptRule(${rid})" title="Exempt this rule">Exempt</button>
+              <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); dismissAlert(${fp})" title="Dismiss this alert" style="padding:4px 8px;color:var(--text-muted);">✕</button>
+            </div>
           </div>
           <div class="alert-card-body">
             <div class="alert-card-details">${esc(a.details)}</div>
@@ -2489,6 +2992,42 @@
           </div>
         </div>`;
             }).join('') + '</div>';
+        }
+
+        async function dismissAlert(fp) {
+            if (!fp) return;
+            try {
+                await fetch('/api/alerts/dismiss', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + authToken },
+                    body: JSON.stringify({ fingerprint: fp }),
+                });
+                // Remove from cache and re-render without refetch
+                cachedAlerts = cachedAlerts.filter(a => a.fp !== fp);
+                document.getElementById('alertCount').textContent = cachedAlerts.length + ' alert' + (cachedAlerts.length !== 1 ? 's' : '');
+                renderAlerts(cachedAlerts);
+                if (activeDisplayedAlerts.findIndex(a => a.fp === fp) === selectedAlertIdx) {
+                    closeAlertDetails();
+                }
+            } catch (e) { showToast('Failed to dismiss alert', 'danger'); }
+        }
+
+        async function clearAllAlerts() {
+            const visible = activeDisplayedAlerts;
+            if (!visible.length) return;
+            try {
+                await Promise.all(visible.map(a => fetch('/api/alerts/dismiss', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + authToken },
+                    body: JSON.stringify({ fingerprint: a.fp }),
+                })));
+                const dismissed = new Set(visible.map(a => a.fp));
+                cachedAlerts = cachedAlerts.filter(a => !dismissed.has(a.fp));
+                document.getElementById('alertCount').textContent = cachedAlerts.length + ' alert' + (cachedAlerts.length !== 1 ? 's' : '');
+                renderAlerts(cachedAlerts);
+                closeAlertDetails();
+                showToast(`Dismissed ${visible.length} alert${visible.length !== 1 ? 's' : ''}`, 'success');
+            } catch (e) { showToast('Failed to clear alerts', 'danger'); }
         }
 
         async function loadRules() {
@@ -2810,12 +3349,20 @@
             { key: 'military',     emoji: '🎖️',   name: 'Military',     tagline: 'Maximum security'   },
         ];
 
+        let _lastRenderedProfile = null;
+
         function renderProfileSelector() {
             const wrap = document.getElementById('profileSelectorWrap');
             const badge = document.getElementById('profileCustomBadge');
             if (!wrap) return;
 
             if (badge) badge.style.display = riskProfile === 'custom' ? 'inline-flex' : 'none';
+
+            // Skip full DOM rebuild if profile hasn't changed and slider is already present
+            if (_lastRenderedProfile === riskProfile && document.getElementById('profThumb')) {
+                return;
+            }
+            _lastRenderedProfile = riskProfile;
 
             let labelsHtml = '';
             for (const pd of _profileDefs) {
@@ -3615,6 +4162,378 @@
             btn.disabled = false;
             btn.textContent = 'Download & apply';
             loadSettings();
+        }
+
+        // ── Output Scanner ──────────────────────────────────────────────────────
+        let outputScannerConfig = {};
+
+        async function loadOutputScanner() {
+            try {
+                const data = await fetchJSON('/api/output-scanner/config');
+                outputScannerConfig = data;
+                document.getElementById('outputScannerEnabled').checked = !!data.enabled;
+                renderOutputCategories(data);
+                renderOutputPatterns(data.patterns || []);
+                document.getElementById('outputPatternCount').textContent = (data.patterns || []).length + ' patterns';
+            } catch (e) { /* Linux-only; silently skip on macOS */ }
+        }
+
+        function renderOutputCategories(data) {
+            const grid = document.getElementById('outputCategoriesGrid');
+            const catMap = data.category_labels || {};
+            const patterns = data.patterns || [];
+            const allCats = [...new Set(patterns.map(p => p.category))];
+            const enabled = new Set(data.categories && data.categories.length ? data.categories : allCats);
+            grid.innerHTML = allCats.map(cat => `
+                <label style="display:flex;align-items:center;gap:10px;background:rgba(0,0,0,0.03);border:1px solid var(--glass-border);border-radius:10px;padding:12px 14px;cursor:pointer;transition:background 0.15s;">
+                    <input type="checkbox" ${enabled.has(cat) ? 'checked' : ''} onchange="toggleOutputCategory('${cat}',this.checked)"
+                        style="width:15px;height:15px;cursor:pointer;accent-color:var(--accent);">
+                    <span style="font-size:13px;font-weight:500;">${catMap[cat] || cat}</span>
+                    <span style="margin-left:auto;font-size:11px;color:var(--text-muted);">${patterns.filter(p=>p.category===cat).length}</span>
+                </label>`).join('');
+        }
+
+        function renderOutputPatterns(patterns) {
+            const el = document.getElementById('outputPatternsTable');
+            if (!patterns.length) { el.innerHTML = '<div class="empty-state"><p>No patterns defined.</p></div>'; return; }
+            const catLabels = outputScannerConfig.category_labels || {};
+            el.innerHTML = `<table style="width:100%;border-collapse:collapse;">
+                <thead><tr style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">
+                    <th style="text-align:left;padding:6px 12px;font-weight:600;">Rule ID</th>
+                    <th style="text-align:left;padding:6px 12px;font-weight:600;">Category</th>
+                    <th style="text-align:left;padding:6px 12px;font-weight:600;">Pattern / Example</th>
+                </tr></thead>
+                <tbody>${patterns.map((p,i) => `<tr style="border-top:1px solid var(--glass-border);${i%2===0?'':'background:rgba(0,0,0,0.02)'}">
+                    <td style="padding:10px 12px;font-family:monospace;font-size:12px;font-weight:600;color:var(--accent);white-space:nowrap;vertical-align:top;">${p.rule_id}</td>
+                    <td style="padding:10px 12px;font-size:12px;white-space:nowrap;vertical-align:top;">${catLabels[p.category]||p.category}</td>
+                    <td style="padding:10px 12px;vertical-align:top;">
+                        <div style="font-size:13px;font-weight:500;margin-bottom:${p.example?'4px':'0'};">${p.description}</div>
+                        ${p.example ? `<code style="font-size:11px;color:var(--text-muted);background:rgba(0,0,0,0.05);border-radius:4px;padding:2px 6px;display:inline-block;max-width:100%;word-break:break-all;">${esc(p.example)}</code>` : ''}
+                    </td>
+                </tr>`).join('')}</tbody></table>`;
+        }
+
+        async function toggleOutputCategory(cat, on) {
+            const data = outputScannerConfig;
+            const allCats = [...new Set((data.patterns||[]).map(p=>p.category))];
+            let cur = new Set(data.categories && data.categories.length ? data.categories : allCats);
+            if (on) cur.add(cat); else cur.delete(cat);
+            // If all enabled, send empty (means all)
+            const cats = cur.size === allCats.length ? [] : [...cur];
+            try {
+                await fetchJSON('/api/output-scanner/config', { method:'POST', body: JSON.stringify({ categories: cats }) });
+                outputScannerConfig.categories = cats;
+                showToast('Output scanner categories updated', 'success');
+            } catch (e) { showToast('Failed to update categories', 'danger'); }
+        }
+
+        async function saveOutputScannerConfig() {
+            const enabled = document.getElementById('outputScannerEnabled').checked;
+            try {
+                await fetchJSON('/api/output-scanner/config', { method:'POST', body: JSON.stringify({ enabled }) });
+                showToast(enabled ? 'Output scanner enabled' : 'Output scanner disabled', 'success');
+            } catch (e) { showToast('Failed to save', 'danger'); }
+        }
+
+        async function loadOutputFindings() {
+            try {
+                const data = await fetchJSON('/api/output-scanner/findings');
+                const findings = data.findings || [];
+                document.getElementById('outputFindingsCount').textContent = findings.length;
+                renderFindingsTable('outputFindingsContainer', findings, 'No output scanner findings yet.');
+            } catch (e) { /* ignore */ }
+        }
+
+        // ── Injection Detection ─────────────────────────────────────────────────
+        let injectionConfig = {};
+
+        async function loadInjection() {
+            try {
+                const data = await fetchJSON('/api/injection/config');
+                injectionConfig = data;
+                document.getElementById('injectionEnabled').checked = !!data.enabled;
+                renderInjectionCategories(data);
+                renderInjectionPatterns(data.patterns || []);
+            } catch (e) { /* Linux-only */ }
+        }
+
+        function renderInjectionCategories(data) {
+            const grid = document.getElementById('injectionCategoriesGrid');
+            const patterns = data.patterns || [];
+            const catLabels = {
+                instruction_override: 'Instruction Override',
+                persona_hijack: 'Persona Hijack',
+                hidden_directive: 'Hidden Directive',
+                steganography: 'Steganography',
+                data_exfil: 'Data Exfiltration',
+            };
+            const allCats = [...new Set(patterns.map(p => p.category))];
+            const enabled = new Set(data.categories && data.categories.length ? data.categories : allCats);
+            grid.innerHTML = allCats.map(cat => `
+                <label style="display:flex;align-items:center;gap:10px;background:rgba(0,0,0,0.03);border:1px solid var(--glass-border);border-radius:10px;padding:12px 14px;cursor:pointer;">
+                    <input type="checkbox" ${enabled.has(cat)?'checked':''} onchange="toggleInjectionCategory('${cat}',this.checked)"
+                        style="width:15px;height:15px;cursor:pointer;accent-color:var(--accent);">
+                    <span style="font-size:13px;font-weight:500;">${catLabels[cat]||cat}</span>
+                    <span style="margin-left:auto;font-size:11px;color:var(--text-muted);">${patterns.filter(p=>p.category===cat).length}</span>
+                </label>`).join('');
+        }
+
+        function renderInjectionPatterns(patterns) {
+            const el = document.getElementById('injectionPatternsTable');
+            if (!patterns.length) { el.innerHTML = '<div class="empty-state"><p>No patterns defined.</p></div>'; return; }
+            const catLabels = {
+                instruction_override: 'Instruction Override',
+                persona_hijack: 'Persona Hijack',
+                hidden_directive: 'Hidden Directive',
+                steganography: 'Steganography',
+                data_exfil: 'Data Exfiltration',
+            };
+            el.innerHTML = `<table style="width:100%;border-collapse:collapse;">
+                <thead><tr style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">
+                    <th style="text-align:left;padding:6px 12px;font-weight:600;">Rule ID</th>
+                    <th style="text-align:left;padding:6px 12px;font-weight:600;">Category</th>
+                    <th style="text-align:left;padding:6px 12px;font-weight:600;">Pattern / Example</th>
+                </tr></thead>
+                <tbody>${patterns.map((p,i) => `<tr style="border-top:1px solid var(--glass-border);${i%2===0?'':'background:rgba(0,0,0,0.02)'}">
+                    <td style="padding:10px 12px;font-family:monospace;font-size:12px;font-weight:600;color:var(--accent);white-space:nowrap;vertical-align:top;">${p.rule_id}</td>
+                    <td style="padding:10px 12px;font-size:12px;white-space:nowrap;vertical-align:top;color:var(--text-muted);">${catLabels[p.category]||p.category}</td>
+                    <td style="padding:10px 12px;vertical-align:top;">
+                        <div style="font-size:13px;font-weight:500;margin-bottom:${p.example?'4px':'0'};">${p.description}</div>
+                        ${p.example ? `<code style="font-size:11px;color:var(--text-muted);background:rgba(0,0,0,0.05);border-radius:4px;padding:2px 6px;display:inline-block;max-width:100%;word-break:break-all;">${esc(p.example)}</code>` : ''}
+                    </td>
+                </tr>`).join('')}</tbody></table>`;
+        }
+
+        async function toggleInjectionCategory(cat, on) {
+            const data = injectionConfig;
+            const allCats = [...new Set((data.patterns||[]).map(p=>p.category))];
+            let cur = new Set(data.categories && data.categories.length ? data.categories : allCats);
+            if (on) cur.add(cat); else cur.delete(cat);
+            const cats = cur.size === allCats.length ? [] : [...cur];
+            try {
+                await fetchJSON('/api/injection/config', { method:'POST', body: JSON.stringify({ categories: cats }) });
+                injectionConfig.categories = cats;
+                showToast('Injection detection categories updated', 'success');
+            } catch (e) { showToast('Failed to update categories', 'danger'); }
+        }
+
+        async function saveInjectionConfig() {
+            const enabled = document.getElementById('injectionEnabled').checked;
+            try {
+                await fetchJSON('/api/injection/config', { method:'POST', body: JSON.stringify({ enabled }) });
+                showToast(enabled ? 'Injection detection enabled' : 'Injection detection disabled', 'success');
+            } catch (e) { showToast('Failed to save', 'danger'); }
+        }
+
+        async function loadInjectionFindings() {
+            try {
+                const data = await fetchJSON('/api/injection/findings');
+                const findings = data.findings || [];
+                document.getElementById('injectionFindingsCount').textContent = findings.length;
+                renderFindingsTable('injectionFindingsContainer', findings, 'No injection detections yet.');
+            } catch (e) { /* ignore */ }
+        }
+
+        // ── Egress Allowlist ────────────────────────────────────────────────────
+        let egressData = {};
+
+        async function loadEgressAllowlist() {
+            try {
+                const data = await fetchJSON('/api/egress-allowlist');
+                egressData = data;
+                updateEgressModeUI(data.egress_mode || 'blocklist');
+                renderEgressDefaultDomains(data.default_domains || []);
+                renderEgressUserDomains(data.allowed_domains || []);
+                document.getElementById('egressDomainsCount').textContent =
+                    (data.allowed_domains||[]).length + ' custom';
+            } catch (e) { /* ignore */ }
+        }
+
+        function updateEgressModeUI(mode) {
+            const bl = document.getElementById('egressBlocklistBtn');
+            const al = document.getElementById('egressAllowlistBtn');
+            const info = document.getElementById('egressModeInfo');
+            bl.style.background = mode === 'blocklist' ? 'var(--accent)' : 'transparent';
+            bl.style.color = mode === 'blocklist' ? 'white' : '';
+            bl.style.borderColor = mode === 'blocklist' ? 'var(--accent)' : 'var(--glass-border)';
+            al.style.background = mode === 'allowlist' ? 'var(--success)' : 'transparent';
+            al.style.color = mode === 'allowlist' ? 'white' : '';
+            al.style.borderColor = mode === 'allowlist' ? 'var(--success)' : 'var(--glass-border)';
+            if (mode === 'allowlist') {
+                info.innerHTML = `<strong style="color:var(--success);">✅ Allowlist mode active.</strong> All outbound connections are blocked except those in the list below. IPs are resolved at policy load time. Default OpenClaw destinations (Anthropic API, GitHub, npm, PyPI) are always permitted.`;
+            } else {
+                info.innerHTML = `<strong style="color:var(--accent);">🛡️ Blocklist mode active.</strong> All outbound connections are permitted except those explicitly listed as blocked in the Policy Rules. This is the default mode.`;
+            }
+        }
+
+        async function setEgressMode(mode) {
+            try {
+                await fetchJSON('/api/egress-allowlist/mode', { method:'POST', body: JSON.stringify({ mode }) });
+                egressData.egress_mode = mode;
+                updateEgressModeUI(mode);
+                showToast(`Switched to ${mode} mode`, 'success');
+            } catch (e) { showToast('Failed to set egress mode: ' + e.message, 'danger'); }
+        }
+
+        function renderEgressDefaultDomains(domains) {
+            document.getElementById('egressDefaultDomains').innerHTML = domains.map(d =>
+                `<span style="background:rgba(0,145,207,0.08);border:1px solid rgba(0,145,207,0.2);color:var(--accent);padding:4px 10px;border-radius:20px;font-size:12px;font-family:monospace;">${d}</span>`
+            ).join('');
+        }
+
+        function renderEgressUserDomains(domains) {
+            const el = document.getElementById('egressUserDomainsList');
+            if (!domains.length) {
+                el.innerHTML = '<div style="font-size:13px;color:var(--text-muted);padding:8px 0;">No custom domains added.</div>';
+                return;
+            }
+            el.innerHTML = domains.map(d => `
+                <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(0,0,0,0.03);border:1px solid var(--glass-border);border-radius:8px;padding:10px 14px;">
+                    <span style="font-family:monospace;font-size:13px;">${d}</span>
+                    <button class="btn btn-ghost btn-sm" onclick="removeEgressDomain('${d}')" style="color:var(--danger);padding:4px 8px;" aria-label="Remove domain ${d}">✕ Remove</button>
+                </div>`).join('');
+        }
+
+        async function addEgressDomain() {
+            const inp = document.getElementById('egressDomainInput');
+            const domain = inp.value.trim().toLowerCase();
+            if (!domain) return;
+            try {
+                const data = await fetchJSON('/api/egress-allowlist/domains/add', { method:'POST', body: JSON.stringify({ domain }) });
+                if (data.error) { showToast(data.error, 'danger'); return; }
+                inp.value = '';
+                egressData.allowed_domains = data.allowed_domains || [];
+                renderEgressUserDomains(egressData.allowed_domains);
+                document.getElementById('egressDomainsCount').textContent = egressData.allowed_domains.length + ' custom';
+                showToast('Domain added to allowlist', 'success');
+            } catch (e) { showToast('Failed to add domain', 'danger'); }
+        }
+
+        async function removeEgressDomain(domain) {
+            try {
+                const data = await fetchJSON('/api/egress-allowlist/domains/' + encodeURIComponent(domain), { method:'DELETE' });
+                egressData.allowed_domains = data.allowed_domains || [];
+                renderEgressUserDomains(egressData.allowed_domains);
+                document.getElementById('egressDomainsCount').textContent = egressData.allowed_domains.length + ' custom';
+                showToast('Domain removed', 'success');
+            } catch (e) { showToast('Failed to remove domain', 'danger'); }
+        }
+
+        // ── Integrity Monitor ───────────────────────────────────────────────────
+        let integrityData = {};
+
+        async function loadIntegrity() {
+            try {
+                const data = await fetchJSON('/api/integrity');
+                integrityData = data;
+                document.getElementById('integrityEnabled').checked = !!data.enabled;
+                document.getElementById('integrityIntervalInput').value = data.check_interval_minutes || 720;
+                renderIntegrityStats(data);
+                renderIntegrityBaseline(data);
+                renderIntegrityFiles(data.files || []);
+            } catch (e) { /* ignore */ }
+        }
+
+        function renderIntegrityStats(data) {
+            const row = document.getElementById('integrityStatsRow');
+            const stats = [
+                { label: 'OK', count: data.ok_count || 0, color: 'var(--success)' },
+                { label: 'Tampered', count: data.tampered_count || 0, color: 'var(--danger)' },
+                { label: 'Missing', count: data.missing_count || 0, color: 'var(--warning)' },
+                { label: 'Total Tracked', count: (data.files||[]).length, color: 'var(--accent)' },
+            ];
+            row.innerHTML = stats.map(s => `
+                <div style="text-align:center;background:rgba(0,0,0,0.03);border:1px solid var(--glass-border);border-radius:12px;padding:16px 24px;min-width:100px;">
+                    <div style="font-size:28px;font-weight:700;color:${s.color};">${s.count}</div>
+                    <div style="font-size:12px;color:var(--text-muted);font-weight:500;margin-top:4px;">${s.label}</div>
+                </div>`).join('');
+        }
+
+        function renderIntegrityBaseline(data) {
+            const el = document.getElementById('integrityBaselineStatus');
+            if (!data.has_baseline) {
+                el.textContent = '⚠ No baseline';
+                el.style.background = 'rgba(245,158,11,0.1)';
+                el.style.color = 'var(--warning)';
+            } else if (!data.baseline_valid) {
+                el.textContent = '🚨 HMAC invalid';
+                el.style.background = 'rgba(239,68,68,0.1)';
+                el.style.color = 'var(--danger)';
+            } else {
+                const ts = data.baseline_ts ? new Date(data.baseline_ts * 1000).toLocaleString() : 'unknown';
+                el.textContent = '✓ Valid baseline (' + ts + ')';
+                el.style.background = 'rgba(16,185,129,0.1)';
+                el.style.color = 'var(--success)';
+            }
+        }
+
+        function renderIntegrityFiles(files) {
+            const el = document.getElementById('integrityFilesTable');
+            if (!files.length) { el.innerHTML = '<div class="empty-state"><p>No files tracked.</p></div>'; return; }
+            const statusIcon = { ok:'✓', tampered:'🚨', missing:'⚠', absent:'—', untracked:'?' };
+            const statusColor = { ok:'var(--success)', tampered:'var(--danger)', missing:'var(--warning)', absent:'var(--text-muted)', untracked:'var(--warning)' };
+            el.innerHTML = `<table style="width:100%;border-collapse:collapse;">
+                <thead><tr style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">
+                    <th style="text-align:left;padding:6px 12px;font-weight:600;">Rule ID</th>
+                    <th style="text-align:left;padding:6px 12px;font-weight:600;">File</th>
+                    <th style="text-align:center;padding:6px 12px;font-weight:600;">Status</th>
+                    <th style="text-align:left;padding:6px 12px;font-weight:600;">Current Hash</th>
+                </tr></thead>
+                <tbody>${files.map((f,i)=>`<tr style="border-top:1px solid var(--glass-border);${i%2===0?'':'background:rgba(0,0,0,0.02)'}">
+                    <td style="padding:8px 12px;font-family:monospace;font-size:12px;font-weight:600;color:var(--accent);">${f.rule_id}</td>
+                    <td style="padding:8px 12px;font-family:monospace;font-size:12px;color:var(--text-muted);">${f.path}</td>
+                    <td style="padding:8px 12px;text-align:center;font-size:18px;" title="${f.status}"><span style="color:${statusColor[f.status]||'inherit'}" aria-label="${f.status}">${statusIcon[f.status]||'?'}</span></td>
+                    <td style="padding:8px 12px;font-family:monospace;font-size:11px;color:var(--text-muted);">${f.current_hash ? f.current_hash.slice(0,16)+'…' : f.exists ? 'computing…' : '(absent)'}</td>
+                </tr>`).join('')}</tbody></table>`;
+        }
+
+        async function updateIntegrityBaseline() {
+            const btn = document.getElementById('integrityBaselineBtn');
+            btn.disabled = true; btn.textContent = 'Updating…';
+            try {
+                const data = await fetchJSON('/api/integrity/baseline', { method:'POST' });
+                if (data.error) { showToast(data.error, 'danger'); }
+                else { showToast(data.message || 'Baseline updated', 'success'); loadIntegrity(); }
+            } catch (e) { showToast('Failed to update baseline', 'danger'); }
+            btn.disabled = false; btn.textContent = 'Update Baseline';
+        }
+
+        async function saveIntegrityConfig() {
+            const enabled = document.getElementById('integrityEnabled').checked;
+            const interval = parseInt(document.getElementById('integrityIntervalInput').value) || 720;
+            try {
+                await fetchJSON('/api/integrity/config', { method:'POST', body: JSON.stringify({ enabled, check_interval_minutes: interval }) });
+                showToast('Integrity settings saved', 'success');
+            } catch (e) { showToast('Failed to save', 'danger'); }
+        }
+
+        async function loadIntegrityFindings() {
+            try {
+                const data = await fetchJSON('/api/integrity/findings');
+                const findings = data.findings || [];
+                document.getElementById('integrityFindingsCount').textContent = findings.length;
+                renderFindingsTable('integrityFindingsContainer', findings, 'No integrity events recorded.');
+            } catch (e) { /* ignore */ }
+        }
+
+        // ── Shared findings renderer ────────────────────────────────────────────
+        function renderFindingsTable(containerId, findings, emptyMsg) {
+            const el = document.getElementById(containerId);
+            if (!findings.length) {
+                el.innerHTML = `<div class="empty-state"><p>${emptyMsg}</p></div>`;
+                return;
+            }
+            el.innerHTML = `<table style="width:100%;border-collapse:collapse;">
+                <thead><tr style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">
+                    <th style="text-align:left;padding:6px 12px;font-weight:600;">Time</th>
+                    <th style="text-align:left;padding:6px 12px;font-weight:600;">Rule</th>
+                    <th style="text-align:left;padding:6px 12px;font-weight:600;">Details</th>
+                </tr></thead>
+                <tbody>${findings.slice(0,50).map((f,i)=>`<tr style="border-top:1px solid var(--glass-border);${i%2===0?'':'background:rgba(0,0,0,0.02)'}">
+                    <td style="padding:8px 12px;font-size:12px;color:var(--text-muted);white-space:nowrap;">${f.timestamp||'—'}</td>
+                    <td style="padding:8px 12px;font-family:monospace;font-size:12px;font-weight:600;color:var(--accent);">${f.rule_id||'—'}</td>
+                    <td style="padding:8px 12px;font-size:13px;">${f.details||f.description||'—'}</td>
+                </tr>`).join('')}</tbody></table>`;
         }
 
         function initDashboard() {
