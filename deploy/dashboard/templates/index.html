@@ -1964,8 +1964,8 @@
                             <span>Total active</span>
                             <span class="count" id="statusTotalCount">—</span>
                         </div>
-                        <div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(0,0,0,0.08);">
-                            <div class="status-dropdown-title" style="margin-bottom:6px;">Protection Modules</div>
+                        <div style="margin-top:4px;">
+                            <div class="status-dropdown-title" style="margin-bottom:6px;margin-top:4px;">Protection Modules</div>
                             <div class="status-dropdown-row" id="statusModuleOutput">
                                 <span>🔍 Output Scanner</span>
                                 <span class="count" id="statusOutputVal">—</span>
@@ -2589,14 +2589,14 @@
                 if (outRes.status === 'fulfilled') {
                     const d = outRes.value;
                     const on = d.enabled !== false;
-                    const cnt = d.rule_count ?? (d.rules?.length ?? '—');
+                    const cnt = d.rule_count ?? (d.patterns?.length ?? '—');
                     setModuleVal('statusOutputVal', on ? `On · ${cnt} rules` : 'Off', on);
                 } else { setModuleVal('statusOutputVal', 'unavailable', false); }
 
                 if (injRes.status === 'fulfilled') {
                     const d = injRes.value;
                     const on = d.enabled !== false;
-                    const cnt = d.rule_count ?? (d.rules?.length ?? '—');
+                    const cnt = d.rule_count ?? (d.patterns?.length ?? '—');
                     setModuleVal('statusInjectionVal', on ? `On · ${cnt} rules` : 'Off', on);
                 } else { setModuleVal('statusInjectionVal', 'unavailable', false); }
 
