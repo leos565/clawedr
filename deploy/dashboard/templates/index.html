@@ -4626,15 +4626,24 @@
                 const banner = document.getElementById('newApiKeyBanner');
                 if (banner) {
                     banner.style.display = 'block';
+                    // Store key on banner element to avoid inline-onclick quoting issues
+                    banner._generatedKey = d.key;
                     banner.innerHTML = `<div style="background:rgba(22,163,74,0.08);border:1px solid rgba(22,163,74,0.2);border-radius:10px;padding:14px;">
                         <div style="font-size:12px;font-weight:700;color:#16a34a;margin-bottom:8px;">New API key generated — copy it now, it won't be shown again</div>
-                        <div class="api-key-display" style="user-select:all;">${esc(d.key)}</div>
-                        <button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="navigator.clipboard.writeText(${JSON.stringify(d.key)}).then(()=>showToast('Copied','success'))">Copy</button>
+                        <div class="api-key-display" style="user-select:all;" id="newApiKeyText">${esc(d.key)}</div>
+                        <button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="copyNewApiKey()">Copy</button>
                     </div>`;
                 }
                 loadAlertForwarding();
                 showToast('New API key generated', 'success');
             } catch (e) { showToast('Failed to generate key', 'danger'); }
+        }
+
+        function copyNewApiKey() {
+            const banner = document.getElementById('newApiKeyBanner');
+            const key = banner?._generatedKey || document.getElementById('newApiKeyText')?.textContent || '';
+            if (!key) return;
+            navigator.clipboard.writeText(key).then(() => showToast('Copied', 'success')).catch(() => showToast('Copy failed', 'danger'));
         }
 
         async function revokeApiKey() {
