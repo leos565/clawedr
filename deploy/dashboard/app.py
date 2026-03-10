@@ -136,6 +136,28 @@ POLICY_PATH = os.environ.get(
 if not os.path.exists(POLICY_PATH):
     POLICY_PATH = os.path.join(os.path.dirname(__file__), "..", "compiled_policy.json")
 
+DISMISSED_ALERTS_PATH = Path(os.path.expanduser("~/.clawedr/dismissed_alerts.json"))
+
+
+def _alert_fp(a: dict) -> str:
+    """Stable fingerprint for a single alert (used for dismiss tracking)."""
+    return f"{a.get('timestamp','')}|{a.get('rule_id','')}|{a.get('details','')[:120]}"
+
+
+def _load_dismissed() -> set:
+    try:
+        if DISMISSED_ALERTS_PATH.exists():
+            return set(json.loads(DISMISSED_ALERTS_PATH.read_text()))
+    except Exception:
+        pass
+    return set()
+
+
+def _save_dismissed(dismissed: set) -> None:
+    DISMISSED_ALERTS_PATH.parent.mkdir(parents=True, exist_ok=True)
+    DISMISSED_ALERTS_PATH.write_text(json.dumps(sorted(dismissed), indent=2))
+
+
 BLOCK_LOG_PATHS = [
     "/var/log/clawedr.log",
     os.path.expanduser("~/Library/Logs/clawedr.log"),
@@ -255,6 +277,8 @@ async def get_alerts(
     import datetime
 
     alerts = _parse_log_lines()
+    dismissed = _load_dismissed()
+    alerts = [a for a in alerts if _alert_fp(a) not in dismissed]
     metadata = _load_rule_metadata()
 
     # Enrich with description and severity
@@ -294,7 +318,34 @@ async def get_alerts(
             except Exception:
                 pass
 
+    # Attach fingerprint so the UI can dismiss individual alerts
+    for a in alerts:
+        a["fp"] = _alert_fp(a)
+
     return JSONResponse({"alerts": alerts, "count": len(alerts)})
+
+
+@app.post("/api/alerts/dismiss")
+async def dismiss_alert(request: Request):
+    """Mark a single alert as dismissed (hidden from future /api/alerts responses)."""
+    try:
+        body = await request.json()
+        fp = body.get("fingerprint", "")
+        if not fp:
+            return JSONResponse({"error": "missing fingerprint"}, status_code=400)
+        dismissed = _load_dismissed()
+        dismissed.add(fp)
+        _save_dismissed(dismissed)
+        return JSONResponse({"status": "ok", "dismissed": len(dismissed)})
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+
+
+@app.delete("/api/alerts/dismissed")
+async def clear_dismissed():
+    """Clear all dismissed alerts so they reappear."""
+    _save_dismissed(set())
+    return JSONResponse({"status": "ok"})
 
 
 @app.get("/api/rules")

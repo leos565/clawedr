@@ -2028,6 +2028,21 @@
                                 <option value="info">Info</option>
                             </select>
                         </div>
+                        <div class="filter-group">
+                            <span class="filter-label">Module</span>
+                            <select class="filter-select" id="moduleFilter" onchange="applyModuleFilter()">
+                                <option value="">All modules</option>
+                                <option value="core">Policy Rules</option>
+                                <option value="thrt">Threat Feed</option>
+                                <option value="heu">Heuristics</option>
+                                <option value="out">Output Scanner</option>
+                                <option value="inj">Prompt Injection</option>
+                                <option value="usr">Custom Rules</option>
+                            </select>
+                        </div>
+                        <div class="filter-group" style="margin-left:auto;">
+                            <button class="btn btn-ghost btn-sm" onclick="clearAllAlerts()" style="color:var(--text-muted);font-size:12px;" title="Dismiss all currently visible alerts">Clear all</button>
+                        </div>
                     </div>
                     <div class="alerts-layout">
                         <div class="alerts-main" id="alertsContainer">
@@ -2806,16 +2821,42 @@
             return null;
         }
 
+        const MODULE_PREFIXES = {
+            core: ['BIN-', 'DOM-', 'PATH-', 'LIN-', 'MAC-'],
+            thrt: ['THRT-'],
+            heu:  ['HEU-'],
+            out:  ['OUT-'],
+            inj:  ['INJ-'],
+            usr:  ['USR-'],
+        };
+
+        function applyModuleFilter() { renderAlerts(cachedAlerts); }
+
         function renderAlerts(alerts) {
             const c = document.getElementById('alertsContainer');
-            if (!alerts.length) { c.innerHTML = '<div class="empty-state"><div class="icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg></div><p>No recent alerts</p></div>'; return; }
-            const sorted = [...alerts].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+            // Apply module filter client-side
+            const mod = document.getElementById('moduleFilter')?.value || '';
+            let filtered = alerts;
+            if (mod && MODULE_PREFIXES[mod]) {
+                const prefixes = MODULE_PREFIXES[mod];
+                filtered = alerts.filter(a => prefixes.some(p => (a.rule_id || '').startsWith(p)));
+            }
+
+            if (!filtered.length) {
+                c.innerHTML = '<div class="empty-state"><div class="icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg></div><p>No alerts match current filters</p></div>';
+                activeDisplayedAlerts = [];
+                return;
+            }
+
+            const sorted = [...filtered].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
             activeDisplayedAlerts = sorted;
             const instanceName = getInstanceName();
             c.innerHTML = '<div class="alerts-grid">' + sorted.map((a, idx) => {
                 const sev = (a.severity || 'unknown').toLowerCase();
                 const sevClass = 'severity-' + sev;
                 const rid = JSON.stringify(a.rule_id);
+                const fp = JSON.stringify(a.fp || '');
                 const isMon = isMonitoredAlert(a);
                 const statusBadge = isMon
                     ? '<span class="badge-monitored"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg> Monitored</span>'
@@ -2831,7 +2872,10 @@
               <span class="rule-tag ${sevClass}">${esc(sev)}</span>
               ${instanceBadge}
             </div>
-            <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); exemptRule(${rid})">Exempt</button>
+            <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
+              <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); exemptRule(${rid})" title="Exempt this rule">Exempt</button>
+              <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); dismissAlert(${fp})" title="Dismiss this alert" style="padding:4px 8px;color:var(--text-muted);">✕</button>
+            </div>
           </div>
           <div class="alert-card-body">
             <div class="alert-card-details">${esc(a.details)}</div>
@@ -2839,6 +2883,42 @@
           </div>
         </div>`;
             }).join('') + '</div>';
+        }
+
+        async function dismissAlert(fp) {
+            if (!fp) return;
+            try {
+                await fetch('/api/alerts/dismiss', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + authToken },
+                    body: JSON.stringify({ fingerprint: fp }),
+                });
+                // Remove from cache and re-render without refetch
+                cachedAlerts = cachedAlerts.filter(a => a.fp !== fp);
+                document.getElementById('alertCount').textContent = cachedAlerts.length + ' alert' + (cachedAlerts.length !== 1 ? 's' : '');
+                renderAlerts(cachedAlerts);
+                if (activeDisplayedAlerts.findIndex(a => a.fp === fp) === selectedAlertIdx) {
+                    closeAlertDetails();
+                }
+            } catch (e) { showToast('Failed to dismiss alert', 'danger'); }
+        }
+
+        async function clearAllAlerts() {
+            const visible = activeDisplayedAlerts;
+            if (!visible.length) return;
+            try {
+                await Promise.all(visible.map(a => fetch('/api/alerts/dismiss', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + authToken },
+                    body: JSON.stringify({ fingerprint: a.fp }),
+                })));
+                const dismissed = new Set(visible.map(a => a.fp));
+                cachedAlerts = cachedAlerts.filter(a => !dismissed.has(a.fp));
+                document.getElementById('alertCount').textContent = cachedAlerts.length + ' alert' + (cachedAlerts.length !== 1 ? 's' : '');
+                renderAlerts(cachedAlerts);
+                closeAlertDetails();
+                showToast(`Dismissed ${visible.length} alert${visible.length !== 1 ? 's' : ''}`, 'success');
+            } catch (e) { showToast('Failed to clear alerts', 'danger'); }
         }
 
         async function loadRules() {
@@ -3160,12 +3240,20 @@
             { key: 'military',     emoji: '🎖️',   name: 'Military',     tagline: 'Maximum security'   },
         ];
 
+        let _lastRenderedProfile = null;
+
         function renderProfileSelector() {
             const wrap = document.getElementById('profileSelectorWrap');
             const badge = document.getElementById('profileCustomBadge');
             if (!wrap) return;
 
             if (badge) badge.style.display = riskProfile === 'custom' ? 'inline-flex' : 'none';
+
+            // Skip full DOM rebuild if profile hasn't changed and slider is already present
+            if (_lastRenderedProfile === riskProfile && document.getElementById('profThumb')) {
+                return;
+            }
+            _lastRenderedProfile = riskProfile;
 
             let labelsHtml = '';
             for (const pd of _profileDefs) {
