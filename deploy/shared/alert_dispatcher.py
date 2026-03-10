@@ -129,6 +129,28 @@ def _get_active_session() -> tuple[dict | None, bool]:
     return None, False
 
 
+def _write_audit_entry(
+    rule_id: str,
+    action: str,
+    target: str,
+    pid: int | None,
+    comm: str | None,
+) -> None:
+    """Write one entry to the HMAC-chained audit log (best-effort, never raises)."""
+    try:
+        from shared.audit_log import get_audit_log
+        log = get_audit_log()
+        log.append(
+            event_type=action,
+            rule_id=rule_id,
+            pid=pid or 0,
+            comm=comm or "",
+            details={"target": target},
+        )
+    except Exception as exc:
+        logger.debug("Audit log write failed: %s", exc)
+
+
 def dispatch_alert(
     rule_id: str,
     action: str,
@@ -147,6 +169,10 @@ def dispatch_alert(
 
     Returns True if the alert was dispatched, False otherwise.
     """
+    # Write to audit log unconditionally — before rate-limit gate so every
+    # event is captured regardless of openclaw delivery throttling.
+    _write_audit_entry(rule_id, action, target, pid, comm)
+
     global _last_dispatch
 
     with _lock:
