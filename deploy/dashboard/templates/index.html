@@ -4004,12 +4004,15 @@
                 <thead><tr style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">
                     <th style="text-align:left;padding:6px 12px;font-weight:600;">Rule ID</th>
                     <th style="text-align:left;padding:6px 12px;font-weight:600;">Category</th>
-                    <th style="text-align:left;padding:6px 12px;font-weight:600;">Pattern</th>
+                    <th style="text-align:left;padding:6px 12px;font-weight:600;">Pattern / Example</th>
                 </tr></thead>
                 <tbody>${patterns.map((p,i) => `<tr style="border-top:1px solid var(--glass-border);${i%2===0?'':'background:rgba(0,0,0,0.02)'}">
-                    <td style="padding:8px 12px;font-family:monospace;font-size:12px;font-weight:600;color:var(--accent);">${p.rule_id}</td>
-                    <td style="padding:8px 12px;font-size:12px;">${catLabels[p.category]||p.category}</td>
-                    <td style="padding:8px 12px;font-size:13px;">${p.description}</td>
+                    <td style="padding:10px 12px;font-family:monospace;font-size:12px;font-weight:600;color:var(--accent);white-space:nowrap;vertical-align:top;">${p.rule_id}</td>
+                    <td style="padding:10px 12px;font-size:12px;white-space:nowrap;vertical-align:top;">${catLabels[p.category]||p.category}</td>
+                    <td style="padding:10px 12px;vertical-align:top;">
+                        <div style="font-size:13px;font-weight:500;margin-bottom:${p.example?'4px':'0'};">${p.description}</div>
+                        ${p.example ? `<code style="font-size:11px;color:var(--text-muted);background:rgba(0,0,0,0.05);border-radius:4px;padding:2px 6px;display:inline-block;max-width:100%;word-break:break-all;">${esc(p.example)}</code>` : ''}
+                    </td>
                 </tr>`).join('')}</tbody></table>`;
         }
 
@@ -4081,16 +4084,26 @@
         function renderInjectionPatterns(patterns) {
             const el = document.getElementById('injectionPatternsTable');
             if (!patterns.length) { el.innerHTML = '<div class="empty-state"><p>No patterns defined.</p></div>'; return; }
+            const catLabels = {
+                instruction_override: 'Instruction Override',
+                persona_hijack: 'Persona Hijack',
+                hidden_directive: 'Hidden Directive',
+                steganography: 'Steganography',
+                data_exfil: 'Data Exfiltration',
+            };
             el.innerHTML = `<table style="width:100%;border-collapse:collapse;">
-                <thead><tr style="font-size:11px;color:var(--text-muted);text-transform:uppercase;">
+                <thead><tr style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">
                     <th style="text-align:left;padding:6px 12px;font-weight:600;">Rule ID</th>
-                    <th style="text-align:left;padding:6px 12px;font-weight:600;">Description</th>
                     <th style="text-align:left;padding:6px 12px;font-weight:600;">Category</th>
+                    <th style="text-align:left;padding:6px 12px;font-weight:600;">Pattern / Example</th>
                 </tr></thead>
                 <tbody>${patterns.map((p,i) => `<tr style="border-top:1px solid var(--glass-border);${i%2===0?'':'background:rgba(0,0,0,0.02)'}">
-                    <td style="padding:8px 12px;font-family:monospace;font-size:12px;font-weight:600;color:var(--accent);">${p.rule_id}</td>
-                    <td style="padding:8px 12px;font-size:13px;">${p.description}</td>
-                    <td style="padding:8px 12px;font-size:12px;color:var(--text-muted);">${p.category}</td>
+                    <td style="padding:10px 12px;font-family:monospace;font-size:12px;font-weight:600;color:var(--accent);white-space:nowrap;vertical-align:top;">${p.rule_id}</td>
+                    <td style="padding:10px 12px;font-size:12px;white-space:nowrap;vertical-align:top;color:var(--text-muted);">${catLabels[p.category]||p.category}</td>
+                    <td style="padding:10px 12px;vertical-align:top;">
+                        <div style="font-size:13px;font-weight:500;margin-bottom:${p.example?'4px':'0'};">${p.description}</div>
+                        ${p.example ? `<code style="font-size:11px;color:var(--text-muted);background:rgba(0,0,0,0.05);border-radius:4px;padding:2px 6px;display:inline-block;max-width:100%;word-break:break-all;">${esc(p.example)}</code>` : ''}
+                    </td>
                 </tr>`).join('')}</tbody></table>`;
         }
 
