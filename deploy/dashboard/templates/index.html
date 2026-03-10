@@ -725,17 +725,15 @@
             font-family: 'Montserrat', sans-serif;
         }
 
-        .filter-select {
-            appearance: none;
-            -webkit-appearance: none;
-            -moz-appearance: none;
-            padding: 7px 32px 7px 14px;
-            background-color: rgba(255, 255, 255, 0.92);
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%230091CF' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
-            background-repeat: no-repeat;
-            background-position: right 11px center;
-            background-size: 12px 12px;
-            backdrop-filter: blur(10px);
+        /* ── Custom Select (replaces native <select> on alert filters) ── */
+        .custom-select { position: relative; display: inline-block; }
+
+        .custom-select-trigger {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 12px 7px 14px;
+            background: rgba(255, 255, 255, 0.92);
             border: 1.5px solid rgba(0, 145, 207, 0.22);
             border-radius: 20px;
             font-family: 'Montserrat', -apple-system, sans-serif;
@@ -744,17 +742,60 @@
             color: var(--text-primary);
             cursor: pointer;
             outline: none;
-            transition: border-color 0.18s, box-shadow 0.18s, background-color 0.18s;
+            white-space: nowrap;
+            transition: border-color 0.18s, box-shadow 0.18s, background 0.18s;
         }
-
-        .filter-select:hover {
+        .custom-select-trigger:hover {
             border-color: rgba(0, 145, 207, 0.5);
-            background-color: #fff;
+            background: #fff;
         }
-
-        .filter-select:focus {
+        .custom-select.open .custom-select-trigger {
             border-color: var(--accent);
             box-shadow: 0 0 0 3px rgba(0, 145, 207, 0.15);
+        }
+        .custom-select-chevron {
+            flex-shrink: 0;
+            color: var(--accent);
+            transition: transform 0.18s ease;
+        }
+        .custom-select.open .custom-select-chevron { transform: rotate(180deg); }
+
+        .custom-select-menu {
+            position: absolute;
+            top: calc(100% + 6px);
+            left: 0;
+            min-width: 100%;
+            background: #fff;
+            border: 1px solid rgba(0, 145, 207, 0.18);
+            border-radius: 14px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+            z-index: 300;
+            overflow: hidden;
+            opacity: 0;
+            transform: translateY(-6px);
+            pointer-events: none;
+            transition: opacity 0.15s ease, transform 0.15s ease;
+        }
+        .custom-select.open .custom-select-menu {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+        .custom-select-option {
+            padding: 9px 16px;
+            font-family: 'Montserrat', -apple-system, sans-serif;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: background 0.1s;
+            white-space: nowrap;
+        }
+        .custom-select-option:hover { background: rgba(0, 145, 207, 0.07); }
+        .custom-select-option.selected {
+            color: var(--accent);
+            font-weight: 700;
+            background: rgba(0, 145, 207, 0.05);
         }
 
         .alerts-layout {
@@ -2019,36 +2060,54 @@
                     <div class="filters-bar">
                         <div class="filter-group">
                             <span class="filter-label">Time</span>
-                            <select class="filter-select" id="timeFilter" onchange="applyFilters()">
-                                <option value="">All time</option>
-                                <option value="1">Last hour</option>
-                                <option value="6">Last 6 hours</option>
-                                <option value="24" selected>Last 24 hours</option>
-                                <option value="168">Last 7 days</option>
-                            </select>
+                            <div class="custom-select" id="timeFilter" data-value="24">
+                                <button class="custom-select-trigger" onclick="toggleCustomSelect('timeFilter')">
+                                    <span class="custom-select-label">Last 24 hours</span>
+                                    <svg class="custom-select-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                                </button>
+                                <div class="custom-select-menu">
+                                    <div class="custom-select-option" data-value="" onclick="selectCustomOption('timeFilter','','All time',applyFilters)">All time</div>
+                                    <div class="custom-select-option" data-value="1" onclick="selectCustomOption('timeFilter','1','Last hour',applyFilters)">Last hour</div>
+                                    <div class="custom-select-option" data-value="6" onclick="selectCustomOption('timeFilter','6','Last 6 hours',applyFilters)">Last 6 hours</div>
+                                    <div class="custom-select-option selected" data-value="24" onclick="selectCustomOption('timeFilter','24','Last 24 hours',applyFilters)">Last 24 hours</div>
+                                    <div class="custom-select-option" data-value="168" onclick="selectCustomOption('timeFilter','168','Last 7 days',applyFilters)">Last 7 days</div>
+                                </div>
+                            </div>
                         </div>
                         <div class="filter-group">
                             <span class="filter-label">Severity</span>
-                            <select class="filter-select" id="severityFilter" onchange="applyFilters()">
-                                <option value="">All severities</option>
-                                <option value="critical">Critical</option>
-                                <option value="high">High</option>
-                                <option value="medium">Medium</option>
-                                <option value="low">Low</option>
-                                <option value="info">Info</option>
-                            </select>
+                            <div class="custom-select" id="severityFilter" data-value="">
+                                <button class="custom-select-trigger" onclick="toggleCustomSelect('severityFilter')">
+                                    <span class="custom-select-label">All severities</span>
+                                    <svg class="custom-select-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                                </button>
+                                <div class="custom-select-menu">
+                                    <div class="custom-select-option selected" data-value="" onclick="selectCustomOption('severityFilter','','All severities',applyFilters)">All severities</div>
+                                    <div class="custom-select-option" data-value="critical" onclick="selectCustomOption('severityFilter','critical','Critical',applyFilters)">Critical</div>
+                                    <div class="custom-select-option" data-value="high" onclick="selectCustomOption('severityFilter','high','High',applyFilters)">High</div>
+                                    <div class="custom-select-option" data-value="medium" onclick="selectCustomOption('severityFilter','medium','Medium',applyFilters)">Medium</div>
+                                    <div class="custom-select-option" data-value="low" onclick="selectCustomOption('severityFilter','low','Low',applyFilters)">Low</div>
+                                    <div class="custom-select-option" data-value="info" onclick="selectCustomOption('severityFilter','info','Info',applyFilters)">Info</div>
+                                </div>
+                            </div>
                         </div>
                         <div class="filter-group">
                             <span class="filter-label">Module</span>
-                            <select class="filter-select" id="moduleFilter" onchange="applyModuleFilter()">
-                                <option value="">All modules</option>
-                                <option value="core">Policy Rules</option>
-                                <option value="thrt">Threat Feed</option>
-                                <option value="heu">Heuristics</option>
-                                <option value="out">Output Scanner</option>
-                                <option value="inj">Prompt Injection</option>
-                                <option value="usr">Custom Rules</option>
-                            </select>
+                            <div class="custom-select" id="moduleFilter" data-value="">
+                                <button class="custom-select-trigger" onclick="toggleCustomSelect('moduleFilter')">
+                                    <span class="custom-select-label">All modules</span>
+                                    <svg class="custom-select-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                                </button>
+                                <div class="custom-select-menu">
+                                    <div class="custom-select-option selected" data-value="" onclick="selectCustomOption('moduleFilter','','All modules',applyModuleFilter)">All modules</div>
+                                    <div class="custom-select-option" data-value="core" onclick="selectCustomOption('moduleFilter','core','Policy Rules',applyModuleFilter)">Policy Rules</div>
+                                    <div class="custom-select-option" data-value="thrt" onclick="selectCustomOption('moduleFilter','thrt','Threat Feed',applyModuleFilter)">Threat Feed</div>
+                                    <div class="custom-select-option" data-value="heu" onclick="selectCustomOption('moduleFilter','heu','Heuristics',applyModuleFilter)">Heuristics</div>
+                                    <div class="custom-select-option" data-value="out" onclick="selectCustomOption('moduleFilter','out','Output Scanner',applyModuleFilter)">Output Scanner</div>
+                                    <div class="custom-select-option" data-value="inj" onclick="selectCustomOption('moduleFilter','inj','Prompt Injection',applyModuleFilter)">Prompt Injection</div>
+                                    <div class="custom-select-option" data-value="usr" onclick="selectCustomOption('moduleFilter','usr','Custom Rules',applyModuleFilter)">Custom Rules</div>
+                                </div>
+                            </div>
                         </div>
                         <div class="filter-group" style="margin-left:auto;">
                             <button class="btn btn-ghost btn-sm" onclick="clearAllAlerts()" style="color:var(--text-muted);font-size:12px;" title="Dismiss all currently visible alerts">Clear all</button>
@@ -2766,8 +2825,8 @@
 
         async function loadAlerts() {
             try {
-                const timeVal = document.getElementById('timeFilter')?.value || '';
-                const sevVal = document.getElementById('severityFilter')?.value || '';
+                const timeVal = document.getElementById('timeFilter')?.dataset.value || '';
+                const sevVal = document.getElementById('severityFilter')?.dataset.value || '';
                 let url = '/api/alerts';
                 const params = [];
                 if (timeVal) params.push('since_hours=' + encodeURIComponent(timeVal));
@@ -2794,6 +2853,32 @@
         }
 
         function applyFilters() { loadAlerts(); }
+
+        // ── Custom select helpers ──
+        function toggleCustomSelect(id) {
+            const wrap = document.getElementById(id);
+            const isOpen = wrap.classList.toggle('open');
+            if (isOpen) {
+                document.querySelectorAll('.custom-select.open').forEach(el => {
+                    if (el.id !== id) el.classList.remove('open');
+                });
+            }
+        }
+        function selectCustomOption(id, value, label, callback) {
+            const wrap = document.getElementById(id);
+            wrap.dataset.value = value;
+            wrap.querySelector('.custom-select-label').textContent = label;
+            wrap.classList.remove('open');
+            wrap.querySelectorAll('.custom-select-option').forEach(o => {
+                o.classList.toggle('selected', o.dataset.value === value);
+            });
+            if (callback) callback();
+        }
+        document.addEventListener('click', e => {
+            if (!e.target.closest('.custom-select')) {
+                document.querySelectorAll('.custom-select.open').forEach(el => el.classList.remove('open'));
+            }
+        });
 
         let activeDisplayedAlerts = [];
         let selectedAlertIdx = null;
@@ -2846,7 +2931,7 @@
             const c = document.getElementById('alertsContainer');
 
             // Apply module filter client-side
-            const mod = document.getElementById('moduleFilter')?.value || '';
+            const mod = document.getElementById('moduleFilter')?.dataset.value || '';
             let filtered = alerts;
             if (mod && MODULE_PREFIXES[mod]) {
                 const prefixes = MODULE_PREFIXES[mod];
