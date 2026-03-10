@@ -13,7 +13,7 @@ ClawEDR does not use versioned releases at this time. The `main` branch is the s
 
 **Please do not open a public GitHub issue for security vulnerabilities.**
 
-Report vulnerabilities privately by emailing **security@clawedr.io** (or, if that address is unavailable, by using [GitHub's private vulnerability reporting](https://docs.github.com/en/code-security/security-advisories/guidance-on-reporting-and-writing/privately-reporting-a-security-vulnerability) on this repository).
+Report vulnerabilities privately by using [GitHub's private vulnerability reporting](https://docs.github.com/en/code-security/security-advisories/guidance-on-reporting-and-writing/privately-reporting-a-security-vulnerability) on this repository.
 
 Include in your report:
 - A clear description of the vulnerability and its impact
