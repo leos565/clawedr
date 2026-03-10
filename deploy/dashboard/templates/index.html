@@ -1809,6 +1809,34 @@
                     </svg>
                     Policy Rules
                 </button>
+                <button class="sidebar-link" data-tab="output-scanner">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                        <line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/>
+                    </svg>
+                    Output Scanner
+                </button>
+                <button class="sidebar-link" data-tab="injection">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                        <line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                    </svg>
+                    Prompt Injection
+                </button>
+                <button class="sidebar-link" data-tab="egress">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/>
+                        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                    </svg>
+                    Egress Control
+                </button>
+                <button class="sidebar-link" data-tab="integrity">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="9 11 12 14 22 4"/>
+                        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                    </svg>
+                    Integrity
+                </button>
                 <button class="sidebar-link" data-tab="settings">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <circle cx="12" cy="12" r="3"></circle>
@@ -2021,6 +2049,203 @@
                 </div>
             </div>
 
+            <!-- Output Scanner Tab -->
+            <div class="tab-panel" id="tab-output-scanner">
+                <div class="card" style="margin-bottom:16px;">
+                    <div class="card-header">
+                        <div>
+                            <span class="card-title">Output Scanner</span>
+                            <div style="font-size:12px;color:var(--text-muted);margin-top:4px;font-weight:400;">Scans OpenClaw's stdout for secrets and PII before they reach you</div>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:12px;">
+                            <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;cursor:pointer;">
+                                <input type="checkbox" id="outputScannerEnabled" onchange="saveOutputScannerConfig()" style="width:16px;height:16px;cursor:pointer;accent-color:var(--accent);">
+                                Enabled
+                            </label>
+                            <button class="btn btn-ghost btn-sm" onclick="loadOutputScanner()">↻ Refresh</button>
+                        </div>
+                    </div>
+                    <div style="margin-bottom:20px;">
+                        <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">
+                            Captures writes to OpenClaw's stdout via eBPF tracepoint and scans for secrets using regex patterns.
+                            Matches are logged and dispatched as alerts. <strong>Linux only.</strong>
+                        </p>
+                        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;" id="outputCategoriesGrid"></div>
+                    </div>
+                    <div style="border-top:1px solid var(--glass-border);padding-top:20px;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                            <h3 style="font-size:14px;font-weight:600;">Pattern Library</h3>
+                            <span id="outputPatternCount" style="font-size:12px;color:var(--text-muted);"></span>
+                        </div>
+                        <div id="outputPatternsTable"></div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">Recent Findings</span>
+                        <div style="display:flex;gap:8px;">
+                            <span id="outputFindingsCount" class="card-count">0</span>
+                            <button class="btn btn-ghost btn-sm" onclick="loadOutputFindings()">↻ Refresh</button>
+                        </div>
+                    </div>
+                    <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">Secrets or PII detected in agent output (OUT-* rule IDs). Each finding is also visible in the Alerts tab.</p>
+                    <div id="outputFindingsContainer"><div class="empty-state"><p>No output scanner findings yet.</p></div></div>
+                </div>
+            </div>
+
+            <!-- Prompt Injection Tab -->
+            <div class="tab-panel" id="tab-injection">
+                <div class="card" style="margin-bottom:16px;">
+                    <div class="card-header">
+                        <div>
+                            <span class="card-title">Prompt Injection Detection</span>
+                            <div style="font-size:12px;color:var(--text-muted);margin-top:4px;font-weight:400;">Detects injection payloads in content flowing into OpenClaw from tool results</div>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:12px;">
+                            <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;cursor:pointer;">
+                                <input type="checkbox" id="injectionEnabled" onchange="saveInjectionConfig()" style="width:16px;height:16px;cursor:pointer;accent-color:var(--accent);">
+                                Enabled
+                            </label>
+                            <button class="btn btn-ghost btn-sm" onclick="loadInjection()">↻ Refresh</button>
+                        </div>
+                    </div>
+                    <div style="margin-bottom:20px;">
+                        <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">
+                            Monitors writes from child tool subprocesses (bash, curl, etc.) to their stdout. Matches are alert-only — never blocking — because false-positive risk is high for content scanning.
+                            <strong>Linux only.</strong>
+                        </p>
+                        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;" id="injectionCategoriesGrid"></div>
+                    </div>
+                    <div style="border-top:1px solid var(--glass-border);padding-top:20px;">
+                        <h3 style="font-size:14px;font-weight:600;margin-bottom:12px;">Detection Patterns</h3>
+                        <div id="injectionPatternsTable"></div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">Recent Detections</span>
+                        <div style="display:flex;gap:8px;">
+                            <span id="injectionFindingsCount" class="card-count">0</span>
+                            <button class="btn btn-ghost btn-sm" onclick="loadInjectionFindings()">↻ Refresh</button>
+                        </div>
+                    </div>
+                    <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">Injection patterns detected in tool outputs (INJ-* rule IDs).</p>
+                    <div id="injectionFindingsContainer"><div class="empty-state"><p>No injection detections yet.</p></div></div>
+                </div>
+            </div>
+
+            <!-- Egress Control Tab -->
+            <div class="tab-panel" id="tab-egress">
+                <div class="card" style="margin-bottom:16px;">
+                    <div class="card-header">
+                        <span class="card-title">Egress Mode</span>
+                        <div style="display:flex;gap:8px;">
+                            <button class="btn btn-ghost btn-sm" onclick="loadEgressAllowlist()">↻ Refresh</button>
+                        </div>
+                    </div>
+                    <p style="font-size:13px;color:var(--text-muted);margin-bottom:20px;">
+                        <strong>Blocklist mode</strong> (default): block specific known-bad destinations. <strong>Allowlist mode</strong>: block <em>everything</em> except explicitly approved destinations — stronger for high-security deployments.
+                    </p>
+                    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:24px;">
+                        <button class="btn" id="egressBlocklistBtn" onclick="setEgressMode('blocklist')"
+                            style="padding:12px 24px;border-radius:12px;font-weight:600;border:2px solid transparent;">
+                            🛡️ Blocklist Mode
+                        </button>
+                        <button class="btn" id="egressAllowlistBtn" onclick="setEgressMode('allowlist')"
+                            style="padding:12px 24px;border-radius:12px;font-weight:600;border:2px solid transparent;">
+                            ✅ Allowlist Mode
+                        </button>
+                    </div>
+                    <div id="egressModeInfo" style="background:rgba(0,145,207,0.06);border:1px solid rgba(0,145,207,0.15);border-radius:12px;padding:16px;font-size:13px;"></div>
+                </div>
+
+                <div class="card" id="egressAllowlistCard">
+                    <div class="card-header">
+                        <span class="card-title">Allowed Destinations</span>
+                        <span id="egressDomainsCount" class="card-count">0 domains</span>
+                    </div>
+                    <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">In allowlist mode, only these destinations are permitted. ClawEDR resolves domain names to IPs at policy load time.</p>
+
+                    <div style="margin-bottom:20px;">
+                        <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);margin-bottom:8px;">Built-in defaults (always included)</div>
+                        <div id="egressDefaultDomains" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+                    </div>
+
+                    <div style="margin-bottom:16px;border-top:1px solid var(--glass-border);padding-top:20px;">
+                        <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);margin-bottom:12px;">Your allowed domains</div>
+                        <div id="egressUserDomainsList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;"></div>
+                        <div style="display:flex;gap:8px;align-items:center;">
+                            <input type="text" id="egressDomainInput" class="form-input" placeholder="api.example.com"
+                                style="flex:1;max-width:320px;" onkeydown="if(event.key==='Enter')addEgressDomain()">
+                            <button class="btn btn-primary btn-sm btn-modal-submit" onclick="addEgressDomain()">+ Add</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Integrity Monitor Tab -->
+            <div class="tab-panel" id="tab-integrity">
+                <div class="card" style="margin-bottom:16px;">
+                    <div class="card-header">
+                        <div>
+                            <span class="card-title">Cognitive Integrity Monitor</span>
+                            <div style="font-size:12px;color:var(--text-muted);margin-top:4px;font-weight:400;">SHA-256 checksums of OpenClaw config files — detects prompt-injection-driven tampering</div>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:12px;">
+                            <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;cursor:pointer;">
+                                <input type="checkbox" id="integrityEnabled" onchange="saveIntegrityConfig()" style="width:16px;height:16px;cursor:pointer;accent-color:var(--accent);">
+                                Enabled
+                            </label>
+                            <button class="btn btn-ghost btn-sm" onclick="loadIntegrity()">↻ Refresh</button>
+                        </div>
+                    </div>
+                    <p style="font-size:13px;color:var(--text-muted);margin-bottom:20px;">
+                        If an agent is compromised via prompt injection and instructed to modify its SOUL.md or configuration, ClawEDR detects the change and alerts.
+                    </p>
+
+                    <div style="display:flex;flex-wrap:wrap;gap:24px;margin-bottom:24px;" id="integrityStatsRow"></div>
+
+                    <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end;margin-bottom:20px;padding-top:16px;border-top:1px solid var(--glass-border);">
+                        <div>
+                            <label style="font-size:12px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:6px;">Check Interval</label>
+                            <div style="display:flex;gap:8px;align-items:center;">
+                                <input type="number" id="integrityIntervalInput" class="form-input" style="width:80px;"
+                                    min="5" max="10080" placeholder="720" onchange="saveIntegrityConfig()">
+                                <span style="font-size:13px;color:var(--text-muted);">minutes</span>
+                            </div>
+                        </div>
+                        <div>
+                            <label style="font-size:12px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:6px;">Baseline</label>
+                            <div style="display:flex;gap:8px;">
+                                <div id="integrityBaselineStatus" style="font-size:13px;padding:8px 12px;border-radius:8px;"></div>
+                                <button class="btn btn-primary btn-sm btn-modal-submit" onclick="updateIntegrityBaseline()" id="integrityBaselineBtn">
+                                    Update Baseline
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h3 style="font-size:14px;font-weight:600;margin-bottom:12px;">Monitored Files</h3>
+                        <div id="integrityFilesTable"></div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">Tamper History</span>
+                        <div style="display:flex;gap:8px;">
+                            <span id="integrityFindingsCount" class="card-count">0</span>
+                            <button class="btn btn-ghost btn-sm" onclick="loadIntegrityFindings()">↻ Refresh</button>
+                        </div>
+                    </div>
+                    <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">Configuration file tamper events detected by the integrity monitor (INT-* rule IDs).</p>
+                    <div id="integrityFindingsContainer"><div class="empty-state"><p>No integrity events recorded.</p></div></div>
+                </div>
+            </div>
+
             <!-- Settings Tab -->
             <div class="tab-panel" id="tab-settings">
                 <div class="card">
@@ -2194,6 +2419,10 @@
                 if (tab.dataset.tab) {
                     document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
                     if (tab.dataset.tab === 'settings') loadSettings();
+                if (tab.dataset.tab === 'output-scanner') { loadOutputScanner(); loadOutputFindings(); }
+                if (tab.dataset.tab === 'injection') { loadInjection(); loadInjectionFindings(); }
+                if (tab.dataset.tab === 'egress') loadEgressAllowlist();
+                if (tab.dataset.tab === 'integrity') { loadIntegrity(); loadIntegrityFindings(); }
                 }
 
                 // Update page title without destroying inner HTML elements (like animations) if present
@@ -3615,6 +3844,365 @@
             btn.disabled = false;
             btn.textContent = 'Download & apply';
             loadSettings();
+        }
+
+        // ── Output Scanner ──────────────────────────────────────────────────────
+        let outputScannerConfig = {};
+
+        async function loadOutputScanner() {
+            try {
+                const data = await fetchJSON('/api/output-scanner/config');
+                outputScannerConfig = data;
+                document.getElementById('outputScannerEnabled').checked = !!data.enabled;
+                renderOutputCategories(data);
+                renderOutputPatterns(data.patterns || []);
+                document.getElementById('outputPatternCount').textContent = (data.patterns || []).length + ' patterns';
+            } catch (e) { /* Linux-only; silently skip on macOS */ }
+        }
+
+        function renderOutputCategories(data) {
+            const grid = document.getElementById('outputCategoriesGrid');
+            const catMap = data.category_labels || {};
+            const patterns = data.patterns || [];
+            const allCats = [...new Set(patterns.map(p => p.category))];
+            const enabled = new Set(data.categories && data.categories.length ? data.categories : allCats);
+            grid.innerHTML = allCats.map(cat => `
+                <label style="display:flex;align-items:center;gap:10px;background:rgba(0,0,0,0.03);border:1px solid var(--glass-border);border-radius:10px;padding:12px 14px;cursor:pointer;transition:background 0.15s;">
+                    <input type="checkbox" ${enabled.has(cat) ? 'checked' : ''} onchange="toggleOutputCategory('${cat}',this.checked)"
+                        style="width:15px;height:15px;cursor:pointer;accent-color:var(--accent);">
+                    <span style="font-size:13px;font-weight:500;">${catMap[cat] || cat}</span>
+                    <span style="margin-left:auto;font-size:11px;color:var(--text-muted);">${patterns.filter(p=>p.category===cat).length}</span>
+                </label>`).join('');
+        }
+
+        function renderOutputPatterns(patterns) {
+            const el = document.getElementById('outputPatternsTable');
+            if (!patterns.length) { el.innerHTML = '<div class="empty-state"><p>No patterns defined.</p></div>'; return; }
+            const catLabels = outputScannerConfig.category_labels || {};
+            el.innerHTML = `<table style="width:100%;border-collapse:collapse;">
+                <thead><tr style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">
+                    <th style="text-align:left;padding:6px 12px;font-weight:600;">Rule ID</th>
+                    <th style="text-align:left;padding:6px 12px;font-weight:600;">Category</th>
+                    <th style="text-align:left;padding:6px 12px;font-weight:600;">Pattern</th>
+                </tr></thead>
+                <tbody>${patterns.map((p,i) => `<tr style="border-top:1px solid var(--glass-border);${i%2===0?'':'background:rgba(0,0,0,0.02)'}">
+                    <td style="padding:8px 12px;font-family:monospace;font-size:12px;font-weight:600;color:var(--accent);">${p.rule_id}</td>
+                    <td style="padding:8px 12px;font-size:12px;">${catLabels[p.category]||p.category}</td>
+                    <td style="padding:8px 12px;font-size:13px;">${p.description}</td>
+                </tr>`).join('')}</tbody></table>`;
+        }
+
+        async function toggleOutputCategory(cat, on) {
+            const data = outputScannerConfig;
+            const allCats = [...new Set((data.patterns||[]).map(p=>p.category))];
+            let cur = new Set(data.categories && data.categories.length ? data.categories : allCats);
+            if (on) cur.add(cat); else cur.delete(cat);
+            // If all enabled, send empty (means all)
+            const cats = cur.size === allCats.length ? [] : [...cur];
+            try {
+                await fetchJSON('/api/output-scanner/config', { method:'POST', body: JSON.stringify({ categories: cats }) });
+                outputScannerConfig.categories = cats;
+                showToast('Output scanner categories updated', 'success');
+            } catch (e) { showToast('Failed to update categories', 'danger'); }
+        }
+
+        async function saveOutputScannerConfig() {
+            const enabled = document.getElementById('outputScannerEnabled').checked;
+            try {
+                await fetchJSON('/api/output-scanner/config', { method:'POST', body: JSON.stringify({ enabled }) });
+                showToast(enabled ? 'Output scanner enabled' : 'Output scanner disabled', 'success');
+            } catch (e) { showToast('Failed to save', 'danger'); }
+        }
+
+        async function loadOutputFindings() {
+            try {
+                const data = await fetchJSON('/api/output-scanner/findings');
+                const findings = data.findings || [];
+                document.getElementById('outputFindingsCount').textContent = findings.length;
+                renderFindingsTable('outputFindingsContainer', findings, 'No output scanner findings yet.');
+            } catch (e) { /* ignore */ }
+        }
+
+        // ── Injection Detection ─────────────────────────────────────────────────
+        let injectionConfig = {};
+
+        async function loadInjection() {
+            try {
+                const data = await fetchJSON('/api/injection/config');
+                injectionConfig = data;
+                document.getElementById('injectionEnabled').checked = !!data.enabled;
+                renderInjectionCategories(data);
+                renderInjectionPatterns(data.patterns || []);
+            } catch (e) { /* Linux-only */ }
+        }
+
+        function renderInjectionCategories(data) {
+            const grid = document.getElementById('injectionCategoriesGrid');
+            const patterns = data.patterns || [];
+            const catLabels = {
+                instruction_override: 'Instruction Override',
+                persona_hijack: 'Persona Hijack',
+                hidden_directive: 'Hidden Directive',
+                steganography: 'Steganography',
+                data_exfil: 'Data Exfiltration',
+            };
+            const allCats = [...new Set(patterns.map(p => p.category))];
+            const enabled = new Set(data.categories && data.categories.length ? data.categories : allCats);
+            grid.innerHTML = allCats.map(cat => `
+                <label style="display:flex;align-items:center;gap:10px;background:rgba(0,0,0,0.03);border:1px solid var(--glass-border);border-radius:10px;padding:12px 14px;cursor:pointer;">
+                    <input type="checkbox" ${enabled.has(cat)?'checked':''} onchange="toggleInjectionCategory('${cat}',this.checked)"
+                        style="width:15px;height:15px;cursor:pointer;accent-color:var(--accent);">
+                    <span style="font-size:13px;font-weight:500;">${catLabels[cat]||cat}</span>
+                    <span style="margin-left:auto;font-size:11px;color:var(--text-muted);">${patterns.filter(p=>p.category===cat).length}</span>
+                </label>`).join('');
+        }
+
+        function renderInjectionPatterns(patterns) {
+            const el = document.getElementById('injectionPatternsTable');
+            if (!patterns.length) { el.innerHTML = '<div class="empty-state"><p>No patterns defined.</p></div>'; return; }
+            el.innerHTML = `<table style="width:100%;border-collapse:collapse;">
+                <thead><tr style="font-size:11px;color:var(--text-muted);text-transform:uppercase;">
+                    <th style="text-align:left;padding:6px 12px;font-weight:600;">Rule ID</th>
+                    <th style="text-align:left;padding:6px 12px;font-weight:600;">Description</th>
+                    <th style="text-align:left;padding:6px 12px;font-weight:600;">Category</th>
+                </tr></thead>
+                <tbody>${patterns.map((p,i) => `<tr style="border-top:1px solid var(--glass-border);${i%2===0?'':'background:rgba(0,0,0,0.02)'}">
+                    <td style="padding:8px 12px;font-family:monospace;font-size:12px;font-weight:600;color:var(--accent);">${p.rule_id}</td>
+                    <td style="padding:8px 12px;font-size:13px;">${p.description}</td>
+                    <td style="padding:8px 12px;font-size:12px;color:var(--text-muted);">${p.category}</td>
+                </tr>`).join('')}</tbody></table>`;
+        }
+
+        async function toggleInjectionCategory(cat, on) {
+            const data = injectionConfig;
+            const allCats = [...new Set((data.patterns||[]).map(p=>p.category))];
+            let cur = new Set(data.categories && data.categories.length ? data.categories : allCats);
+            if (on) cur.add(cat); else cur.delete(cat);
+            const cats = cur.size === allCats.length ? [] : [...cur];
+            try {
+                await fetchJSON('/api/injection/config', { method:'POST', body: JSON.stringify({ categories: cats }) });
+                injectionConfig.categories = cats;
+                showToast('Injection detection categories updated', 'success');
+            } catch (e) { showToast('Failed to update categories', 'danger'); }
+        }
+
+        async function saveInjectionConfig() {
+            const enabled = document.getElementById('injectionEnabled').checked;
+            try {
+                await fetchJSON('/api/injection/config', { method:'POST', body: JSON.stringify({ enabled }) });
+                showToast(enabled ? 'Injection detection enabled' : 'Injection detection disabled', 'success');
+            } catch (e) { showToast('Failed to save', 'danger'); }
+        }
+
+        async function loadInjectionFindings() {
+            try {
+                const data = await fetchJSON('/api/injection/findings');
+                const findings = data.findings || [];
+                document.getElementById('injectionFindingsCount').textContent = findings.length;
+                renderFindingsTable('injectionFindingsContainer', findings, 'No injection detections yet.');
+            } catch (e) { /* ignore */ }
+        }
+
+        // ── Egress Allowlist ────────────────────────────────────────────────────
+        let egressData = {};
+
+        async function loadEgressAllowlist() {
+            try {
+                const data = await fetchJSON('/api/egress-allowlist');
+                egressData = data;
+                updateEgressModeUI(data.egress_mode || 'blocklist');
+                renderEgressDefaultDomains(data.default_domains || []);
+                renderEgressUserDomains(data.allowed_domains || []);
+                document.getElementById('egressDomainsCount').textContent =
+                    (data.allowed_domains||[]).length + ' custom';
+            } catch (e) { /* ignore */ }
+        }
+
+        function updateEgressModeUI(mode) {
+            const bl = document.getElementById('egressBlocklistBtn');
+            const al = document.getElementById('egressAllowlistBtn');
+            const info = document.getElementById('egressModeInfo');
+            bl.style.background = mode === 'blocklist' ? 'var(--accent)' : 'transparent';
+            bl.style.color = mode === 'blocklist' ? 'white' : '';
+            bl.style.borderColor = mode === 'blocklist' ? 'var(--accent)' : 'var(--glass-border)';
+            al.style.background = mode === 'allowlist' ? 'var(--success)' : 'transparent';
+            al.style.color = mode === 'allowlist' ? 'white' : '';
+            al.style.borderColor = mode === 'allowlist' ? 'var(--success)' : 'var(--glass-border)';
+            if (mode === 'allowlist') {
+                info.innerHTML = `<strong style="color:var(--success);">✅ Allowlist mode active.</strong> All outbound connections are blocked except those in the list below. IPs are resolved at policy load time. Default OpenClaw destinations (Anthropic API, GitHub, npm, PyPI) are always permitted.`;
+            } else {
+                info.innerHTML = `<strong style="color:var(--accent);">🛡️ Blocklist mode active.</strong> All outbound connections are permitted except those explicitly listed as blocked in the Policy Rules. This is the default mode.`;
+            }
+        }
+
+        async function setEgressMode(mode) {
+            try {
+                await fetchJSON('/api/egress-allowlist/mode', { method:'POST', body: JSON.stringify({ mode }) });
+                egressData.egress_mode = mode;
+                updateEgressModeUI(mode);
+                showToast(`Switched to ${mode} mode`, 'success');
+            } catch (e) { showToast('Failed to set egress mode: ' + e.message, 'danger'); }
+        }
+
+        function renderEgressDefaultDomains(domains) {
+            document.getElementById('egressDefaultDomains').innerHTML = domains.map(d =>
+                `<span style="background:rgba(0,145,207,0.08);border:1px solid rgba(0,145,207,0.2);color:var(--accent);padding:4px 10px;border-radius:20px;font-size:12px;font-family:monospace;">${d}</span>`
+            ).join('');
+        }
+
+        function renderEgressUserDomains(domains) {
+            const el = document.getElementById('egressUserDomainsList');
+            if (!domains.length) {
+                el.innerHTML = '<div style="font-size:13px;color:var(--text-muted);padding:8px 0;">No custom domains added.</div>';
+                return;
+            }
+            el.innerHTML = domains.map(d => `
+                <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(0,0,0,0.03);border:1px solid var(--glass-border);border-radius:8px;padding:10px 14px;">
+                    <span style="font-family:monospace;font-size:13px;">${d}</span>
+                    <button class="btn btn-ghost btn-sm" onclick="removeEgressDomain('${d}')" style="color:var(--danger);padding:4px 8px;" aria-label="Remove domain ${d}">✕ Remove</button>
+                </div>`).join('');
+        }
+
+        async function addEgressDomain() {
+            const inp = document.getElementById('egressDomainInput');
+            const domain = inp.value.trim().toLowerCase();
+            if (!domain) return;
+            try {
+                const data = await fetchJSON('/api/egress-allowlist/domains/add', { method:'POST', body: JSON.stringify({ domain }) });
+                if (data.error) { showToast(data.error, 'danger'); return; }
+                inp.value = '';
+                egressData.allowed_domains = data.allowed_domains || [];
+                renderEgressUserDomains(egressData.allowed_domains);
+                document.getElementById('egressDomainsCount').textContent = egressData.allowed_domains.length + ' custom';
+                showToast('Domain added to allowlist', 'success');
+            } catch (e) { showToast('Failed to add domain', 'danger'); }
+        }
+
+        async function removeEgressDomain(domain) {
+            try {
+                const data = await fetchJSON('/api/egress-allowlist/domains/' + encodeURIComponent(domain), { method:'DELETE' });
+                egressData.allowed_domains = data.allowed_domains || [];
+                renderEgressUserDomains(egressData.allowed_domains);
+                document.getElementById('egressDomainsCount').textContent = egressData.allowed_domains.length + ' custom';
+                showToast('Domain removed', 'success');
+            } catch (e) { showToast('Failed to remove domain', 'danger'); }
+        }
+
+        // ── Integrity Monitor ───────────────────────────────────────────────────
+        let integrityData = {};
+
+        async function loadIntegrity() {
+            try {
+                const data = await fetchJSON('/api/integrity');
+                integrityData = data;
+                document.getElementById('integrityEnabled').checked = !!data.enabled;
+                document.getElementById('integrityIntervalInput').value = data.check_interval_minutes || 720;
+                renderIntegrityStats(data);
+                renderIntegrityBaseline(data);
+                renderIntegrityFiles(data.files || []);
+            } catch (e) { /* ignore */ }
+        }
+
+        function renderIntegrityStats(data) {
+            const row = document.getElementById('integrityStatsRow');
+            const stats = [
+                { label: 'OK', count: data.ok_count || 0, color: 'var(--success)' },
+                { label: 'Tampered', count: data.tampered_count || 0, color: 'var(--danger)' },
+                { label: 'Missing', count: data.missing_count || 0, color: 'var(--warning)' },
+                { label: 'Total Tracked', count: (data.files||[]).length, color: 'var(--accent)' },
+            ];
+            row.innerHTML = stats.map(s => `
+                <div style="text-align:center;background:rgba(0,0,0,0.03);border:1px solid var(--glass-border);border-radius:12px;padding:16px 24px;min-width:100px;">
+                    <div style="font-size:28px;font-weight:700;color:${s.color};">${s.count}</div>
+                    <div style="font-size:12px;color:var(--text-muted);font-weight:500;margin-top:4px;">${s.label}</div>
+                </div>`).join('');
+        }
+
+        function renderIntegrityBaseline(data) {
+            const el = document.getElementById('integrityBaselineStatus');
+            if (!data.has_baseline) {
+                el.textContent = '⚠ No baseline';
+                el.style.background = 'rgba(245,158,11,0.1)';
+                el.style.color = 'var(--warning)';
+            } else if (!data.baseline_valid) {
+                el.textContent = '🚨 HMAC invalid';
+                el.style.background = 'rgba(239,68,68,0.1)';
+                el.style.color = 'var(--danger)';
+            } else {
+                const ts = data.baseline_ts ? new Date(data.baseline_ts * 1000).toLocaleString() : 'unknown';
+                el.textContent = '✓ Valid baseline (' + ts + ')';
+                el.style.background = 'rgba(16,185,129,0.1)';
+                el.style.color = 'var(--success)';
+            }
+        }
+
+        function renderIntegrityFiles(files) {
+            const el = document.getElementById('integrityFilesTable');
+            if (!files.length) { el.innerHTML = '<div class="empty-state"><p>No files tracked.</p></div>'; return; }
+            const statusIcon = { ok:'✓', tampered:'🚨', missing:'⚠', absent:'—', untracked:'?' };
+            const statusColor = { ok:'var(--success)', tampered:'var(--danger)', missing:'var(--warning)', absent:'var(--text-muted)', untracked:'var(--warning)' };
+            el.innerHTML = `<table style="width:100%;border-collapse:collapse;">
+                <thead><tr style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">
+                    <th style="text-align:left;padding:6px 12px;font-weight:600;">Rule ID</th>
+                    <th style="text-align:left;padding:6px 12px;font-weight:600;">File</th>
+                    <th style="text-align:center;padding:6px 12px;font-weight:600;">Status</th>
+                    <th style="text-align:left;padding:6px 12px;font-weight:600;">Current Hash</th>
+                </tr></thead>
+                <tbody>${files.map((f,i)=>`<tr style="border-top:1px solid var(--glass-border);${i%2===0?'':'background:rgba(0,0,0,0.02)'}">
+                    <td style="padding:8px 12px;font-family:monospace;font-size:12px;font-weight:600;color:var(--accent);">${f.rule_id}</td>
+                    <td style="padding:8px 12px;font-family:monospace;font-size:12px;color:var(--text-muted);">${f.path}</td>
+                    <td style="padding:8px 12px;text-align:center;font-size:18px;" title="${f.status}"><span style="color:${statusColor[f.status]||'inherit'}" aria-label="${f.status}">${statusIcon[f.status]||'?'}</span></td>
+                    <td style="padding:8px 12px;font-family:monospace;font-size:11px;color:var(--text-muted);">${f.current_hash ? f.current_hash.slice(0,16)+'…' : f.exists ? 'computing…' : '(absent)'}</td>
+                </tr>`).join('')}</tbody></table>`;
+        }
+
+        async function updateIntegrityBaseline() {
+            const btn = document.getElementById('integrityBaselineBtn');
+            btn.disabled = true; btn.textContent = 'Updating…';
+            try {
+                const data = await fetchJSON('/api/integrity/baseline', { method:'POST' });
+                if (data.error) { showToast(data.error, 'danger'); }
+                else { showToast(data.message || 'Baseline updated', 'success'); loadIntegrity(); }
+            } catch (e) { showToast('Failed to update baseline', 'danger'); }
+            btn.disabled = false; btn.textContent = 'Update Baseline';
+        }
+
+        async function saveIntegrityConfig() {
+            const enabled = document.getElementById('integrityEnabled').checked;
+            const interval = parseInt(document.getElementById('integrityIntervalInput').value) || 720;
+            try {
+                await fetchJSON('/api/integrity/config', { method:'POST', body: JSON.stringify({ enabled, check_interval_minutes: interval }) });
+                showToast('Integrity settings saved', 'success');
+            } catch (e) { showToast('Failed to save', 'danger'); }
+        }
+
+        async function loadIntegrityFindings() {
+            try {
+                const data = await fetchJSON('/api/integrity/findings');
+                const findings = data.findings || [];
+                document.getElementById('integrityFindingsCount').textContent = findings.length;
+                renderFindingsTable('integrityFindingsContainer', findings, 'No integrity events recorded.');
+            } catch (e) { /* ignore */ }
+        }
+
+        // ── Shared findings renderer ────────────────────────────────────────────
+        function renderFindingsTable(containerId, findings, emptyMsg) {
+            const el = document.getElementById(containerId);
+            if (!findings.length) {
+                el.innerHTML = `<div class="empty-state"><p>${emptyMsg}</p></div>`;
+                return;
+            }
+            el.innerHTML = `<table style="width:100%;border-collapse:collapse;">
+                <thead><tr style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">
+                    <th style="text-align:left;padding:6px 12px;font-weight:600;">Time</th>
+                    <th style="text-align:left;padding:6px 12px;font-weight:600;">Rule</th>
+                    <th style="text-align:left;padding:6px 12px;font-weight:600;">Details</th>
+                </tr></thead>
+                <tbody>${findings.slice(0,50).map((f,i)=>`<tr style="border-top:1px solid var(--glass-border);${i%2===0?'':'background:rgba(0,0,0,0.02)'}">
+                    <td style="padding:8px 12px;font-size:12px;color:var(--text-muted);white-space:nowrap;">${f.timestamp||'—'}</td>
+                    <td style="padding:8px 12px;font-family:monospace;font-size:12px;font-weight:600;color:var(--accent);">${f.rule_id||'—'}</td>
+                    <td style="padding:8px 12px;font-size:13px;">${f.details||f.description||'—'}</td>
+                </tr>`).join('')}</tbody></table>`;
         }
 
         function initDashboard() {

@@ -365,22 +365,33 @@ def save_user_rules(rules: dict[str, Any]) -> None:
 
 def load_settings() -> dict[str, Any]:
     """Load dashboard settings from settings.yaml."""
-    defaults = {
+    defaults: dict[str, Any] = {
         "auto_update_rules": True,
         "last_update_check": None,
         "dashboard_token": None,
         "dashboard_bind_addresses": [],
+        # Output Scanner
+        "output_scanner_enabled": True,
+        "output_scanner_categories": [],  # empty = all categories enabled
+        # Injection Detection
+        "injection_detection_enabled": True,
+        "injection_categories": [],  # empty = all categories enabled
+        # Egress Allowlist
+        "egress_mode": "blocklist",  # "blocklist" | "allowlist"
+        "allowed_domains": [],       # used in allowlist mode
+        # Cognitive Integrity
+        "integrity_monitor_enabled": True,
+        "integrity_check_interval": 720,  # minutes (12 hours)
     }
     if not SETTINGS_PATH.exists():
         return dict(defaults)
     try:
         data = _load_yaml(SETTINGS_PATH)
-        return {
-            "auto_update_rules": data.get("auto_update_rules", True),
-            "last_update_check": data.get("last_update_check"),
-            "dashboard_token": data.get("dashboard_token"),
-            "dashboard_bind_addresses": data.get("dashboard_bind_addresses", []),
-        }
+        result = dict(defaults)
+        for key in defaults:
+            if key in data:
+                result[key] = data[key]
+        return result
     except Exception as exc:
         logger.warning("Failed to load settings from %s: %s", SETTINGS_PATH, exc)
         return dict(defaults)

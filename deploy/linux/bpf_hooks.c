@@ -32,6 +32,7 @@
 #define MAX_HEU_SLOTS 64
 #define MAX_ARGV_PATTERNS 4
 #define ARGV_READ_LEN 32
+#define CONTENT_SCAN_LEN 384 /* max bytes captured per write() for content scanning */
 
 struct event_t {
   u32 pid;
@@ -57,6 +58,10 @@ BPF_HASH(dangerous_sinks, u64, u8, 64);
 
 BPF_HASH(pipe_sources, u32, u64, 256);
 BPF_HASH(blocked_ips, u32, u8, 1024);
+/* Egress allowlist: when egress_mode[0]=1, block all connects NOT in this map */
+BPF_HASH(allowed_ips, u32, u8, 1024);
+/* egress_mode[0]: 0=blocklist (default), 1=allowlist */
+BPF_ARRAY(egress_mode, u8, 1);
 /* Shell interpreters: only track when parent is tracked (agent-spawned shells)
  */
 BPF_HASH(parent_tracked_bins, u64, u8, 16);
@@ -90,11 +95,22 @@ BPF_HASH(heu_syscall_slots, u32, u8, 16);
 
 BPF_PERF_OUTPUT(events);
 
+/* Content scan event: write() captures from tracked pids (fd=1/2) */
+struct content_event_t {
+  u32 pid;
+  u32 ns_pid;
+  u8 content_type; /* 0=LLM output (gateway stdout), 1=tool result (child stdout) */
+  u32 data_len;    /* bytes valid in content[] */
+  char content[CONTENT_SCAN_LEN];
+};
+BPF_PERF_OUTPUT(content_events);
+
 /* Per-CPU scratch buffers to avoid BPF stack overflow (512-byte limit).
  * lsm__file_open needs path_buf (256) + event_t (~291) = 547 bytes.
  */
 BPF_PERCPU_ARRAY(scratch_path, char, MAX_FILENAME_LEN);
 BPF_PERCPU_ARRAY(scratch_evt, struct event_t, 1);
+BPF_PERCPU_ARRAY(scratch_content, struct content_event_t, 1);
 
 static __always_inline u64 simple_hash(const char *s, int len) {
   u64 h = 5381;
@@ -437,20 +453,56 @@ TRACEPOINT_PROBE(syscalls, sys_enter_statx) {
   return 0;
 }
 
-/* Helper: check blocked IP — value 1=alert, 2=enforce */
-static __always_inline int _check_blocked_ip(void *ctx, u32 pid, u32 ip) {
-  u8 *mode = blocked_ips.lookup(&ip);
-  if (!mode)
-    return 0;
-
+/* Helper: emit a network block event + optionally SIGKILL */
+static __always_inline void _emit_network_event(void *ctx, u32 pid, u32 ip, u8 action) {
   char comm[TASK_COMM_LEN];
   bpf_get_current_comm(&comm, sizeof(comm));
+  struct event_t evt = {};
+  evt.pid = pid;
+  evt.ns_pid = get_ns_pid();
+  evt.uid = bpf_get_current_uid_gid() & 0xFFFFFFFF;
+  __builtin_memcpy(&evt.comm, comm, sizeof(comm));
+  evt.blocked_ip = ip;
+  const char msg[] = "NETWORK_CONNECT";
+  __builtin_memcpy((void *)evt.filename, msg, sizeof(msg));
+  evt.action = action;
+  events.perf_submit(ctx, &evt, sizeof(evt));
+  if (action == 1)
+    bpf_send_signal(SIGKILL);
+}
+
+/* Helper: check IP against blocklist/allowlist rules.
+ * Returns 1 if the connection was handled (blocked or allowed-in-allowlist-mode),
+ * 0 to let the caller proceed with CONNECT_ATTEMPT domain check.
+ */
+static __always_inline int _check_blocked_ip(void *ctx, u32 pid, u32 ip) {
+  char comm[TASK_COMM_LEN];
+  bpf_get_current_comm(&comm, sizeof(comm));
+  /* Exempt admin tools */
   if (comm[0] == 's' && comm[1] == 'u' && comm[2] == 'd' && comm[3] == 'o' &&
       (comm[4] == '\0' || comm[4] == ' '))
     return 0;
   if (comm[0] == 's' && comm[1] == 'y' && comm[2] == 's' && comm[3] == 't' &&
       comm[4] == 'e' && comm[5] == 'm' && comm[6] == 'c' && comm[7] == 't' &&
       comm[8] == 'l' && (comm[9] == '\0' || comm[9] == ' '))
+    return 0;
+
+  /* Check egress mode: 1=allowlist, 0=blocklist (default) */
+  u32 ek = 0;
+  u8 *emode = egress_mode.lookup(&ek);
+  if (emode && *emode == 1) {
+    /* Allowlist mode: allow only IPs explicitly in allowed_ips */
+    u8 *is_allowed = allowed_ips.lookup(&ip);
+    if (is_allowed)
+      return 0; /* Allowed — continue to domain check */
+    /* Not in allowlist: block (enforce) */
+    _emit_network_event(ctx, pid, ip, 1);
+    return 1;
+  }
+
+  /* Blocklist mode (default): check blocked_ips */
+  u8 *mode = blocked_ips.lookup(&ip);
+  if (!mode)
     return 0;
 
   struct event_t evt = {};
@@ -493,18 +545,42 @@ LSM_PROBE(socket_connect, struct socket *sock, struct sockaddr *address,
   u32 ip = 0;
   bpf_probe_read_kernel(&ip, sizeof(ip), (void *)address + 4);
 
-  u8 *mode = blocked_ips.lookup(&ip);
-  if (!mode)
-    return 0;
-
   char comm[TASK_COMM_LEN];
   bpf_get_current_comm(&comm, sizeof(comm));
+  /* Exempt admin tools */
   if (comm[0] == 's' && comm[1] == 'u' && comm[2] == 'd' && comm[3] == 'o' &&
       (comm[4] == '\0' || comm[4] == ' '))
     return 0;
   if (comm[0] == 's' && comm[1] == 'y' && comm[2] == 's' && comm[3] == 't' &&
       comm[4] == 'e' && comm[5] == 'm' && comm[6] == 'c' && comm[7] == 't' &&
       comm[8] == 'l' && (comm[9] == '\0' || comm[9] == ' '))
+    return 0;
+
+  /* Check egress mode */
+  u32 ek = 0;
+  u8 *emode = egress_mode.lookup(&ek);
+  if (emode && *emode == 1) {
+    /* Allowlist mode: only permit IPs in allowed_ips */
+    u8 *is_allowed = allowed_ips.lookup(&ip);
+    if (is_allowed)
+      return 0; /* Allowed */
+    /* Block: emit event + return -EPERM */
+    struct event_t evt = {};
+    evt.pid = pid;
+    evt.ns_pid = get_ns_pid();
+    evt.uid = bpf_get_current_uid_gid() & 0xFFFFFFFF;
+    __builtin_memcpy(&evt.comm, comm, sizeof(comm));
+    evt.blocked_ip = ip;
+    const char amsg[] = "NETWORK_CONNECT";
+    __builtin_memcpy((void *)evt.filename, amsg, sizeof(amsg));
+    evt.action = 1; /* enforce (allowlist violations are always hard-blocked) */
+    events.perf_submit(sock, &evt, sizeof(evt));
+    return -1; /* -EPERM */
+  }
+
+  /* Blocklist mode (default) */
+  u8 *mode = blocked_ips.lookup(&ip);
+  if (!mode)
     return 0;
 
   struct event_t evt = {};
@@ -866,6 +942,58 @@ TRACEPOINT_PROBE(syscalls, sys_enter_symlinkat) {
   }
   return 0;
 }
+
+/* ── sys_enter_write: content scanning (output scanner + injection detection) ──
+ *
+ * Captures write() calls to fd=1 (stdout) from tracked OpenClaw processes.
+ * The content is submitted to the content_events perf buffer for Python-side
+ * pattern matching:
+ *   content_type=0 — from a gateway/protected pid (LLM output → scan for secrets)
+ *   content_type=1 — from a child tool subprocess (tool result → scan for injection)
+ *
+ * Only enabled when CLAWEDR_CONTENT_SCAN is defined (set by monitor.py when
+ * output_scanner or injection_detection is enabled in settings).
+ */
+#ifdef CLAWEDR_CONTENT_SCAN
+TRACEPOINT_PROBE(syscalls, sys_enter_write) {
+  u64 pid_tgid = bpf_get_current_pid_tgid();
+  u32 pid = pid_tgid >> 32;
+
+  u8 *is_tracked = tracked_pids.lookup(&pid);
+  if (!is_tracked)
+    return 0;
+
+  /* Only capture stdout (fd=1). stderr (fd=2) excluded to reduce noise. */
+  if (args->fd != 1)
+    return 0;
+
+  /* Use per-CPU scratch to avoid stack overflow */
+  u32 zero = 0;
+  struct content_event_t *evt = scratch_content.lookup(&zero);
+  if (!evt)
+    return 0;
+
+  __builtin_memset(evt, 0, sizeof(*evt));
+  evt->pid = pid;
+  evt->ns_pid = get_ns_pid();
+
+  /* Protected pids = gateway/node (LLM output). Others = child tool subprocesses. */
+  u8 *is_protected = protected_pids.lookup(&pid);
+  evt->content_type = is_protected ? 0 : 1;
+
+  u64 count = (u64)args->count;
+  u32 read_len = count < CONTENT_SCAN_LEN ? (u32)count : CONTENT_SCAN_LEN;
+  if (read_len == 0)
+    return 0;
+  evt->data_len = read_len;
+
+  if (bpf_probe_read_user(evt->content, CONTENT_SCAN_LEN, (void *)args->buf) < 0)
+    return 0;
+
+  content_events.perf_submit(args, evt, sizeof(*evt));
+  return 0;
+}
+#endif /* CLAWEDR_CONTENT_SCAN */
 
 /* ── exit: clean up tracked set + heuristic state ── */
 TRACEPOINT_PROBE(sched, sched_process_exit) {

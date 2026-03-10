@@ -44,6 +44,12 @@ from shared.user_rules import (  # pyre-ignore[21]
     VALID_HEURISTIC_MODES,
 )
 from shared.rule_updater import check_for_updates, download_and_apply  # pyre-ignore[21]
+from shared.output_scanner import get_output_patterns, get_injection_patterns, CATEGORY_LABELS  # pyre-ignore[21]
+from shared.integrity_monitor import (  # pyre-ignore[21]
+    get_status as get_integrity_status,
+    initialize_baseline,
+    MONITORED_FILES,
+)
 
 logger = logging.getLogger("clawedr.dashboard")
 
@@ -769,6 +775,12 @@ async def post_settings(request: Request):
         settings = load_settings()
         if "auto_update_rules" in body:
             settings["auto_update_rules"] = bool(body["auto_update_rules"])
+        if "output_scanner_enabled" in body:
+            settings["output_scanner_enabled"] = bool(body["output_scanner_enabled"])
+        if "injection_detection_enabled" in body:
+            settings["injection_detection_enabled"] = bool(body["injection_detection_enabled"])
+        if "integrity_monitor_enabled" in body:
+            settings["integrity_monitor_enabled"] = bool(body["integrity_monitor_enabled"])
         if "dashboard_bind_addresses" in body:
             addrs = body["dashboard_bind_addresses"]
             if not isinstance(addrs, list):
@@ -918,6 +930,283 @@ async def get_sessions():
             return JSONResponse({"sessions": [], "error": f"{str(exc)} - {repr(out_str[:100])}"})
     except Exception as exc:
         return JSONResponse({"sessions": [], "error": str(exc)})
+
+
+# ---------------------------------------------------------------------------
+# Output Scanner API
+# ---------------------------------------------------------------------------
+
+@app.get("/api/output-scanner/config")
+async def get_output_scanner_config():
+    """Return output scanner settings and pattern definitions."""
+    settings = load_settings()
+    return JSONResponse({
+        "enabled": settings.get("output_scanner_enabled", True),
+        "categories": settings.get("output_scanner_categories", []),
+        "patterns": get_output_patterns(),
+        "category_labels": CATEGORY_LABELS,
+    })
+
+
+@app.post("/api/output-scanner/config")
+async def update_output_scanner_config(request: Request):
+    """Update output scanner settings."""
+    try:
+        body = await request.json()
+        settings = load_settings()
+        if "enabled" in body:
+            settings["output_scanner_enabled"] = bool(body["enabled"])
+        if "categories" in body:
+            cats = body["categories"]
+            if not isinstance(cats, list):
+                return JSONResponse({"error": "categories must be a list"}, status_code=400)
+            settings["output_scanner_categories"] = [str(c) for c in cats]
+        save_settings(settings)
+        _trigger_enforcement()
+        return JSONResponse({"status": "ok", "settings": {
+            "enabled": settings["output_scanner_enabled"],
+            "categories": settings.get("output_scanner_categories", []),
+        }})
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+
+
+@app.get("/api/output-scanner/findings")
+async def get_output_scanner_findings():
+    """Return recent output scanner hits (secrets/PII found in LLM output).
+
+    Findings are stored in the monitor process's in-memory ring buffer and
+    also available via the standard /api/alerts log endpoint (rule_id starts OUT-*).
+    """
+    alerts = _parse_log_lines(2000)
+    findings = [
+        a for a in alerts
+        if a.get("rule_id", "").startswith("OUT-")
+    ]
+    return JSONResponse({"findings": findings, "count": len(findings)})
+
+
+# ---------------------------------------------------------------------------
+# Injection Detection API
+# ---------------------------------------------------------------------------
+
+@app.get("/api/injection/config")
+async def get_injection_config():
+    """Return injection detection settings and pattern definitions."""
+    settings = load_settings()
+    return JSONResponse({
+        "enabled": settings.get("injection_detection_enabled", True),
+        "categories": settings.get("injection_categories", []),
+        "patterns": get_injection_patterns(),
+    })
+
+
+@app.post("/api/injection/config")
+async def update_injection_config(request: Request):
+    """Update injection detection settings."""
+    try:
+        body = await request.json()
+        settings = load_settings()
+        if "enabled" in body:
+            settings["injection_detection_enabled"] = bool(body["enabled"])
+        if "categories" in body:
+            cats = body["categories"]
+            if not isinstance(cats, list):
+                return JSONResponse({"error": "categories must be a list"}, status_code=400)
+            settings["injection_categories"] = [str(c) for c in cats]
+        save_settings(settings)
+        _trigger_enforcement()
+        return JSONResponse({"status": "ok", "settings": {
+            "enabled": settings["injection_detection_enabled"],
+            "categories": settings.get("injection_categories", []),
+        }})
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+
+
+@app.get("/api/injection/findings")
+async def get_injection_findings():
+    """Return recent injection detection alerts (INJ-* rule IDs)."""
+    alerts = _parse_log_lines(2000)
+    findings = [
+        a for a in alerts
+        if a.get("rule_id", "").startswith("INJ-")
+    ]
+    return JSONResponse({"findings": findings, "count": len(findings)})
+
+
+# ---------------------------------------------------------------------------
+# Egress Allowlist API
+# ---------------------------------------------------------------------------
+
+_DEFAULT_ALLOWED_DOMAINS = [
+    "api.anthropic.com",
+    "api.openai.com",
+    "api.github.com",
+    "raw.githubusercontent.com",
+    "registry.npmjs.org",
+    "pypi.org",
+    "files.pythonhosted.org",
+]
+
+
+@app.get("/api/egress-allowlist")
+async def get_egress_allowlist():
+    """Return current egress mode and allowlist configuration."""
+    settings = load_settings()
+    return JSONResponse({
+        "egress_mode": settings.get("egress_mode", "blocklist"),
+        "allowed_domains": settings.get("allowed_domains", []),
+        "default_domains": _DEFAULT_ALLOWED_DOMAINS,
+    })
+
+
+@app.post("/api/egress-allowlist/mode")
+async def set_egress_mode(request: Request):
+    """Switch between blocklist and allowlist mode."""
+    try:
+        body = await request.json()
+        mode = body.get("mode", "")
+        if mode not in ("blocklist", "allowlist"):
+            return JSONResponse({"error": "mode must be 'blocklist' or 'allowlist'"}, status_code=400)
+        settings = load_settings()
+        settings["egress_mode"] = mode
+        save_settings(settings)
+        _trigger_enforcement()
+        return JSONResponse({"status": "ok", "egress_mode": mode, "message": _get_enforcement_message()})
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+
+
+@app.post("/api/egress-allowlist/domains")
+async def update_egress_domains(request: Request):
+    """Replace the user-configured allowed domains list."""
+    try:
+        body = await request.json()
+        domains = body.get("domains", [])
+        if not isinstance(domains, list):
+            return JSONResponse({"error": "domains must be a list"}, status_code=400)
+
+        import re as _re
+        _domain_re = _re.compile(
+            r"^([a-zA-Z0-9*]([a-zA-Z0-9*-]*[a-zA-Z0-9*])?\.)+[a-zA-Z]{2,}$|^([a-zA-Z0-9-]+)$"
+        )
+        cleaned: list[str] = []
+        for d in domains:
+            d = str(d).strip().lower()
+            if not d:
+                continue
+            if "://" in d:
+                return JSONResponse({"error": f"Enter a domain, not a URL: {d!r}"}, status_code=400)
+            cleaned.append(d)
+
+        settings = load_settings()
+        settings["allowed_domains"] = cleaned
+        save_settings(settings)
+        _trigger_enforcement()
+        return JSONResponse({"status": "ok", "allowed_domains": cleaned, "message": _get_enforcement_message()})
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+
+
+@app.post("/api/egress-allowlist/domains/add")
+async def add_egress_domain(request: Request):
+    """Add a single domain to the allowlist."""
+    try:
+        body = await request.json()
+        domain = str(body.get("domain", "")).strip().lower()
+        if not domain:
+            return JSONResponse({"error": "domain is required"}, status_code=400)
+        if "://" in domain:
+            return JSONResponse({"error": "Enter a domain name, not a URL"}, status_code=400)
+
+        settings = load_settings()
+        domains: list[str] = list(settings.get("allowed_domains", []))
+        if domain not in domains:
+            domains.append(domain)
+        settings["allowed_domains"] = domains
+        save_settings(settings)
+        _trigger_enforcement()
+        return JSONResponse({"status": "ok", "allowed_domains": domains, "message": _get_enforcement_message()})
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+
+
+@app.delete("/api/egress-allowlist/domains/{domain:path}")
+async def remove_egress_domain(domain: str):
+    """Remove a domain from the allowlist."""
+    settings = load_settings()
+    domains: list[str] = list(settings.get("allowed_domains", []))
+    if domain not in domains:
+        return JSONResponse({"error": f"Domain {domain!r} not in allowlist"}, status_code=404)
+    domains.remove(domain)
+    settings["allowed_domains"] = domains
+    save_settings(settings)
+    _trigger_enforcement()
+    return JSONResponse({"status": "ok", "allowed_domains": domains})
+
+
+# ---------------------------------------------------------------------------
+# Cognitive Integrity API
+# ---------------------------------------------------------------------------
+
+@app.get("/api/integrity")
+async def get_integrity():
+    """Return full integrity status: baseline metadata + per-file state."""
+    settings = load_settings()
+    status = get_integrity_status()
+    status["enabled"] = settings.get("integrity_monitor_enabled", True)
+    status["check_interval_minutes"] = settings.get("integrity_check_interval", 720)
+    return JSONResponse(status)
+
+
+@app.post("/api/integrity/baseline")
+async def update_integrity_baseline():
+    """Re-initialize the integrity baseline from current file state.
+
+    Call this after intentionally modifying an OpenClaw config file so the
+    new state becomes the trusted baseline.
+    """
+    try:
+        checksums = initialize_baseline()
+        present = sum(1 for v in checksums.values() if v is not None)
+        return JSONResponse({
+            "status": "ok",
+            "message": f"Baseline updated: {present}/{len(checksums)} files hashed",
+            "checksums": {k: (v[:16] + "..." if v else None) for k, v in checksums.items()},
+        })
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+@app.post("/api/integrity/config")
+async def update_integrity_config(request: Request):
+    """Update integrity monitor settings."""
+    try:
+        body = await request.json()
+        settings = load_settings()
+        if "enabled" in body:
+            settings["integrity_monitor_enabled"] = bool(body["enabled"])
+        if "check_interval_minutes" in body:
+            interval = int(body["check_interval_minutes"])
+            if not (5 <= interval <= 10080):
+                return JSONResponse({"error": "check_interval_minutes must be 5–10080"}, status_code=400)
+            settings["integrity_check_interval"] = interval
+        save_settings(settings)
+        return JSONResponse({"status": "ok"})
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+
+
+@app.get("/api/integrity/findings")
+async def get_integrity_findings():
+    """Return recent integrity tamper alerts (INT-* rule IDs)."""
+    alerts = _parse_log_lines(2000)
+    findings = [
+        a for a in alerts
+        if a.get("rule_id", "").startswith("INT-")
+    ]
+    return JSONResponse({"findings": findings, "count": len(findings)})
 
 
 @app.get("/", response_class=HTMLResponse)
