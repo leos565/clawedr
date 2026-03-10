@@ -152,6 +152,48 @@ HEURISTIC_DEFINITIONS: dict[str, dict] = {
 
 
 # ---------------------------------------------------------------------------
+# Process ancestry
+# ---------------------------------------------------------------------------
+
+def _get_process_ancestry(pid: int, max_depth: int = 8) -> list[dict]:
+    """Walk /proc up the parent chain. Returns list from root→leaf: [{pid, comm, ppid}]"""
+    chain = []
+    current = pid
+    seen: set[int] = set()
+    for _ in range(max_depth):
+        if current <= 1 or current in seen:
+            break
+        seen.add(current)
+        try:
+            # Read /proc/{pid}/status for Name and PPid
+            status_path = f"/proc/{current}/status"
+            name, ppid = "unknown", 1
+            with open(status_path) as f:
+                for line in f:
+                    if line.startswith("Name:"):
+                        name = line.split(":", 1)[1].strip()
+                    elif line.startswith("PPid:"):
+                        ppid = int(line.split(":", 1)[1].strip())
+            chain.append({"pid": current, "comm": name, "ppid": ppid})
+            current = ppid
+        except (FileNotFoundError, PermissionError, ValueError):
+            break
+    chain.reverse()  # root first
+    return chain
+
+
+def _format_ancestry(pid: int) -> str:
+    """Return ancestry string formatted as comm:pid/comm:pid/... (root first)."""
+    try:
+        chain = _get_process_ancestry(pid)
+        if not chain:
+            return f"unknown:{pid}"
+        return "/".join(f"{e['comm']}:{e['pid']}" for e in chain)
+    except Exception:
+        return f"unknown:{pid}"
+
+
+# ---------------------------------------------------------------------------
 # Hashing (must match simple_hash in bpf_hooks.c)
 # ---------------------------------------------------------------------------
 
@@ -351,8 +393,8 @@ def load_bpf(source_path: str):
             ip_str = _ip_int_to_str(ip_int) if ip_int else "0.0.0.0"
             rule_id = _ip_to_rule_id.get(ip_str, "IP-005")
             block_logger.warning(
-                "BLOCKED [%s] action=network-connect pid=%d comm=%s target=%s",
-                rule_id, ns_pid, comm, ip_str,
+                "BLOCKED [%s] action=network-connect pid=%d comm=%s target=%s ancestry=%s",
+                rule_id, ns_pid, comm, ip_str, _format_ancestry(ns_pid),
             )
             dispatch_alert_async(
                 rule_id=rule_id,
@@ -367,8 +409,8 @@ def load_bpf(source_path: str):
             ip_str = _ip_int_to_str(ip_int) if ip_int else "0.0.0.0"
             rule_id = _ip_to_rule_id.get(ip_str, "IP-005")
             block_logger.warning(
-                "ALERT [%s] action=network-connect pid=%d comm=%s target=%s",
-                rule_id, ns_pid, comm, ip_str,
+                "ALERT [%s] action=network-connect pid=%d comm=%s target=%s ancestry=%s",
+                rule_id, ns_pid, comm, ip_str, _format_ancestry(ns_pid),
             )
             dispatch_alert_async(
                 rule_id=rule_id,
@@ -381,8 +423,8 @@ def load_bpf(source_path: str):
             # Security rule alert-only (execve, openat, statx)
             rule_id = _find_rule_id_for_block(filename)
             block_logger.warning(
-                "ALERT [%s] pid=%d uid=%d comm=%s file=%s",
-                rule_id, ns_pid, event.uid, comm, filename,
+                "ALERT [%s] pid=%d uid=%d comm=%s file=%s ancestry=%s",
+                rule_id, ns_pid, event.uid, comm, filename, _format_ancestry(ns_pid),
             )
             dispatch_alert_async(
                 rule_id=rule_id,
@@ -400,8 +442,8 @@ def load_bpf(source_path: str):
             # Blocked by BPF (enforce) — find the matching rule ID
             rule_id = _find_rule_id_for_block(filename)
             block_logger.warning(
-                "BLOCKED [%s] pid=%d uid=%d comm=%s file=%s",
-                rule_id, ns_pid, event.uid, comm, filename,
+                "BLOCKED [%s] pid=%d uid=%d comm=%s file=%s ancestry=%s",
+                rule_id, ns_pid, event.uid, comm, filename, _format_ancestry(ns_pid),
             )
             dispatch_alert_async(
                 rule_id=rule_id,
@@ -433,8 +475,8 @@ def load_bpf(source_path: str):
             rule_id = _heu_slot_to_rule_id.get(heu_slot, f"HEU-{heu_slot:03d}")
             action_str = "heuristic_block" if event.action == 5 else "heuristic_alert"
             block_logger.warning(
-                "HEURISTIC [%s] %s pid=%d comm=%s",
-                rule_id, action_str, ns_pid, comm,
+                "HEURISTIC [%s] %s pid=%d comm=%s ancestry=%s",
+                rule_id, action_str, ns_pid, comm, _format_ancestry(ns_pid),
             )
             dispatch_alert_async(
                 rule_id=rule_id,
@@ -487,8 +529,8 @@ def load_bpf(source_path: str):
                     if len(_output_findings) > _OUTPUT_FINDINGS_CAP:
                         _output_findings.pop(0)
                     block_logger.warning(
-                        "ALERT [%s] output_scan pid=%d match=%s value=%s",
-                        m.rule_id, pid, m.description, m.matched_value,
+                        "ALERT [%s] output_scan pid=%d match=%s value=%s ancestry=%s",
+                        m.rule_id, pid, m.description, m.matched_value, _format_ancestry(pid),
                     )
                     dispatch_alert_async(
                         rule_id=m.rule_id,
@@ -514,8 +556,8 @@ def load_bpf(source_path: str):
                     if len(_injection_findings) > _INJECTION_FINDINGS_CAP:
                         _injection_findings.pop(0)
                     block_logger.warning(
-                        "ALERT [%s] injection_detected pid=%d match=%s value=%s",
-                        m.rule_id, pid, m.description, m.matched_value,
+                        "ALERT [%s] injection_detected pid=%d match=%s value=%s ancestry=%s",
+                        m.rule_id, pid, m.description, m.matched_value, _format_ancestry(pid),
                     )
                     dispatch_alert_async(
                         rule_id=m.rule_id,
@@ -591,8 +633,8 @@ def _check_malicious_hashes(host_pid: int, comm: str, exec_path: str) -> str | N
             mode = get_rule_mode(rule_id)
             log_msg = "BLOCKED" if mode == "enforce" else "ALERT"
             block_logger.warning(
-                "%s [%s] action=exec_hash hash=%s pid=%d comm=%s file=%s",
-                log_msg, rule_id, file_hash, host_pid, comm, exec_path,
+                "%s [%s] action=exec_hash hash=%s pid=%d comm=%s file=%s ancestry=%s",
+                log_msg, rule_id, file_hash, host_pid, comm, exec_path, _format_ancestry(host_pid),
             )
             dispatch_alert_async(
                 rule_id=rule_id,
@@ -638,8 +680,8 @@ def _check_connect_domain_rules(pid: int, comm: str, ip_str: str) -> str | None:
             mode = get_rule_mode(rule_id)
             log_msg = "BLOCKED" if mode == "enforce" else "ALERT"
             block_logger.warning(
-                "%s [%s] (domain=connect) pid=%d comm=%s target=%s cmdline=%s",
-                log_msg, rule_id, pid, comm, ip_str, cmdline[:150],
+                "%s [%s] (domain=connect) pid=%d comm=%s target=%s cmdline=%s ancestry=%s",
+                log_msg, rule_id, pid, comm, ip_str, cmdline[:150], _format_ancestry(pid),
             )
             dispatch_alert_async(
                 rule_id=rule_id,
@@ -710,8 +752,8 @@ def _check_deny_rules(pid: int, comm: str, filename: str) -> str | None:
             mode = get_rule_mode(rule_id)
             log_msg = "BLOCKED" if mode == "enforce" else "ALERT"
             block_logger.warning(
-                "%s [%s] (deny_rule=%s) pid=%d cmdline=%s",
-                log_msg, rule_id, rule.get("rule", "unknown"), pid, cmdline[:200],
+                "%s [%s] (deny_rule=%s) pid=%d cmdline=%s ancestry=%s",
+                log_msg, rule_id, rule.get("rule", "unknown"), pid, cmdline[:200], _format_ancestry(pid),
             )
             dispatch_alert_async(
                 rule_id=rule_id,
@@ -1625,9 +1667,10 @@ def _run_integrity_monitor() -> None:
             events = check_integrity()
             for ev in events:
                 block_logger.warning(
-                    "ALERT [%s] integrity_%s path=%s hash=%s",
+                    "ALERT [%s] integrity_%s path=%s hash=%s ancestry=%s",
                     ev["rule_id"], ev["event"], ev["path"],
                     (ev.get("current_hash") or "")[:16],
+                    _format_ancestry(os.getpid()),
                 )
                 dispatch_alert_async(
                     rule_id=ev["rule_id"],

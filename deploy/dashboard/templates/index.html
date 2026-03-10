@@ -1834,6 +1834,229 @@
         @media (prefers-reduced-motion: reduce) {
             .prof-thumb, .prof-fill { transition: none !important; }
         }
+
+        /* ── Process Ancestry Tree ── */
+        .ancestry-tree {
+            margin: 16px 0;
+            padding: 14px 16px;
+            background: linear-gradient(135deg, rgba(0,145,207,0.04) 0%, rgba(0,145,207,0.02) 100%);
+            border: 1px solid rgba(0,145,207,0.15);
+            border-radius: 10px;
+        }
+        .ancestry-tree-label {
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .ancestry-chain {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+        }
+        .ancestry-node {
+            display: flex;
+            align-items: center;
+            gap: 0;
+            position: relative;
+        }
+        .ancestry-connector {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 20px;
+            flex-shrink: 0;
+        }
+        .ancestry-connector-line {
+            width: 2px;
+            height: 14px;
+            background: rgba(0,145,207,0.25);
+        }
+        .ancestry-connector-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: rgba(0,145,207,0.35);
+            margin: 2px 0;
+        }
+        .ancestry-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 10px 5px 8px;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.8);
+            border: 1px solid rgba(0,0,0,0.07);
+            font-size: 12px;
+            font-family: 'Montserrat', 'SF Mono', monospace;
+            color: var(--text-primary);
+            font-weight: 500;
+            margin: 2px 0;
+            transition: background 0.15s ease;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+        .ancestry-pill.leaf {
+            background: linear-gradient(135deg, rgba(239,68,68,0.12) 0%, rgba(220,38,38,0.08) 100%);
+            border-color: rgba(239,68,68,0.3);
+            color: #dc2626;
+            font-weight: 700;
+            box-shadow: 0 1px 4px rgba(239,68,68,0.15);
+        }
+        .ancestry-pill.root {
+            background: linear-gradient(135deg, rgba(0,145,207,0.1) 0%, rgba(0,145,207,0.06) 100%);
+            border-color: rgba(0,145,207,0.2);
+            color: var(--claw-blue);
+        }
+        .ancestry-pill-comm {
+            font-weight: 600;
+        }
+        .ancestry-pill-pid {
+            font-size: 10px;
+            color: var(--text-muted);
+            background: rgba(0,0,0,0.05);
+            padding: 1px 5px;
+            border-radius: 4px;
+            font-weight: 400;
+        }
+        .ancestry-pill.leaf .ancestry-pill-pid {
+            background: rgba(239,68,68,0.15);
+            color: rgba(220,38,38,0.7);
+        }
+        .ancestry-pill.root .ancestry-pill-pid {
+            background: rgba(0,145,207,0.12);
+            color: rgba(0,145,207,0.7);
+        }
+        .ancestry-arrow {
+            color: rgba(0,145,207,0.4);
+            font-size: 11px;
+            margin: 1px 0;
+            padding-left: 20px;
+            line-height: 1;
+        }
+
+        /* ── Profiles Tab ── */
+        .profile-card {
+            background: rgba(255,255,255,0.7);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 10px;
+            transition: box-shadow 0.15s ease;
+        }
+        .profile-card:hover { box-shadow: var(--shadow); }
+        .profile-card-name { font-weight: 600; font-size: 14px; color: var(--text-primary); }
+        .profile-card-desc { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+        .profile-card-meta { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+        .profile-card-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+        /* ── Audit Log Table ── */
+        .audit-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        .audit-table th {
+            text-align: left; padding: 8px 10px;
+            background: rgba(0,0,0,0.04);
+            font-weight: 700; font-size: 11px;
+            text-transform: uppercase; letter-spacing: 0.04em;
+            color: var(--text-muted);
+            border-bottom: 1px solid rgba(0,0,0,0.06);
+        }
+        .audit-table td {
+            padding: 8px 10px;
+            border-bottom: 1px solid rgba(0,0,0,0.04);
+            color: var(--text-secondary);
+            vertical-align: top;
+        }
+        .audit-table tr:hover td { background: rgba(0,145,207,0.03); }
+        .audit-event-pill {
+            display: inline-block;
+            padding: 2px 7px;
+            border-radius: 6px;
+            font-size: 10px;
+            font-weight: 700;
+            background: rgba(0,145,207,0.1);
+            color: var(--claw-blue);
+        }
+        .audit-event-pill.blocked {
+            background: rgba(239,68,68,0.1);
+            color: #dc2626;
+        }
+        .audit-chain-ok {
+            display: inline-flex; align-items: center; gap: 5px;
+            font-size: 12px; font-weight: 600; color: #16a34a;
+            padding: 4px 10px; border-radius: 8px;
+            background: rgba(22,163,74,0.1);
+        }
+        .audit-chain-broken {
+            display: inline-flex; align-items: center; gap: 5px;
+            font-size: 12px; font-weight: 600; color: #dc2626;
+            padding: 4px 10px; border-radius: 8px;
+            background: rgba(220,38,38,0.1);
+        }
+
+        /* ── Alert Forwarding / API Key section ── */
+        .api-key-display {
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 12px;
+            background: rgba(0,0,0,0.06);
+            padding: 10px 14px;
+            border-radius: 8px;
+            word-break: break-all;
+            color: var(--text-primary);
+            border: 1px solid rgba(0,0,0,0.08);
+        }
+        .webhook-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            background: rgba(255,255,255,0.6);
+            border: 1px solid var(--glass-border);
+            border-radius: 10px;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+        }
+        .webhook-url {
+            flex: 1;
+            min-width: 0;
+            font-size: 12px;
+            font-family: monospace;
+            color: var(--text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .webhook-badge {
+            font-size: 10px;
+            font-weight: 700;
+            padding: 2px 7px;
+            border-radius: 6px;
+            background: rgba(0,145,207,0.1);
+            color: var(--claw-blue);
+        }
+        .webhook-badge.off {
+            background: rgba(0,0,0,0.06);
+            color: var(--text-muted);
+        }
+        .doc-code {
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 11.5px;
+            background: rgba(0,0,0,0.05);
+            padding: 14px 16px;
+            border-radius: 8px;
+            color: var(--text-primary);
+            line-height: 1.7;
+            white-space: pre-wrap;
+            word-break: break-all;
+            border: 1px solid rgba(0,0,0,0.07);
+        }
     </style>
 </head>
 
@@ -1948,11 +2171,19 @@
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
                             Integrity
                         </button>
+                        <button class="sidebar-link sidebar-child-link" data-tab="profiles" onclick="loadProfiles()">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+                            Project Profiles
+                        </button>
+                        <button class="sidebar-link sidebar-child-link" data-tab="audit-log" onclick="loadAuditLog()">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                            Audit Log
+                        </button>
                     </div>
                 </div>
 
                 <!-- Settings -->
-                <button class="sidebar-link" data-tab="settings">
+                <button class="sidebar-link" data-tab="settings" onclick="loadAlertForwarding()">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <circle cx="12" cy="12" r="3"></circle>
                         <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
@@ -2456,6 +2687,171 @@
                             <span id="lastCheckLabel" style="font-size:13px;color:var(--text-muted);align-self:center;"></span>
                         </div>
                     </div>
+
+                    <!-- Alert Forwarding -->
+                    <div class="settings-section">
+                        <h3 class="settings-section-title">Alert Forwarding — Webhooks</h3>
+                        <p style="font-size:13px;color:var(--text-muted);margin-bottom:14px;">Send alert events to external endpoints (Slack, PagerDuty, custom HTTP). Each delivery is signed with <code style="font-size:11px;background:rgba(0,0,0,0.06);padding:1px 5px;border-radius:4px;">X-ClawEDR-Signature: sha256=HMAC(secret, body)</code></p>
+                        <div id="webhookList" style="margin-bottom:12px;"></div>
+                        <details style="margin-bottom:14px;">
+                            <summary style="font-size:13px;font-weight:600;cursor:pointer;color:var(--claw-blue);">Add webhook</summary>
+                            <div style="margin-top:12px;display:flex;flex-direction:column;gap:8px;">
+                                <input type="text" id="webhookUrlInput" class="form-input" placeholder="https://hooks.slack.com/services/..." style="font-size:13px;">
+                                <input type="text" id="webhookSecretInput" class="form-input" placeholder="Signing secret (optional)" style="font-size:13px;">
+                                <div style="display:flex;align-items:center;gap:8px;">
+                                    <label style="font-size:13px;font-weight:500;">Min severity:</label>
+                                    <select class="form-select" id="webhookSevInput" style="width:130px;font-size:13px;">
+                                        <option value="info">info (all)</option>
+                                        <option value="low">low</option>
+                                        <option value="medium">medium</option>
+                                        <option value="high">high</option>
+                                        <option value="critical">critical only</option>
+                                    </select>
+                                    <button class="btn btn-primary btn-sm btn-modal-submit" onclick="addWebhook()">Add</button>
+                                </div>
+                            </div>
+                        </details>
+                    </div>
+
+                    <!-- REST API / SIEM -->
+                    <div class="settings-section">
+                        <h3 class="settings-section-title">Alert Forwarding — REST API</h3>
+                        <p style="font-size:13px;color:var(--text-muted);margin-bottom:14px;">One active API key for SIEM integration. The raw key is shown only at generation time.</p>
+                        <div id="apiKeyDisplay" style="margin-bottom:12px;font-size:13px;color:var(--text-muted);">Loading…</div>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
+                            <button class="btn btn-primary btn-sm btn-modal-submit" onclick="generateApiKey()">Generate new key</button>
+                            <button class="btn btn-ghost btn-sm" onclick="revokeApiKey()">Revoke key</button>
+                        </div>
+                        <div id="newApiKeyBanner" style="display:none;margin-bottom:14px;"></div>
+                        <details>
+                            <summary style="font-size:13px;font-weight:600;cursor:pointer;color:var(--claw-blue);">API documentation</summary>
+                            <div style="margin-top:12px;">
+                                <p style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">Base URL: <code style="font-size:11px;background:rgba(0,0,0,0.06);padding:1px 5px;border-radius:4px;">http://localhost:8477/api/v1</code></p>
+                                <p style="font-size:12px;font-weight:600;color:var(--text-secondary);margin:8px 0 4px;">Authentication</p>
+                                <div class="doc-code">Authorization: Bearer &lt;your-api-key&gt;</div>
+                                <p style="font-size:12px;font-weight:600;color:var(--text-secondary);margin:10px 0 4px;">GET /api/v1/alerts</p>
+                                <div class="doc-code">curl http://localhost:8477/api/v1/alerts \
+  -H "Authorization: Bearer &lt;key&gt;"
+
+# Optional query params:
+#   limit=100          max events returned (default 100)
+#   since_hours=24     only events from last N hours
+
+# Response:
+{
+  "api_version": "1",
+  "count": 3,
+  "alerts": [
+    {
+      "timestamp": "2026-03-10 14:23:01",
+      "rule_id": "BIN-001",
+      "severity": "high",
+      "description": "Blocked executable: nc",
+      "details": "pid=4321 comm=nc file=/usr/bin/nc",
+      "blocked": true
+    }
+  ]
+}</div>
+                                <p style="font-size:12px;color:var(--text-muted);margin-top:8px;">Intended for SIEM / SOC integration. Poll every 60 s and ingest new events by timestamp. All timestamps are local server time.</p>
+                            </div>
+                        </details>
+                    </div>
+
+                    <!-- Backup & Restore -->
+                    <div class="settings-section">
+                        <h3 class="settings-section-title">Backup & Restore</h3>
+                        <p style="font-size:13px;color:var(--text-muted);margin-bottom:14px;">Export your current settings and rules as a portable JSON backup. The dashboard token and API keys are redacted and will not be restored.</p>
+                        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
+                            <button class="btn btn-primary btn-sm btn-modal-submit" onclick="downloadSettingsBackup()">Export backup</button>
+                            <label class="btn btn-ghost btn-sm" style="cursor:pointer;">
+                                Import backup
+                                <input type="file" accept=".json" style="display:none;" onchange="importSettingsBackup(this)">
+                            </label>
+                        </div>
+                        <div id="backupStatus" style="font-size:13px;color:var(--text-muted);"></div>
+                    </div>
+
+                    <!-- Compliance Report -->
+                    <div class="settings-section">
+                        <h3 class="settings-section-title">Compliance Report</h3>
+                        <p style="font-size:13px;color:var(--text-muted);margin-bottom:14px;">Download a structured security posture report (SOC 2 Type II evidence, internal audits).</p>
+                        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                            <a class="btn btn-primary btn-sm btn-modal-submit" href="/api/compliance/report?fmt=json" download>Export JSON</a>
+                            <a class="btn btn-ghost btn-sm" href="/api/compliance/report?fmt=html" download>Export HTML</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Project Profiles Tab -->
+            <div class="tab-panel" id="tab-profiles">
+                <div class="card">
+                    <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;">
+                        <span class="card-title">Project Profiles</span>
+                        <div style="display:flex;gap:8px;">
+                            <button class="btn btn-ghost btn-sm" onclick="importProfileFile()">Import</button>
+                            <button class="btn btn-primary btn-sm btn-modal-submit" onclick="openNewProfileModal()">New profile</button>
+                        </div>
+                    </div>
+                    <p style="color:var(--text-muted);font-size:13px;margin-bottom:20px;">Per-project security configurations that override global settings. Export a profile to share across machines or import from another installation.</p>
+                    <div id="profilesList"></div>
+                </div>
+            </div>
+
+            <!-- Profile Create/Edit Modal (inline card) -->
+            <div class="modal-overlay" id="profileModal" style="display:none;">
+                <div class="modal" style="max-width:500px;">
+                    <div class="modal-header">
+                        <h2 id="profileModalTitle" style="font-size:16px;font-weight:600;">New Profile</h2>
+                        <button class="modal-close-btn" onclick="closeProfileModal()">✕</button>
+                    </div>
+                    <div class="modal-body" style="display:flex;flex-direction:column;gap:14px;">
+                        <input type="hidden" id="profileEditId">
+                        <div>
+                            <label style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;">Name</label>
+                            <input type="text" id="profileNameInput" class="form-input" placeholder="e.g. DevOps Project">
+                        </div>
+                        <div>
+                            <label style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;">Description</label>
+                            <input type="text" id="profileDescInput" class="form-input" placeholder="Optional description">
+                        </div>
+                        <div>
+                            <label style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;">Egress Mode</label>
+                            <select class="form-select" id="profileEgressInput">
+                                <option value="">Inherit global</option>
+                                <option value="allowlist">Allowlist</option>
+                                <option value="blocklist">Blocklist</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;">Risk Profile</label>
+                            <select class="form-select" id="profileRiskInput">
+                                <option value="">Inherit global</option>
+                                <option value="hobbyist">Hobbyist</option>
+                                <option value="professional">Professional</option>
+                                <option value="military">Military</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-ghost" onclick="closeProfileModal()">Cancel</button>
+                        <button class="btn btn-primary btn-modal-submit" onclick="saveProfile()">Save Profile</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Audit Log Tab -->
+            <div class="tab-panel" id="tab-audit-log">
+                <div class="card">
+                    <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;">
+                        <span class="card-title">Session Audit Log</span>
+                        <div style="display:flex;align-items:center;gap:10px;">
+                            <span id="auditChainStatus"></span>
+                            <a class="btn btn-ghost btn-sm" href="/api/audit-log/export" download>Export JSONL</a>
+                        </div>
+                    </div>
+                    <p style="color:var(--text-muted);font-size:13px;margin-bottom:20px;">HMAC-chained tamper-evident log of every monitored event. The chain links each entry's HMAC to the previous, making silent deletion or modification detectable.</p>
+                    <div id="auditLogContainer"></div>
                 </div>
             </div>
 
@@ -3913,6 +4309,7 @@
                     <span class="rule-tag danger">${esc(a.rule_id)}</span>
                     <span class="rule-tag severity-${(a.severity || 'unknown').toLowerCase()}">${esc(a.severity)}</span>
                 </div>
+                ${renderAncestryTree(a.ancestry)}
                 <div id="processEnrichment" style="margin-bottom: 16px; display: none;"></div>
                 ${a.description ? `<div style="margin-bottom: 16px;"><div style="font-size: 11px; color: var(--text-muted); margin-bottom: 4px;">Description</div><div style="font-size: 13px; color: var(--text-secondary); line-height: 1.5;">${esc(a.description)}</div></div>` : ''}
                 <div style="margin-bottom: 8px;">
@@ -3953,6 +4350,333 @@
             selectedAlertIdx = null;
             document.getElementById('alertDetailSidecard').classList.remove('open');
             renderAlerts(activeDisplayedAlerts);
+        }
+
+        // ── Process Ancestry Tree ──
+        function renderAncestryTree(ancestry) {
+            if (!ancestry || !ancestry.length) return '';
+            const nodes = ancestry; // [{comm, pid}, ...] root→leaf
+            let html = '<div class="ancestry-tree"><div class="ancestry-tree-label">';
+            html += '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>';
+            html += 'Process Ancestry</div><div class="ancestry-chain">';
+            nodes.forEach((node, i) => {
+                const isRoot = i === 0;
+                const isLeaf = i === nodes.length - 1;
+                const cls = isLeaf ? 'leaf' : isRoot ? 'root' : '';
+                if (i > 0) {
+                    html += `<div class="ancestry-arrow">↳</div>`;
+                }
+                html += `<div class="ancestry-node">
+                    <span class="ancestry-pill ${cls}" style="margin-left:${i * 14}px">
+                        <span class="ancestry-pill-comm">${esc(node.comm)}</span>
+                        <span class="ancestry-pill-pid">pid ${node.pid}</span>
+                    </span>
+                </div>`;
+            });
+            html += '</div></div>';
+            return `<div style="margin-bottom:16px;">${html}</div>`;
+        }
+
+        // ── Project Profiles ──
+        let _allProfiles = [];
+
+        async function loadProfiles() {
+            const container = document.getElementById('profilesList');
+            if (!container) return;
+            try {
+                const d = await fetchJSON('/api/profiles');
+                _allProfiles = d.profiles || [];
+                renderProfiles();
+            } catch (e) {
+                if (container) container.innerHTML = '<div class="empty-state"><p>Could not load profiles.</p></div>';
+            }
+        }
+
+        function renderProfiles() {
+            const container = document.getElementById('profilesList');
+            if (!container) return;
+            if (!_allProfiles.length) {
+                container.innerHTML = '<div class="empty-state"><p>No profiles yet. Create one to save a per-project security configuration.</p></div>';
+                return;
+            }
+            container.innerHTML = _allProfiles.map(p => `
+                <div class="profile-card">
+                    <div style="flex:1;min-width:0;">
+                        <div class="profile-card-name">${esc(p.name)}</div>
+                        ${p.description ? `<div class="profile-card-desc">${esc(p.description)}</div>` : ''}
+                        <div class="profile-card-meta">Created ${esc(p.created_at || '')} · Updated ${esc(p.updated_at || '')}</div>
+                    </div>
+                    <div class="profile-card-actions">
+                        <a class="btn btn-ghost btn-sm" href="/api/profiles/${esc(p.id)}/export" download>Export</a>
+                        <button class="btn btn-ghost btn-sm" onclick="editProfile(${JSON.stringify(p.id)})">Edit</button>
+                        <button class="btn btn-ghost btn-sm" style="color:var(--danger);" onclick="deleteProfile(${JSON.stringify(p.id)})">Delete</button>
+                    </div>
+                </div>`).join('');
+        }
+
+        function openNewProfileModal() {
+            document.getElementById('profileEditId').value = '';
+            document.getElementById('profileNameInput').value = '';
+            document.getElementById('profileDescInput').value = '';
+            document.getElementById('profileEgressInput').value = '';
+            document.getElementById('profileRiskInput').value = '';
+            document.getElementById('profileModalTitle').textContent = 'New Profile';
+            document.getElementById('profileModal').style.display = 'flex';
+        }
+
+        async function editProfile(id) {
+            try {
+                const d = await fetchJSON('/api/profiles/' + id);
+                document.getElementById('profileEditId').value = id;
+                document.getElementById('profileNameInput').value = d.name || '';
+                document.getElementById('profileDescInput').value = d.description || '';
+                document.getElementById('profileEgressInput').value = d.egress_mode || '';
+                document.getElementById('profileRiskInput').value = d.risk_profile || '';
+                document.getElementById('profileModalTitle').textContent = 'Edit Profile';
+                document.getElementById('profileModal').style.display = 'flex';
+            } catch (e) { showToast('Could not load profile', 'danger'); }
+        }
+
+        function closeProfileModal() {
+            document.getElementById('profileModal').style.display = 'none';
+        }
+
+        async function saveProfile() {
+            const id = document.getElementById('profileEditId').value;
+            const name = document.getElementById('profileNameInput').value.trim();
+            if (!name) { showToast('Profile name is required', 'danger'); return; }
+            const body = {
+                name,
+                description: document.getElementById('profileDescInput').value.trim(),
+                egress_mode: document.getElementById('profileEgressInput').value || null,
+                risk_profile: document.getElementById('profileRiskInput').value || null,
+            };
+            if (id) body.id = id;
+            try {
+                const r = await fetch('/api/profiles', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + authToken },
+                    body: JSON.stringify(body),
+                });
+                if (!r.ok) { const e = await r.json(); showToast(e.error || 'Save failed', 'danger'); return; }
+                closeProfileModal();
+                showToast('Profile saved', 'success');
+                loadProfiles();
+            } catch (e) { showToast('Save failed', 'danger'); }
+        }
+
+        async function deleteProfile(id) {
+            if (!confirm('Delete this profile?')) return;
+            try {
+                await fetch('/api/profiles/' + id, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': 'Bearer ' + authToken },
+                });
+                showToast('Profile deleted', 'success');
+                loadProfiles();
+            } catch (e) { showToast('Delete failed', 'danger'); }
+        }
+
+        function importProfileFile() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = async () => {
+                const file = input.files[0];
+                if (!file) return;
+                try {
+                    const text = await file.text();
+                    const data = JSON.parse(text);
+                    const r = await fetch('/api/profiles/import', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + authToken },
+                        body: JSON.stringify(data),
+                    });
+                    if (!r.ok) { const e = await r.json(); showToast(e.error || 'Import failed', 'danger'); return; }
+                    showToast('Profile imported', 'success');
+                    loadProfiles();
+                } catch (e) { showToast('Invalid profile file', 'danger'); }
+            };
+            input.click();
+        }
+
+        // ── Audit Log ──
+        async function loadAuditLog() {
+            const container = document.getElementById('auditLogContainer');
+            const statusEl = document.getElementById('auditChainStatus');
+            if (!container) return;
+            container.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:20px 0;">Loading…</div>';
+            try {
+                const [logData, chainData] = await Promise.all([
+                    fetchJSON('/api/audit-log?limit=200'),
+                    fetchJSON('/api/audit-log/verify'),
+                ]);
+                const entries = logData.entries || [];
+                if (statusEl) {
+                    if (chainData.intact === true) {
+                        statusEl.innerHTML = '<span class="audit-chain-ok"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> Chain intact</span>';
+                    } else if (chainData.intact === false) {
+                        statusEl.innerHTML = '<span class="audit-chain-broken">⚠ Chain broken</span>';
+                    }
+                }
+                if (!entries.length) {
+                    container.innerHTML = '<div class="empty-state"><p>No audit entries yet. Entries appear here as the agent triggers rules.</p></div>';
+                    return;
+                }
+                container.innerHTML = '<div style="overflow-x:auto;"><table class="audit-table"><thead><tr><th>Timestamp</th><th>Event</th><th>Rule</th><th>Process</th><th>Details</th></tr></thead><tbody>'
+                    + entries.map(e => {
+                        const isBlocked = (e.event_type || '').includes('block');
+                        const evCls = isBlocked ? 'blocked' : '';
+                        const detailStr = e.details ? Object.entries(e.details).map(([k,v]) => `${k}=${v}`).join(' ') : '';
+                        return `<tr>
+                            <td style="white-space:nowrap;font-size:11px;">${esc(e.timestamp?.substring(0,19) || '')}</td>
+                            <td><span class="audit-event-pill ${evCls}">${esc(e.event_type || '')}</span></td>
+                            <td style="font-size:11px;font-family:monospace;">${esc(e.rule_id || '—')}</td>
+                            <td style="font-size:11px;">${esc(e.comm || '')}${e.pid ? ` <span style="color:var(--text-muted);">pid ${e.pid}</span>` : ''}</td>
+                            <td style="font-size:11px;color:var(--text-muted);max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${esc(detailStr)}">${esc(detailStr)}</td>
+                        </tr>`;
+                    }).join('')
+                    + '</tbody></table></div>';
+            } catch (e) {
+                container.innerHTML = '<div class="empty-state"><p>Could not load audit log.</p></div>';
+            }
+        }
+
+        // ── Alert Forwarding / Webhooks ──
+        let _webhooks = [];
+
+        async function loadAlertForwarding() {
+            try {
+                const [whData, keyData] = await Promise.all([
+                    fetchJSON('/api/alert-forwarding/webhooks'),
+                    fetchJSON('/api/alert-forwarding/api-keys'),
+                ]);
+                _webhooks = whData.webhooks || [];
+                renderWebhooks();
+                renderApiKeys(keyData.keys || []);
+            } catch (_) {}
+        }
+
+        function renderWebhooks() {
+            const el = document.getElementById('webhookList');
+            if (!el) return;
+            if (!_webhooks.length) {
+                el.innerHTML = '<div style="font-size:13px;color:var(--text-muted);padding:8px 0;">No webhooks configured.</div>';
+                return;
+            }
+            el.innerHTML = _webhooks.map((wh, i) => `
+                <div class="webhook-row">
+                    <span class="webhook-badge ${wh.enabled ? '' : 'off'}">${wh.enabled !== false ? 'ON' : 'OFF'}</span>
+                    <span class="webhook-url" title="${esc(wh.url)}">${esc(wh.url)}</span>
+                    <span style="font-size:11px;color:var(--text-muted);flex-shrink:0;">≥ ${esc(wh.min_severity || 'info')}</span>
+                    <button class="btn btn-ghost btn-sm" style="color:var(--danger);flex-shrink:0;" onclick="deleteWebhook(${i})">Remove</button>
+                </div>`).join('');
+        }
+
+        function renderApiKeys(keys) {
+            const el = document.getElementById('apiKeyDisplay');
+            if (!el) return;
+            if (!keys.length) {
+                el.innerHTML = '<span style="color:var(--text-muted);">No API key generated yet.</span>';
+            } else {
+                const k = keys[0];
+                el.innerHTML = `<div style="margin-bottom:6px;"><span style="font-weight:600;">${esc(k.name)}</span> &nbsp;<span style="font-size:11px;color:var(--text-muted);">created ${esc(k.created_at)}</span>${k.last_used_at ? ` &nbsp;<span style="font-size:11px;color:var(--text-muted);">last used ${esc(k.last_used_at)}</span>` : ''}</div><div class="api-key-display">${esc(k.key)}</div>`;
+            }
+        }
+
+        async function addWebhook() {
+            const url = document.getElementById('webhookUrlInput')?.value.trim();
+            if (!url) { showToast('URL is required', 'danger'); return; }
+            const secret = document.getElementById('webhookSecretInput')?.value.trim();
+            const minSev = document.getElementById('webhookSevInput')?.value || 'info';
+            try {
+                const r = await fetch('/api/alert-forwarding/webhooks/add', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + authToken },
+                    body: JSON.stringify({ url, secret: secret || '', min_severity: minSev, enabled: true }),
+                });
+                if (!r.ok) throw new Error();
+                document.getElementById('webhookUrlInput').value = '';
+                document.getElementById('webhookSecretInput').value = '';
+                showToast('Webhook added', 'success');
+                loadAlertForwarding();
+            } catch (e) { showToast('Failed to add webhook', 'danger'); }
+        }
+
+        async function deleteWebhook(idx) {
+            if (!confirm('Remove this webhook?')) return;
+            try {
+                await fetch('/api/alert-forwarding/webhooks/' + idx, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': 'Bearer ' + authToken },
+                });
+                showToast('Webhook removed', 'success');
+                loadAlertForwarding();
+            } catch (e) { showToast('Failed to remove', 'danger'); }
+        }
+
+        async function generateApiKey() {
+            try {
+                const r = await fetch('/api/alert-forwarding/api-keys/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + authToken },
+                    body: JSON.stringify({ name: 'SIEM Integration' }),
+                });
+                const d = await r.json();
+                const banner = document.getElementById('newApiKeyBanner');
+                if (banner) {
+                    banner.style.display = 'block';
+                    banner.innerHTML = `<div style="background:rgba(22,163,74,0.08);border:1px solid rgba(22,163,74,0.2);border-radius:10px;padding:14px;">
+                        <div style="font-size:12px;font-weight:700;color:#16a34a;margin-bottom:8px;">New API key generated — copy it now, it won't be shown again</div>
+                        <div class="api-key-display" style="user-select:all;">${esc(d.key)}</div>
+                        <button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="navigator.clipboard.writeText(${JSON.stringify(d.key)}).then(()=>showToast('Copied','success'))">Copy</button>
+                    </div>`;
+                }
+                loadAlertForwarding();
+                showToast('New API key generated', 'success');
+            } catch (e) { showToast('Failed to generate key', 'danger'); }
+        }
+
+        async function revokeApiKey() {
+            if (!confirm('Revoke the active API key? External systems using it will lose access.')) return;
+            try {
+                await fetch('/api/alert-forwarding/api-keys', {
+                    method: 'DELETE',
+                    headers: { 'Authorization': 'Bearer ' + authToken },
+                });
+                showToast('API key revoked', 'success');
+                const banner = document.getElementById('newApiKeyBanner');
+                if (banner) banner.style.display = 'none';
+                loadAlertForwarding();
+            } catch (e) { showToast('Failed to revoke', 'danger'); }
+        }
+
+        // ── Settings Backup ──
+        function downloadSettingsBackup() {
+            window.location.href = '/api/settings/backup';
+        }
+
+        async function importSettingsBackup(input) {
+            const file = input.files[0];
+            if (!file) return;
+            try {
+                const text = await file.text();
+                const data = JSON.parse(text);
+                const r = await fetch('/api/settings/restore', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + authToken },
+                    body: JSON.stringify(data),
+                });
+                const statusEl = document.getElementById('backupStatus');
+                if (r.ok) {
+                    if (statusEl) statusEl.innerHTML = '<span style="color:#16a34a;font-weight:600;">Settings restored successfully. Refresh to see changes.</span>';
+                    showToast('Settings restored', 'success');
+                } else {
+                    const e = await r.json();
+                    if (statusEl) statusEl.innerHTML = `<span style="color:var(--danger);">${esc(e.error || 'Restore failed')}</span>`;
+                    showToast(e.error || 'Restore failed', 'danger');
+                }
+            } catch (e) { showToast('Invalid backup file', 'danger'); }
         }
 
         // ── Settings & Updates ──

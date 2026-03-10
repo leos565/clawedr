@@ -207,6 +207,30 @@ def _find_openclaw() -> Optional[str]:
     return None
 
 
+_ANCESTRY_RE = re.compile(r'\bancestry=(\S+)')
+
+
+def _parse_ancestry(details: str) -> list[dict] | None:
+    """Extract and parse ancestry string from alert details.
+
+    Returns list of {comm, pid} dicts (root first), or None if not present.
+    """
+    m = _ANCESTRY_RE.search(details)
+    if not m:
+        return None
+    chain = []
+    for part in m.group(1).split("/"):
+        if ":" in part:
+            comm, _, pid_str = part.rpartition(":")
+            try:
+                chain.append({"comm": comm, "pid": int(pid_str)})
+            except ValueError:
+                chain.append({"comm": part, "pid": 0})
+        else:
+            chain.append({"comm": part, "pid": 0})
+    return chain if chain else None
+
+
 def _parse_log_lines(max_lines: int = 1000) -> list[dict]:
     """Parse recent BLOCKED entries from the log files."""
     import datetime
@@ -221,12 +245,19 @@ def _parse_log_lines(max_lines: int = 1000) -> list[dict]:
                 m = _BLOCK_LINE_RE.search(line)
                 if m:
                     kind = m.group(2).upper()  # BLOCKED, ALERT, WARNING
-                    alerts.append({
+                    raw_details = m.group(4).strip()
+                    ancestry = _parse_ancestry(raw_details)
+                    # Strip ancestry from the displayed details string
+                    clean_details = _ANCESTRY_RE.sub("", raw_details).strip()
+                    entry: dict = {
                         "timestamp": m.group(1),
                         "rule_id": m.group(3),
-                        "details": m.group(4).strip(),
+                        "details": clean_details,
                         "blocked": kind != "ALERT",
-                    })
+                    }
+                    if ancestry:
+                        entry["ancestry"] = ancestry
+                    alerts.append(entry)
         except (PermissionError, OSError):
             continue
 
@@ -1258,6 +1289,466 @@ async def get_integrity_findings():
         if a.get("rule_id", "").startswith("INT-")
     ]
     return JSONResponse({"findings": findings, "count": len(findings)})
+
+
+# ---------------------------------------------------------------------------
+# Audit Log
+# ---------------------------------------------------------------------------
+
+@app.get("/api/audit-log")
+async def get_audit_log_entries(limit: int = 200, since_ts: Optional[str] = None):
+    """Return recent HMAC-chained audit log entries (newest first)."""
+    try:
+        from shared.audit_log import get_audit_log
+        log = get_audit_log()
+        entries = log.get_recent(limit=limit, since_ts=since_ts)
+        return JSONResponse({"entries": entries, "count": len(entries)})
+    except Exception as exc:
+        return JSONResponse({"entries": [], "count": 0, "error": str(exc)})
+
+
+@app.get("/api/audit-log/verify")
+async def verify_audit_chain():
+    """Verify HMAC chain integrity. Returns broken line positions."""
+    try:
+        from shared.audit_log import get_audit_log
+        log = get_audit_log()
+        broken = log.verify_chain()
+        return JSONResponse({"intact": len(broken) == 0, "broken_lines": broken})
+    except Exception as exc:
+        return JSONResponse({"intact": False, "broken_lines": [], "error": str(exc)})
+
+
+@app.get("/api/audit-log/export")
+async def export_audit_log():
+    """Download the raw audit JSONL file."""
+    from fastapi.responses import FileResponse
+    try:
+        from shared.audit_log import get_audit_log, DEFAULT_AUDIT_PATH
+        log = get_audit_log()
+        if not DEFAULT_AUDIT_PATH.exists():
+            return JSONResponse({"error": "No audit log yet"}, status_code=404)
+        return FileResponse(
+            str(DEFAULT_AUDIT_PATH),
+            media_type="application/x-ndjson",
+            filename="clawedr_audit.jsonl",
+        )
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+# ---------------------------------------------------------------------------
+# Alert Forwarding — Webhooks
+# ---------------------------------------------------------------------------
+
+@app.get("/api/alert-forwarding/webhooks")
+async def list_webhooks():
+    """Return configured webhooks (secrets are masked)."""
+    settings = load_settings()
+    webhooks = settings.get("webhooks", [])
+    masked = []
+    for wh in webhooks:
+        w = dict(wh)
+        if w.get("secret"):
+            w["secret"] = w["secret"][:4] + "***"
+        masked.append(w)
+    return JSONResponse({"webhooks": masked})
+
+
+@app.post("/api/alert-forwarding/webhooks")
+async def save_webhooks(request: Request):
+    """Replace the full webhook list. Body: {webhooks: [...]}"""
+    body = await request.json()
+    webhooks = body.get("webhooks", [])
+    # Basic validation
+    for wh in webhooks:
+        if not wh.get("url"):
+            return JSONResponse({"error": "Each webhook must have a 'url'"}, status_code=400)
+    settings = load_settings()
+    settings["webhooks"] = webhooks
+    save_settings(settings)
+    return JSONResponse({"ok": True, "count": len(webhooks)})
+
+
+@app.post("/api/alert-forwarding/webhooks/add")
+async def add_webhook(request: Request):
+    """Append one webhook. Body: {url, secret?, min_severity?, enabled?}"""
+    body = await request.json()
+    url = (body.get("url") or "").strip()
+    if not url:
+        return JSONResponse({"error": "url is required"}, status_code=400)
+    wh = {
+        "url": url,
+        "secret": body.get("secret", ""),
+        "min_severity": body.get("min_severity", "info"),
+        "enabled": bool(body.get("enabled", True)),
+    }
+    settings = load_settings()
+    webhooks = settings.get("webhooks", [])
+    webhooks.append(wh)
+    settings["webhooks"] = webhooks
+    save_settings(settings)
+    return JSONResponse({"ok": True, "index": len(webhooks) - 1})
+
+
+@app.delete("/api/alert-forwarding/webhooks/{idx}")
+async def delete_webhook(idx: int):
+    """Remove webhook at position *idx*."""
+    settings = load_settings()
+    webhooks = settings.get("webhooks", [])
+    if idx < 0 or idx >= len(webhooks):
+        return JSONResponse({"error": "Index out of range"}, status_code=404)
+    webhooks.pop(idx)
+    settings["webhooks"] = webhooks
+    save_settings(settings)
+    return JSONResponse({"ok": True})
+
+
+# ---------------------------------------------------------------------------
+# Alert Forwarding — REST API Keys
+# ---------------------------------------------------------------------------
+
+@app.get("/api/alert-forwarding/api-keys")
+async def get_api_keys_endpoint():
+    """Return masked API key list."""
+    from shared.alert_forwarder import get_api_keys
+    return JSONResponse({"keys": get_api_keys()})
+
+
+@app.post("/api/alert-forwarding/api-keys/generate")
+async def generate_api_key_endpoint(request: Request):
+    """Generate a new API key (replaces any existing). Body: {name?}"""
+    body = await request.json()
+    name = (body.get("name") or "SIEM Integration").strip()
+    from shared.alert_forwarder import generate_api_key
+    record = generate_api_key(name)
+    return JSONResponse({"ok": True, "key": record["key"], "id": record["id"], "created_at": record["created_at"]})
+
+
+@app.delete("/api/alert-forwarding/api-keys")
+async def revoke_api_key():
+    """Revoke (delete) the active API key."""
+    settings = load_settings()
+    settings["alert_api_keys"] = []
+    save_settings(settings)
+    return JSONResponse({"ok": True})
+
+
+# ---------------------------------------------------------------------------
+# REST API v1 — SIEM integration (API-key authenticated)
+# ---------------------------------------------------------------------------
+
+def _validate_siem_auth(request: Request) -> bool:
+    """Validate Authorization: Bearer <key> header."""
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("Bearer "):
+        return False
+    provided = auth[7:].strip()
+    from shared.alert_forwarder import validate_api_key
+    return validate_api_key(provided)
+
+
+@app.get("/api/v1/alerts")
+async def v1_get_alerts(request: Request, limit: int = 100, since_hours: Optional[int] = None):
+    """REST API v1 — fetch alerts (requires API key via Bearer token)."""
+    if not _validate_siem_auth(request):
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    import datetime
+    alerts = _parse_log_lines(2000)
+    if since_hours:
+        cutoff = (datetime.datetime.utcnow() - datetime.timedelta(hours=since_hours)).strftime("%Y-%m-%d %H:%M:%S")
+        alerts = [a for a in alerts if a.get("timestamp", "") >= cutoff]
+    alerts = alerts[:limit]
+    metadata = _load_rule_metadata()
+    for a in alerts:
+        rid = a.get("rule_id", "")
+        meta = metadata.get(rid, {})
+        a["severity"] = meta.get("severity", "unknown")
+        a["description"] = meta.get("description", "")
+    return JSONResponse({"alerts": alerts, "count": len(alerts), "api_version": "1"})
+
+
+# ---------------------------------------------------------------------------
+# Project Profiles
+# ---------------------------------------------------------------------------
+
+@app.get("/api/profiles")
+async def list_profiles():
+    """Return all project profile summaries."""
+    from shared.project_profile import ProfileManager
+    pm = ProfileManager()
+    return JSONResponse({"profiles": pm.list_profiles()})
+
+
+@app.get("/api/profiles/{profile_id}")
+async def get_profile(profile_id: str):
+    """Return full profile by id."""
+    from shared.project_profile import ProfileManager
+    pm = ProfileManager()
+    try:
+        return JSONResponse(pm.get_profile(profile_id))
+    except FileNotFoundError:
+        return JSONResponse({"error": "Profile not found"}, status_code=404)
+
+
+@app.post("/api/profiles")
+async def create_or_update_profile(request: Request):
+    """Create or update a profile. Body: {name, description?, ...}"""
+    from shared.project_profile import ProfileManager
+    pm = ProfileManager()
+    try:
+        body = await request.json()
+        profile_id = pm.save_profile(body)
+        return JSONResponse({"ok": True, "id": profile_id})
+    except ValueError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+
+
+@app.delete("/api/profiles/{profile_id}")
+async def delete_profile(profile_id: str):
+    """Delete a profile by id."""
+    from shared.project_profile import ProfileManager
+    pm = ProfileManager()
+    try:
+        pm.delete_profile(profile_id)
+        return JSONResponse({"ok": True})
+    except FileNotFoundError:
+        return JSONResponse({"error": "Profile not found"}, status_code=404)
+
+
+@app.get("/api/profiles/{profile_id}/export")
+async def export_profile_download(profile_id: str):
+    """Download profile as JSON file."""
+    from shared.project_profile import ProfileManager
+    from fastapi.responses import Response
+    pm = ProfileManager()
+    try:
+        data = pm.export_profile(profile_id)
+        name = data.get("name", profile_id).replace(" ", "_").lower()
+        return Response(
+            content=json.dumps(data, indent=2),
+            media_type="application/json",
+            headers={"Content-Disposition": f'attachment; filename="clawedr_profile_{name}.json"'},
+        )
+    except FileNotFoundError:
+        return JSONResponse({"error": "Profile not found"}, status_code=404)
+
+
+@app.post("/api/profiles/import")
+async def import_profile_endpoint(request: Request):
+    """Import a profile from uploaded JSON. Body: profile dict."""
+    from shared.project_profile import ProfileManager
+    pm = ProfileManager()
+    try:
+        body = await request.json()
+        profile_id = pm.import_profile(body)
+        return JSONResponse({"ok": True, "id": profile_id})
+    except ValueError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+
+
+# ---------------------------------------------------------------------------
+# Settings Backup / Restore
+# ---------------------------------------------------------------------------
+
+@app.get("/api/settings/backup")
+async def export_settings_backup():
+    """Download a portable settings backup (token and API keys redacted)."""
+    from shared.project_profile import ProfileManager
+    from fastapi.responses import Response
+    pm = ProfileManager()
+    backup = pm.export_settings_backup()
+    return Response(
+        content=json.dumps(backup, indent=2),
+        media_type="application/json",
+        headers={"Content-Disposition": 'attachment; filename="clawedr_settings_backup.json"'},
+    )
+
+
+@app.post("/api/settings/restore")
+async def import_settings_backup_endpoint(request: Request):
+    """Restore settings from a backup JSON. Body: backup dict."""
+    from shared.project_profile import ProfileManager
+    pm = ProfileManager()
+    try:
+        body = await request.json()
+        pm.import_settings_backup(body)
+        return JSONResponse({"ok": True})
+    except ValueError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+
+
+# ---------------------------------------------------------------------------
+# Compliance Report
+# ---------------------------------------------------------------------------
+
+@app.get("/api/compliance/report")
+async def get_compliance_report(fmt: str = "json"):
+    """Generate and download a compliance posture report.
+
+    Args:
+        fmt: "json" (default) or "html"
+    """
+    import datetime
+    from fastapi.responses import Response
+
+    settings = load_settings()
+
+    # Gather data
+    alerts_raw = _parse_log_lines(5000)
+    metadata = _load_rule_metadata()
+
+    # Severity breakdown
+    severity_counts: dict[str, int] = {}
+    module_counts: dict[str, int] = {}
+    for a in alerts_raw:
+        rid = a.get("rule_id", "")
+        meta = metadata.get(rid, {})
+        sev = meta.get("severity", "unknown")
+        severity_counts[sev] = severity_counts.get(sev, 0) + 1
+        # Derive module from rule_id prefix
+        for prefix, mod in [("BIN-", "core"), ("DOM-", "core"), ("PATH-", "core"),
+                             ("LIN-", "core"), ("MAC-", "core"), ("THRT-", "threat_feed"),
+                             ("HEU-", "heuristics"), ("OUT-", "output_scanner"),
+                             ("INJ-", "injection"), ("INT-", "integrity"), ("USR-", "custom")]:
+            if rid.startswith(prefix):
+                module_counts[mod] = module_counts.get(mod, 0) + 1
+                break
+
+    # Policy rules
+    try:
+        with open(POLICY_PATH) as f:
+            policy = json.load(f)
+        all_rules = policy.get("rules", [])
+        blocked_rules = [r for r in all_rules if r.get("action") == "block"]
+        alert_rules = [r for r in all_rules if r.get("action") == "alert"]
+    except Exception:
+        all_rules, blocked_rules, alert_rules = [], [], []
+
+    user_rules = load_user_rules()
+    exempted = user_rules.get("exempted_rule_ids", [])
+    custom_rules = get_custom_rules()
+
+    # Module states
+    output_scanner_on = settings.get("output_scanner_enabled", True)
+    injection_on = settings.get("injection_detection_enabled", True)
+    egress_mode = settings.get("egress_mode", "monitor")
+    allowed_domains = user_rules.get("allowed_domains", [])
+    integrity_on = settings.get("integrity_monitor_enabled", True)
+
+    # Integrity status
+    try:
+        from shared.integrity_monitor import get_status as integrity_get_status
+        int_status = integrity_get_status()
+    except Exception:
+        int_status = {}
+
+    # Profiles
+    try:
+        from shared.project_profile import ProfileManager
+        profiles = ProfileManager().list_profiles()
+    except Exception:
+        profiles = []
+
+    # Audit log chain
+    try:
+        from shared.audit_log import get_audit_log
+        audit_chain_ok = len(get_audit_log().verify_chain()) == 0
+        audit_entries = len(get_audit_log().get_recent(limit=1))
+    except Exception:
+        audit_chain_ok = None
+        audit_entries = 0
+
+    now_iso = datetime.datetime.utcnow().isoformat() + "Z"
+
+    report: dict = {
+        "generated_at": now_iso,
+        "schema_version": "1",
+        "summary": {
+            "total_alerts": len(alerts_raw),
+            "severity_breakdown": severity_counts,
+            "module_breakdown": module_counts,
+            "total_policy_rules": len(all_rules),
+            "enforced_rules": len(blocked_rules),
+            "alert_only_rules": len(alert_rules),
+            "exempted_rules": len(exempted),
+            "custom_rules": len(custom_rules),
+        },
+        "modules": {
+            "output_scanner": {"enabled": output_scanner_on},
+            "injection_detection": {"enabled": injection_on},
+            "egress_control": {"mode": egress_mode, "allowed_domains": len(allowed_domains)},
+            "integrity_monitor": {
+                "enabled": integrity_on,
+                "baseline_valid": int_status.get("baseline_valid"),
+                "ok_count": int_status.get("ok_count"),
+                "tampered_count": int_status.get("tampered_count"),
+            },
+        },
+        "audit_log": {
+            "chain_intact": audit_chain_ok,
+            "entry_count": audit_entries,
+        },
+        "exempted_rule_ids": exempted,
+        "project_profiles": [{"id": p["id"], "name": p["name"]} for p in profiles],
+    }
+
+    if fmt == "html":
+        def _row(k: str, v: str) -> str:
+            return f"<tr><td>{k}</td><td><strong>{v}</strong></td></tr>"
+        sev_rows = "".join(_row(k, str(v)) for k, v in severity_counts.items())
+        mod_rows = "".join(_row(k, str(v)) for k, v in module_counts.items())
+        html = f"""<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8">
+<title>ClawEDR Compliance Report</title>
+<style>
+  body{{font-family:system-ui,sans-serif;max-width:860px;margin:40px auto;color:#1a202c;}}
+  h1{{font-size:1.8rem;}}h2{{font-size:1.2rem;margin-top:2rem;color:#2d3748;border-bottom:1px solid #e2e8f0;padding-bottom:.4rem;}}
+  table{{width:100%;border-collapse:collapse;margin:.8rem 0;}}
+  td{{padding:.5rem .75rem;border-bottom:1px solid #edf2f7;}}tr:nth-child(even)td{{background:#f7fafc;}}
+  .chip{{display:inline-block;padding:.2rem .6rem;border-radius:999px;font-size:.75rem;font-weight:600;}}
+  .on{{background:#c6f6d5;color:#276749;}}.off{{background:#fed7d7;color:#9b2c2c;}}
+  .meta{{color:#718096;font-size:.85rem;}}
+</style></head><body>
+<h1>ClawEDR Security Posture Report</h1>
+<p class="meta">Generated {now_iso}</p>
+<h2>Alert Summary</h2>
+<table><tr><td>Total alerts</td><td><strong>{len(alerts_raw)}</strong></td></tr>{sev_rows}</table>
+<h2>Module Activity</h2>
+<table>{mod_rows}</table>
+<h2>Policy</h2>
+<table>
+{_row("Total rules", str(len(all_rules)))}
+{_row("Enforced (block)", str(len(blocked_rules)))}
+{_row("Alert-only", str(len(alert_rules)))}
+{_row("Exempted", str(len(exempted)))}
+{_row("Custom rules", str(len(custom_rules)))}
+</table>
+<h2>Protection Modules</h2>
+<table>
+<tr><td>Output Scanner</td><td><span class="chip {'on' if output_scanner_on else 'off'}">{'ON' if output_scanner_on else 'OFF'}</span></td></tr>
+<tr><td>Injection Detection</td><td><span class="chip {'on' if injection_on else 'off'}">{'ON' if injection_on else 'OFF'}</span></td></tr>
+<tr><td>Egress Mode</td><td><strong>{egress_mode}</strong> ({len(allowed_domains)} allowed domains)</td></tr>
+<tr><td>Integrity Monitor</td><td><span class="chip {'on' if integrity_on else 'off'}">{'ON' if integrity_on else 'OFF'}</span>
+  {f"&nbsp; {int_status.get('ok_count','?')}/{int_status.get('ok_count',0)+int_status.get('tampered_count',0)} files ok" if int_status else ""}</td></tr>
+</table>
+<h2>Audit Log</h2>
+<table>
+<tr><td>Chain integrity</td><td><span class="chip {'on' if audit_chain_ok else 'off'}">{'INTACT' if audit_chain_ok else 'BROKEN' if audit_chain_ok is not None else 'N/A'}</span></td></tr>
+</table>
+<p class="meta">This report is intended for internal security review and SOC 2 Type II evidence collection.</p>
+</body></html>"""
+        return Response(
+            content=html,
+            media_type="text/html",
+            headers={"Content-Disposition": f'attachment; filename="clawedr_compliance_{now_iso[:10]}.html"'},
+        )
+
+    return Response(
+        content=json.dumps(report, indent=2),
+        media_type="application/json",
+        headers={"Content-Disposition": f'attachment; filename="clawedr_compliance_{now_iso[:10]}.json"'},
+    )
 
 
 @app.get("/", response_class=HTMLResponse)
