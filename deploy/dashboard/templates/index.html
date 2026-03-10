@@ -201,6 +201,62 @@
             display: flex;
             flex-direction: column;
             min-width: 0;
+            gap: 2px;
+        }
+
+        /* Sidebar nav group (collapsible section) */
+        .sidebar-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar-group-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 16px 6px;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: rgba(255,255,255,0.45);
+            cursor: pointer;
+            background: none;
+            border: none;
+            width: 100%;
+            transition: color 0.15s;
+            user-select: none;
+            margin-top: 6px;
+        }
+
+        .sidebar-group-header:hover { color: rgba(255,255,255,0.7); }
+
+        .sidebar-group-header .group-chevron {
+            transition: transform 0.2s ease;
+            flex-shrink: 0;
+            opacity: 0.5;
+        }
+
+        .sidebar-group.collapsed .group-chevron {
+            transform: rotate(-90deg);
+        }
+
+        .sidebar-group-children {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transition: max-height 0.2s ease;
+            max-height: 400px;
+        }
+
+        .sidebar-group.collapsed .sidebar-group-children {
+            max-height: 0;
+        }
+
+        /* Child nav items are slightly indented */
+        .sidebar-child-link {
+            padding-left: 36px !important;
+            font-size: 13px !important;
         }
 
         .logo {
@@ -1790,59 +1846,51 @@
             </div>
 
             <nav class="sidebar-nav">
+                <!-- Alerts -->
                 <button class="sidebar-link active" data-tab="alerts">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path
-                            d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z">
-                        </path>
+                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
                         <line x1="12" y1="9" x2="12" y2="13"></line>
                         <line x1="12" y1="17" x2="12.01" y2="17"></line>
                     </svg>
                     Alerts Dashboard
                 </button>
-                <button class="sidebar-link" data-tab="rules">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-                        <line x1="16" y1="2" x2="16" y2="6"></line>
-                        <line x1="8" y1="2" x2="8" y2="6"></line>
-                        <line x1="3" y1="10" x2="21" y2="10"></line>
-                    </svg>
-                    Policy Rules
-                </button>
-                <button class="sidebar-link" data-tab="output-scanner">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-                        <line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/>
-                    </svg>
-                    Output Scanner
-                </button>
-                <button class="sidebar-link" data-tab="injection">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                        <line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-                    </svg>
-                    Prompt Injection
-                </button>
-                <button class="sidebar-link" data-tab="egress">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/>
-                        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
-                    </svg>
-                    Egress Control
-                </button>
-                <button class="sidebar-link" data-tab="integrity">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polyline points="9 11 12 14 22 4"/>
-                        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
-                    </svg>
-                    Integrity
-                </button>
+
+                <!-- Policy group (collapsible) -->
+                <div class="sidebar-group" id="policyGroup">
+                    <button class="sidebar-group-header" onclick="togglePolicyGroup()" aria-expanded="true" aria-controls="policyGroupChildren">
+                        <span>Policy</span>
+                        <svg class="group-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <div class="sidebar-group-children" id="policyGroupChildren">
+                        <button class="sidebar-link sidebar-child-link" data-tab="rules">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                            Policy Rules
+                        </button>
+                        <button class="sidebar-link sidebar-child-link" data-tab="output-scanner">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                            Output Scanner
+                        </button>
+                        <button class="sidebar-link sidebar-child-link" data-tab="injection">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                            Prompt Injection
+                        </button>
+                        <button class="sidebar-link sidebar-child-link" data-tab="egress">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                            Egress Control
+                        </button>
+                        <button class="sidebar-link sidebar-child-link" data-tab="integrity">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                            Integrity
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Settings -->
                 <button class="sidebar-link" data-tab="settings">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <circle cx="12" cy="12" r="3"></circle>
-                        <path
-                            d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
-                        </path>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
                     </svg>
                     Settings
                 </button>
@@ -1899,7 +1947,7 @@
                         <span>Connected</span>
                     </div>
                     <div class="status-dropdown" id="statusDropdown" role="menu" aria-label="Policy summary">
-                        <div class="status-dropdown-title">Policy Summary</div>
+                        <div class="status-dropdown-title">Policy Rules</div>
                         <div class="status-dropdown-row enforce">
                             <span>🛡️ Enforced</span>
                             <span class="count" id="statusEnforcedCount">—</span>
@@ -1915,6 +1963,25 @@
                         <div class="status-dropdown-row" style="padding-top:12px; margin-top:8px; border-top:1px solid rgba(0,0,0,0.08);">
                             <span>Total active</span>
                             <span class="count" id="statusTotalCount">—</span>
+                        </div>
+                        <div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(0,0,0,0.08);">
+                            <div class="status-dropdown-title" style="margin-bottom:6px;">Protection Modules</div>
+                            <div class="status-dropdown-row" id="statusModuleOutput">
+                                <span>🔍 Output Scanner</span>
+                                <span class="count" id="statusOutputVal">—</span>
+                            </div>
+                            <div class="status-dropdown-row" id="statusModuleInjection">
+                                <span>🛡 Injection Detection</span>
+                                <span class="count" id="statusInjectionVal">—</span>
+                            </div>
+                            <div class="status-dropdown-row" id="statusModuleEgress">
+                                <span>🌐 Egress Mode</span>
+                                <span class="count" id="statusEgressVal">—</span>
+                            </div>
+                            <div class="status-dropdown-row" id="statusModuleIntegrity">
+                                <span>✅ Integrity</span>
+                                <span class="count" id="statusIntegrityVal">—</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -2473,12 +2540,66 @@
             const total = stats.enforce + stats.alert + stats.disabled;
             return { ...stats, total };
         }
-        function refreshStatusDropdown() {
+        function togglePolicyGroup() {
+            const group = document.getElementById('policyGroup');
+            const header = group.querySelector('.sidebar-group-header');
+            const collapsed = group.classList.toggle('collapsed');
+            header.setAttribute('aria-expanded', String(!collapsed));
+        }
+
+        async function refreshStatusDropdown() {
             const s = getRuleStats();
             document.getElementById('statusEnforcedCount').textContent = s.enforce;
             document.getElementById('statusAlertCount').textContent = s.alert;
             document.getElementById('statusDisabledCount').textContent = s.disabled;
             document.getElementById('statusTotalCount').textContent = s.total;
+
+            // Module statuses
+            function setModuleVal(id, text, ok) {
+                const el = document.getElementById(id);
+                if (!el) return;
+                el.textContent = text;
+                el.style.color = ok ? '#22c55e' : '#94a3b8';
+                el.style.fontWeight = ok ? '600' : '400';
+            }
+
+            try {
+                const [outRes, injRes, egrRes, intRes] = await Promise.allSettled([
+                    fetch('/api/output-scanner/config').then(r => r.json()),
+                    fetch('/api/injection/config').then(r => r.json()),
+                    fetch('/api/egress-allowlist').then(r => r.json()),
+                    fetch('/api/integrity').then(r => r.json()),
+                ]);
+
+                if (outRes.status === 'fulfilled') {
+                    const d = outRes.value;
+                    const on = d.enabled !== false;
+                    const cnt = d.rule_count ?? (d.rules?.length ?? '—');
+                    setModuleVal('statusOutputVal', on ? `On · ${cnt} rules` : 'Off', on);
+                } else { setModuleVal('statusOutputVal', 'unavailable', false); }
+
+                if (injRes.status === 'fulfilled') {
+                    const d = injRes.value;
+                    const on = d.enabled !== false;
+                    const cnt = d.rule_count ?? (d.rules?.length ?? '—');
+                    setModuleVal('statusInjectionVal', on ? `On · ${cnt} rules` : 'Off', on);
+                } else { setModuleVal('statusInjectionVal', 'unavailable', false); }
+
+                if (egrRes.status === 'fulfilled') {
+                    const d = egrRes.value;
+                    const mode = d.mode ?? 'allowlist';
+                    const cnt = d.domains?.length ?? 0;
+                    setModuleVal('statusEgressVal', `${mode} · ${cnt} domains`, true);
+                } else { setModuleVal('statusEgressVal', 'unavailable', false); }
+
+                if (intRes.status === 'fulfilled') {
+                    const d = intRes.value;
+                    const on = d.enabled !== false;
+                    const files = d.baseline_files ?? d.file_count ?? '—';
+                    setModuleVal('statusIntegrityVal', on ? `On · ${files} files` : 'Off', on);
+                } else { setModuleVal('statusIntegrityVal', 'unavailable', false); }
+
+            } catch (_) { /* best-effort */ }
         }
         function toggleStatusDropdown(e) {
             if (e) e.stopPropagation();
