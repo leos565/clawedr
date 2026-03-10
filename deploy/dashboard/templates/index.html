@@ -2691,8 +2691,10 @@
                 if (intRes.status === 'fulfilled') {
                     const d = intRes.value;
                     const on = d.enabled !== false;
-                    const files = d.baseline_files ?? d.file_count ?? '—';
-                    setModuleVal('statusIntegrityVal', on ? `On · ${files} files` : 'Off', on);
+                    const ok = d.ok_count ?? 0;
+                    const total = d.files?.length ?? '—';
+                    const files = typeof total === 'number' ? `${ok}/${total} ok` : total;
+                    setModuleVal('statusIntegrityVal', on ? `On · ${files}` : 'Off', on);
                 } else { setModuleVal('statusIntegrityVal', 'unavailable', false); }
 
             } catch (_) { /* best-effort */ }
