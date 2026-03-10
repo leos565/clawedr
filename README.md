@@ -1,4 +1,6 @@
-# ClawEDR
+<p align="center">
+  <img src="assets/logo.png" alt="ClawEDR" width="600"/>
+</p>
 
 [![Python](https://img.shields.io/badge/python-3.11+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![eBPF](https://img.shields.io/badge/eBPF-Linux-FF6F00?logo=linux&logoColor=white)](https://ebpf.io/)
